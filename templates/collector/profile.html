@@ -1,0 +1,64 @@
+{% extends "collector/collector_base.html" %}
+{% load static %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'collector/css/profile.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="profile-container">
+
+    <h1 class="profile-title">My Profile</h1>
+
+    <div class="profile-card">
+        <div class="profile-field">
+            <span class="field-label">Username</span>
+            <span class="field-value">{{ collector.user.username }}</span>
+        </div>
+
+        <div class="profile-field">
+            <span class="field-label">Phone</span>
+            <span class="field-value">{{ collector.phone|default:"Not provided" }}</span>
+        </div>
+
+        {% if collector.user.email %}
+        <div class="profile-field">
+            <span class="field-label">Email</span>
+            <span class="field-value">{{ collector.user.email }}</span>
+        </div>
+        {% endif %}
+
+        {% if collector.user.date_joined %}
+        <div class="profile-field">
+            <span class="field-label">Joined</span>
+            <span class="field-value">{{ collector.user.date_joined|date:"d M Y" }}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <h2 class="section-title">Assigned Groups</h2>
+
+    <div class="profile-card">
+        {% if assigned_groups %}
+            <ul class="group-list">
+                {% for group in assigned_groups %}
+                    <li>{{ group.name }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="empty-state">
+                No groups assigned yet.
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="profile-actions">
+        <a href="{% url 'accounts:password_reset' %}" class="btn btn-outline-danger ms-2">
+        ❓ Forgot Password
+    </a>
+    </div>
+
+</div>
+
+{% endblock %}

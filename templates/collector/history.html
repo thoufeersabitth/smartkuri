@@ -1,0 +1,52 @@
+{% extends "collector/collector_base.html" %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'collector/css/member_history.css' %}">
+
+<div class="member-history-container">
+
+    <h4>{{ member.name }} – Payment History</h4>
+
+    <div class="summary-box">
+        <p><strong>Total Months:</strong> {{ total_months }}</p>
+        <p><strong>Monthly Amount:</strong> ₹{{ monthly_amount|floatformat:2 }}</p>
+        <p><strong>Total Kuri Amount:</strong> ₹{{ total_kuri_amount|floatformat:2 }}</p>
+        <p style="color:green;"><strong>Total Paid:</strong> ₹{{ total_paid|floatformat:2 }}</p>
+        <p style="color:red;"><strong>Pending Amount:</strong> ₹{{ pending_amount|floatformat:2 }}</p>
+    </div>
+
+    <table class="history-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Method</th>
+                <th>Collected By</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in payments %}
+            <tr>
+                <td>{{ p.paid_date|date:"M d, Y" }}</td>
+                <td>₹{{ p.amount|floatformat:2 }}</td>
+                <td>{{ p.payment_method }}</td>
+                <td>
+                    {% if p.collected_by.role == "group_admin" %}
+                        Group Admin
+                    {% else %}
+                        {{ p.collected_by.user.username }}
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" class="no-data">No payments found</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</div>
+
+{% endblock %}

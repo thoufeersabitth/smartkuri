@@ -1,0 +1,133 @@
+/* Custom CSS for SmartKuri - Premium UI */
+
+:root {
+  --primary-color: #00c6a7;
+  --secondary-color: #1e3a8a; /* Deep Navy */
+  --bg-light: #f8fafc;
+  --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  --active-shadow: 0 20px 25px -5px rgba(0, 198, 167, 0.2);
+}
+
+body {
+  background-color: var(--bg-light);
+  font-family: 'Inter', -apple-system, sans-serif;
+  color: #334155;
+}
+
+/* --------------------
+   Plan Cards Styling
+-------------------- */
+.plan-card {
+  border: 2px solid transparent;
+  border-radius: 20px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  background: white;
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+  height: 100%;
+}
+
+.plan-card:hover {
+  transform: translateY(-5px);
+}
+
+.plan-card.plan-selected {
+  border-color: var(--primary-color);
+  background-color: #f0fdfa;
+  box-shadow: var(--active-shadow);
+}
+
+.card-header {
+  border-bottom: none;
+  padding: 1.5rem 1rem;
+}
+
+.card-header h5 {
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+}
+
+.plan-price {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--secondary-color);
+  margin-bottom: 0.5rem;
+}
+
+.plan-feature {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-bottom: 0.4rem;
+}
+
+/* --------------------
+   Form Styling
+-------------------- */
+form {
+  background: white;
+  padding: 2.5rem;
+  border-radius: 24px;
+  box-shadow: var(--card-shadow);
+  max-width: 600px;
+  margin: 0 auto 50px;
+}
+
+.form-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--secondary-color);
+  margin-bottom: 0.5rem;
+}
+
+.form-control {
+  border-radius: 12px;
+  border: 1.5px solid #e2e8f0;
+  padding: 0.75rem 1rem;
+  transition: all 0.2s;
+}
+
+.form-control:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 4px rgba(0, 198, 167, 0.1);
+}
+
+/* --------------------
+   Button Styling
+-------------------- */
+.btn-primary {
+  background: linear-gradient(135deg, #00c6a7 0%, #1e3a8a 100%);
+  border: none;
+  border-radius: 12px;
+  padding: 1rem;
+  font-weight: 700;
+  font-size: 1rem;
+  margin-top: 1rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.btn-primary:hover {
+  transform: scale(1.02);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+/* --------------------
+   Mobile Responsiveness for Plans
+-------------------- */
+@media (max-width: 768px) {
+  .row.text-center {
+    display: flex;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 20px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .col-md-3 {
+    flex: 0 0 75%;
+    max-width: 75%;
+  }
+}

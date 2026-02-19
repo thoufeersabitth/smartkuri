@@ -1,0 +1,71 @@
+{% extends "adminpanel/base.html" %}
+{% block content %}
+
+<h3 class="mb-4">Subscription Reports</h3>
+
+<table class="table table-bordered table-striped">
+    <thead class="table-dark">
+        <tr>
+            <th>Group Admin</th>
+            <th>Plan</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Status</th>
+            <th>Days Left</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for r in reports %}
+        <tr>
+            <td>{{ r.admin.user.username }}</td>
+
+            <td>{{ r.plan|default:"-" }}</td>
+
+            <td>{{ r.start_date|default:"-" }}</td>
+
+            <td>{{ r.end_date|default:"-" }}</td>
+
+            <td>
+                {% if r.status == "Active" %}
+                    <span class="badge bg-success">Active</span>
+                {% elif r.status == "Expiring Soon" %}
+                    <span class="badge bg-warning text-dark">Expiring Soon</span>
+                {% elif r.status == "Expired" %}
+                    <span class="badge bg-danger">Expired</span>
+                {% else %}
+                    <span class="badge bg-secondary">No Subscription</span>
+                {% endif %}
+            </td>
+
+            <td>
+                {% if r.days_left != None %}
+                    {{ r.days_left }}
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+
+            <td>
+                {% if r.show_renew %}
+                    <a href="{% url 'adminpanel:renew_subscription' r.admin.id %}"
+                       class="btn btn-sm btn-warning">
+                        Renew
+                    </a>
+                {% else %}
+                    <span class="text-muted">—</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="7" class="text-center text-muted">
+                No subscription data found
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}

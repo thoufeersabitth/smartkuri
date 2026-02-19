@@ -1,0 +1,61 @@
+{% extends "collector/collector_base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'collector/css/add_collection.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <h4 class="mb-4">Edit Payment</h4>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+
+        <!-- Member (select editable) -->
+        <div class="mb-3">
+            <label class="form-label">Member</label>
+            <select name="member" class="form-control" required>
+                {% for m in members %}
+                    <option value="{{ m.id }}" {% if payment.member.id == m.id %}selected{% endif %}>
+                        {{ m.name }} ({{ m.phone }})
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Amount -->
+        <div class="mb-3">
+            <label class="form-label">Amount</label>
+            <input type="number" name="amount" class="form-control" value="{{ payment.amount }}" required>
+        </div>
+
+        <!-- Paid Date (editable) -->
+        <div class="mb-3">
+            <label class="form-label">Paid Date</label>
+            <input type="date" name="paid_date" class="form-control" value="{{ payment.paid_date|date:'Y-m-d' }}" required>
+        </div>
+
+        <!-- Payment Method -->
+        <div class="mb-3">
+            <label class="form-label">Payment Method</label>
+            <select name="payment_method" class="form-control" required>
+                <option value="Cash" {% if payment.payment_method == "Cash" %}selected{% endif %}>Cash</option>
+                <option value="UPI" {% if payment.payment_method == "UPI" %}selected{% endif %}>UPI</option>
+                <option value="Bank" {% if payment.payment_method == "Bank" %}selected{% endif %}>Bank</option>
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-success w-100">Update Payment</button>
+    </form>
+</div>
+
+{% endblock %}

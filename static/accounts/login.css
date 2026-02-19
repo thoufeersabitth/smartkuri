@@ -1,0 +1,273 @@
+/* ==========================================
+   SmartKuri Login / Auth Pages
+   Matching style with main landing page
+========================================== */
+
+:root {
+    --primary: #4361ee;
+    --primary-dark: #3f37c9;
+    --primary-light: #818cf8;
+    --secondary: #7209b7;
+    --accent: #10b981;          /* money green - optional accent */
+    --dark: #0f172a;
+    --gray: #64748b;
+    --light-gray: #e2e8f0;
+    --light: #f8fafc;
+    --radius: 16px;
+    --shadow-sm: 0 6px 24px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 12px 40px rgba(0, 0, 0, 0.14);
+    --transition: all 0.28s ease;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: linear-gradient(135deg, #f0f5ff 0%, #e6edff 50%, #f5f0ff 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 16px;
+    color: var(--dark);
+}
+
+/* Wrapper & Card */
+.auth-wrapper {
+    width: 100%;
+    max-width: 440px;
+}
+
+.auth-card {
+    background: white;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+    padding: 44px 36px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Optional subtle background decoration */
+.auth-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 140%;
+    height: 140%;
+    background: radial-gradient(circle at 30% 20%, rgba(67, 97, 238, 0.08) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Header / Branding */
+.auth-header {
+    text-align: center;
+    margin-bottom: 36px;
+    position: relative;
+    z-index: 1;
+}
+
+.auth-logo {
+    font-size: 3.6rem;
+    color: var(--secondary);
+    margin-bottom: 10px;
+    display: block;
+}
+
+.auth-header h1 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 6px;
+}
+
+.auth-header p {
+    color: var(--gray);
+    font-size: 0.98rem;
+    font-weight: 400;
+}
+
+/* Title */
+.auth-card h2 {
+    text-align: center;
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin-bottom: 32px;
+    color: var(--dark);
+}
+
+/* Messages / Alerts */
+.messages {
+    margin-bottom: 28px;
+}
+
+.alert {
+    padding: 14px 18px;
+    border-radius: 10px;
+    font-size: 0.96rem;
+    line-height: 1.5;
+    margin-bottom: 14px;
+    border-left: 4px solid;
+}
+
+.alert-success {
+    background: #f0fdfa;
+    color: #0f766e;
+    border-left-color: #14b8a6;
+}
+
+.alert-error,
+.alert-danger {
+    background: #fef2f2;
+    color: #991b1b;
+    border-left-color: #ef4444;
+}
+
+.alert-warning {
+    background: #fffbeb;
+    color: #92400e;
+    border-left-color: #f59e0b;
+}
+
+.alert-info {
+    background: #eff6ff;
+    color: #1e40af;
+    border-left-color: #3b82f6;
+}
+
+/* Form Styling */
+.form-group {
+    margin-bottom: 24px;
+    text-align: left;
+    position: relative;
+    z-index: 1;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 0.96rem;
+    font-weight: 500;
+    color: var(--dark);
+}
+
+.form-group input {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 1rem;
+    border: 1px solid var(--light-gray);
+    border-radius: 10px;
+    background: white;
+    transition: var(--transition);
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(67, 97, 238, 0.12);
+}
+
+/* Password field with eye icon */
+.password-wrapper {
+    position: relative;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: var(--gray);
+    font-size: 1.18rem;
+    transition: var(--transition);
+}
+
+.toggle-password:hover {
+    color: var(--primary);
+}
+
+/* Submit Button */
+.btn {
+    width: 100%;
+    padding: 15px;
+    font-size: 1.05rem;
+    font-weight: 600;
+    border-radius: 50px;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: var(--transition);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    color: white;
+    box-shadow: 0 8px 24px rgba(67, 97, 238, 0.28);
+}
+
+.btn-primary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 14px 32px rgba(67, 97, 238, 0.38);
+}
+
+.btn-primary:active {
+    transform: translateY(-1px);
+}
+
+/* Links */
+.extra-links {
+    margin-top: 32px;
+    text-align: center;
+    font-size: 0.97rem;
+}
+
+.extra-links a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 500;
+    transition: var(--transition);
+}
+
+.extra-links a:hover {
+    color: var(--primary-dark);
+    text-decoration: underline;
+}
+
+.forgot-link {
+    display: block;
+    margin-bottom: 16px;
+}
+
+.signup-link {
+    font-weight: 600;
+    color: var(--secondary);
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .auth-card {
+        padding: 36px 24px;
+    }
+
+    .auth-header h1 {
+        font-size: 2rem;
+    }
+
+    .auth-logo {
+        font-size: 3.2rem;
+    }
+
+    .auth-card h2 {
+        font-size: 1.65rem;
+    }
+}

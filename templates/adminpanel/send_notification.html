@@ -1,0 +1,47 @@
+{% extends 'adminpanel/base.html' %}
+{% block content %}
+
+<div class="container mt-4">
+    <h2>Send Notification</h2>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <div class="mb-3">
+            <label class="form-label">Message</label>
+            <textarea name="message"
+                      class="form-control"
+                      rows="3"
+                      placeholder="Enter notification message"
+                      required></textarea>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Select Group Admins</label>
+
+            <select name="admins" class="form-select" multiple required>
+                {% for admin in admins %}
+                    <option value="{{ admin.id }}">
+                        {{ admin.user.username }}
+                        -
+                        {% if admin.group %}
+                            {{ admin.group.name }}
+                        {% else %}
+                            No Group
+                        {% endif %}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <small class="text-muted">
+                Hold Ctrl (Windows) or Cmd (Mac) to select multiple admins
+            </small>
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+            Send Notification
+        </button>
+    </form>
+</div>
+
+{% endblock %}

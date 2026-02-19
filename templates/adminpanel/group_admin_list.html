@@ -1,0 +1,84 @@
+{% extends 'adminpanel/base.html' %}
+{% load static %}
+
+{% block content %}
+<h2>Group Admins</h2>
+
+<table class="table table-bordered table-striped">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Last Payment</th>
+            <th>Total Paid</th>
+            <th>Groups</th>
+            <th>Members</th>
+            <th>Subscription</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for admin in admins %}
+        <tr>
+            <!-- Admin Name -->
+            <td>{{ admin.profile.user.get_full_name|default:admin.profile.user.username }}</td>
+
+            <!-- Last Payment -->
+            <td>
+                {% if admin.last_payment %}
+                    ₹{{ admin.last_payment_amount|floatformat:2 }}<br>
+                    <span class="badge 
+                        {% if admin.last_payment_status == 'success' %}bg-success
+                        {% elif admin.last_payment_status == 'failed' %}bg-danger
+                        {% else %}bg-warning{% endif %}">
+                        {{ admin.last_payment_status|title }}
+                    </span><br>
+                    Method: {{ admin.last_payment_method|title }}<br>
+                    Date: {{ admin.last_payment_date|date:"M d, Y" }} {{ admin.last_payment_time|time:"h:i A" }}<br>
+                    Txn: {{ admin.last_payment_transaction_id }}<br>
+                    Invoice: {{ admin.last_payment_invoice }}<br>
+                    Plan: {{ admin.last_payment_plan }}
+                {% else %}
+                    <span class="text-muted">No Payments</span>
+                {% endif %}
+            </td>
+
+            <!-- Total Paid -->
+            <td>₹{{ admin.total_paid|floatformat:2 }}</td>
+
+            <!-- Groups & Members -->
+            <td>{{ admin.groups_count }}</td>
+            <td>{{ admin.members_count }}</td>
+
+            <!-- Subscription Info -->
+            <td>
+                {% if admin.subscription_plan %}
+                    {{ admin.subscription_plan }}<br>
+                    {% if admin.is_subscription_active %}
+                        <span class="badge bg-success">Active</span>
+                    {% else %}
+                        <span class="badge bg-danger">Expired</span>
+                    {% endif %}<br>
+                    {{ admin.subscription_start|date:"M d, Y" }} → {{ admin.subscription_end|date:"M d, Y" }}
+                {% else %}
+                    <span class="text-muted">No Subscription</span>
+                {% endif %}
+            </td>
+
+            <!-- Actions -->
+            <td>
+                <a href="{% url 'adminpanel:group_admin_detail' admin.profile.id %}" class="btn btn-sm btn-primary mb-1">View Details</a>
+                {% if admin.profile.is_blocked %}
+                    <a href="{% url 'adminpanel:unblock_group_admin' admin.profile.id %}" class="btn btn-sm btn-warning mb-1">Unblock</a>
+                {% else %}
+                    <a href="{% url 'adminpanel:block_group_admin' admin.profile.id %}" class="btn btn-sm btn-danger mb-1">Block</a>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="7" class="text-center text-muted">No group admins found.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

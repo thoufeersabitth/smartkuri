@@ -1,0 +1,34 @@
+{% extends 'admins/admin_base.html' %}
+
+{% block title %}Auction Detail{% endblock %}
+
+{% block content %}
+<h1>Auction Detail</h1>
+
+<table class="table table-bordered">
+    <tr>
+        <th>ID</th>
+        <td>{{ auction.id }}</td>
+    </tr>
+    <tr>
+        <th>Group</th>
+        <td>{{ auction.group.name }}</td>
+    </tr>
+    <tr>
+        <th>Month No</th>
+        <td>{{ auction.month_no }}</td>
+    </tr>
+    <tr>
+        <th>Winner</th>
+        <td>{% if auction.winner %}{{ auction.winner.name }}{% else %}-{% endif %}</td>
+    </tr>
+    <tr>
+        <th>Auction Date</th>
+        <td>{{ auction.auction_date }}</td>
+    </tr>
+</table>
+
+<!-- Action Buttons -->
+<a href="{% url 'chitti:auction_list' %}" class="btn btn-secondary">Back to List</a>
+
+{% endblock %}

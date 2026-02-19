@@ -1,0 +1,144 @@
+{% extends "chitti/group_admin_base.html" %}
+{% load static %}
+
+{% block title %}Group Admin Dashboard{% endblock %}
+
+{# ================= Include custom CSS ================= #}
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'group_admin/css/grup_dashboard.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="container mx-auto p-6">
+
+    <h1 class="text-3xl font-bold mb-6">Group Admin Dashboard</h1>
+
+    <!-- ================= Stats Cards ================= -->
+    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
+
+        <div class="stats-card card-1">
+            <div class="stats-icon">📦</div>
+            <div class="stats-content">
+                <div>
+                    <div class="stats-label">Total Groups</div>
+                    <div class="stats-value">{{ total_groups }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-card card-2">
+            <div class="stats-icon">✅</div>
+            <div class="stats-content">
+                <div>
+                    <div class="stats-label">Active Groups</div>
+                    <div class="stats-value">{{ active_groups }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-card card-3">
+            <div class="stats-icon">👥</div>
+            <div class="stats-content">
+                <div>
+                    <div class="stats-label">Total Members</div>
+                    <div class="stats-value">{{ total_members }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-card card-4">
+            <div class="stats-icon">💵</div>
+            <div class="stats-content">
+                <div>
+                    <div class="stats-label">This Month Collection</div>
+                    <div class="stats-value">₹ {{ this_month_collection }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-card card-5">
+            <div class="stats-icon">🏦</div>
+            <div class="stats-content">
+                <div>
+                    <div class="stats-label">Total Collected</div>
+                    <div class="stats-value">₹ {{ total_received }}</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ================= Groups Table ================= -->
+    <div class="table-container">
+        <h2 class="section-title">Your Groups</h2>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Group Name</th>
+                        <th>Start Date</th>
+                        <th>Duration</th>
+                        <th>Monthly Amount</th>
+                        <th>Collector</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for group in groups %}
+                    <tr>
+                        <td class="group-info">
+                            <div class="group-avatar">{{ group.name|slice:":2"|upper }}</div>
+                            <div class="group-details">
+                                <div class="group-name">{{ group.name }}</div>
+                                <div class="group-id">ID: {{ group.id }}</div>
+                            </div>
+                        </td>
+                        <td>{{ group.start_date }}</td>
+                        <td>{{ group.duration_months }} months</td>
+                        <td class="amount-cell">₹ {{ group.monthly_amount }}</td>
+                        <td class="collector-cell">
+                            {% if group.collector %}
+                                <div class="collector-avatar">
+                                    {{ group.collector.user.get_full_name|default:group.collector.user.username|slice:":2"|upper }}
+                                </div>
+                                <div class="collector-name">
+                                    {{ group.collector.user.get_full_name|default:group.collector.user.username }}
+                                </div>
+                            {% else %}
+                                <span class="no-collector">Not Assigned</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if group.is_active %}
+                                <span class="status-badge status-active">Active</span>
+                            {% else %}
+                                <span class="status-badge status-inactive">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td class="action-buttons">
+                            <a href="{% url 'chitti:view_group' group.id %}" class="action-btn view-btn">👁</a>
+                            <a href="{% url 'chitti:edit_group' group.id %}" class="action-btn edit-btn">✏️</a>
+                            <a href="{% url 'payments:group_payment_list' %}?group_id={{ group.id }}" class="action-btn payment-btn">💰</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            <div class="empty-state-content">
+                                <div class="empty-state-icon">📂</div>
+                                <h3>No groups found</h3>
+                                <p>You haven’t created any groups yet. Start by adding a new group.</p>
+                                <a href="{% url 'chitti:add_group' %}" class="action-btn edit-btn">➕ Add Group</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

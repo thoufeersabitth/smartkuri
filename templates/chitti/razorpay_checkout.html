@@ -1,0 +1,25 @@
+{% extends "chitti/group_admin_base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Renew Subscription for {{ group.name }}</h2>
+    <p>Plan: <strong>{{ plan.name }}</strong></p>
+    <p>Amount: <strong>₹{{ amount|floatformat:2 }}</strong></p>
+
+    <form id="razorpay-form" method="POST" action="{{ callback_url }}">
+        {% csrf_token %}
+        <script src="https://checkout.razorpay.com/v1/checkout.js"
+                data-key="{{ razorpay_key }}"
+                data-amount="{{ amount }}"
+                data-currency="INR"
+                data-order_id="{{ order_id }}"
+                data-buttontext="Pay Now"
+                data-name="ChittiApp"
+                data-description="Subscription Renewal"
+                data-prefill.name="{{ request.user.username }}"
+                data-prefill.email="{{ request.user.email }}"
+                data-theme.color="#0d6efd">
+        </script>
+        <input type="hidden" name="hidden">
+    </form>
+</div>
+{% endblock %}

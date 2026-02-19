@@ -1,0 +1,45 @@
+{% extends "admins/admin_base.html" %}
+
+{% block title %}Chitti Group Form{% endblock %}
+{% block page_title %}Chitti Group{% endblock %}
+
+{% block content %}
+<style>
+    form {
+        max-width: 500px;
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    form input, form select, form textarea {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+        box-sizing: border-box;
+        font-size: 14px;
+    }
+
+    form button {
+        padding: 10px 20px;
+        background: #2575fc;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+
+    form button:hover {
+        background: #6a11cb;
+    }
+</style>
+
+<form method="POST">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Save</button>
+</form>
+{% endblock %}

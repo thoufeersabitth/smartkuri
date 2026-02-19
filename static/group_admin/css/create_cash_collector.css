@@ -1,0 +1,147 @@
+/* ===================== VARIABLES ===================== */
+:root {
+    --bg: #f9fafb;
+    --card-bg: #ffffff;
+    --text-main: #1f2937;
+    --text-secondary: #6b7280;
+
+    --primary: #4f46e5;
+    --secondary: #3b82f6;
+    --accent: #10b981;
+
+    --success: #16a34a;
+    --danger: #ef4444;
+
+    --radius: 12px;
+    --spacing: 1rem;
+    --shadow: 0 10px 20px rgba(0,0,0,0.08);
+}
+
+/* ===================== BASE ===================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
+}
+body {
+    background: var(--bg);
+    color: var(--text-main);
+    line-height: 1.6;
+}
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: var(--spacing);
+}
+
+/* ===================== PAGE TITLE ===================== */
+.page-title {
+    font-size: 2.2rem;
+    font-weight: 800;
+    background: linear-gradient(120deg, var(--primary), var(--secondary), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 2rem;
+    animation: fadeIn 0.8s ease forwards;
+}
+
+/* ===================== FORM CARD ===================== */
+.form-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 2rem;
+    box-shadow: var(--shadow);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.form-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 14px 35px rgba(0,0,0,0.12);
+}
+
+/* ===================== FORM GRID ===================== */
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+.form-group label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text-main);
+}
+.form-group input,
+.form-group select {
+    padding: 0.6rem 0.8rem;
+    border-radius: var(--radius);
+    border: 1.5px solid #d1d5db;
+    outline: none;
+    transition: all 0.3s ease;
+    font-size: 0.95rem;
+}
+.form-group input:focus,
+.form-group select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 8px rgba(79,70,229,0.2);
+}
+
+/* ===================== FORM ACTIONS ===================== */
+.form-actions {
+    margin-top: 2rem;
+}
+.btn {
+    padding: 0.6rem 1.2rem;
+    border-radius: var(--radius);
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.3s ease;
+}
+.btn.primary {
+    background: linear-gradient(120deg, var(--primary), var(--secondary), var(--accent));
+    color: #fff;
+}
+.btn.primary:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 18px rgba(79,70,229,0.3);
+}
+
+/* ===================== ERROR MESSAGES ===================== */
+.text-danger {
+    font-size: 0.8rem;
+    margin-top: 0.3rem;
+    color: var(--danger);
+}
+
+/* ===================== ALERTS ===================== */
+.alert {
+    padding: 0.8rem 1rem;
+    border-radius: var(--radius);
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+.alert-danger {
+    background: rgba(239,68,68,0.1);
+    color: var(--danger);
+    border: 1px solid rgba(239,68,68,0.3);
+}
+
+/* ===================== ANIMATIONS ===================== */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===================== RESPONSIVE ===================== */
+@media (max-width: 768px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+    .page-title {
+        font-size: 1.8rem;
+    }
+}

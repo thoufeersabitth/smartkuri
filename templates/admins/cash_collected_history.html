@@ -1,0 +1,38 @@
+{% extends "admins/admin_base.html" %}
+
+{% block title %}Cash Collected History{% endblock %}
+{% block page_title %}Cash Collected History{% endblock %}
+
+{% block content %}
+<h2>Payment History</h2>
+<p><b>Total Collected:</b> ₹{{ total_collected }}</p>
+
+<table style="width:100%; border-collapse: collapse; margin-top: 20px;">
+    <thead>
+        <tr style="background-color:#2575fc; color:white;">
+            <th style="padding:10px;">Date & Time</th>
+            <th style="padding:10px;">Member</th>
+            <th style="padding:10px;">Group</th>
+            <th style="padding:10px;">Amount</th>
+            <th style="padding:10px;">Collector</th>
+            <th style="padding:10px;">Pay Type</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in history %}
+        <tr style="border-bottom:1px solid #ddd;">
+            <td style="padding:8px;">{{ p.paid_date }}</td>
+            <td style="padding:8px;">{{ p.member_name }}</td>
+            <td style="padding:8px;">{{ p.group_name }}</td>
+            <td style="padding:8px;">₹{{ p.amount }}</td>
+            <td style="padding:8px;">{{ p.collector }}</td>
+            <td style="padding:8px;">{{ p.pay_type }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="6" style="text-align:center; padding:10px;">No payments found.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

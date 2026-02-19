@@ -1,0 +1,199 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SmartKuri Admin | {% block title %}{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap"
+          rel="stylesheet">
+
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: 'Poppins', sans-serif;
+            display: flex;
+            min-height: 100vh;
+            background: #f1f5f9;
+        }
+
+        /* ================= SIDEBAR ================= */
+        .sidebar {
+            width: 240px;
+            background: linear-gradient(180deg, #2575fc, #6a11cb);
+            color: white;
+            padding: 20px 0;
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            overflow-y: auto;
+        }
+
+        .sidebar-logo {
+            text-align: center;
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 30px;
+        }
+
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar ul li {
+            margin-bottom: 6px;
+        }
+
+        .sidebar ul li a {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            color: white;
+            text-decoration: none;
+            font-size: 15px;
+            transition: 0.3s;
+            border-radius: 0 25px 25px 0;
+        }
+
+        .sidebar ul li a i {
+            margin-right: 12px;
+        }
+
+        .sidebar ul li a:hover,
+        .sidebar ul li.active a {
+            background: rgba(255, 255, 255, 0.18);
+            border-left: 4px solid #fff;
+        }
+
+        /* ================= MAIN ================= */
+        .main {
+            margin-left: 240px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ================= TOP BAR ================= */
+        .topbar {
+            background: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+
+        .topbar h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .topbar .user {
+            font-size: 14px;
+            color: #374151;
+            font-weight: 500;
+        }
+
+        /* ================= CONTENT ================= */
+        .content {
+            padding: 25px;
+            flex: 1;
+            overflow-x: auto;
+        }
+
+        /* ================= RESPONSIVE ================= */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: relative;
+                width: 100%;
+                height: auto;
+            }
+
+            .main {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- ============ SIDEBAR ============ -->
+<aside class="sidebar">
+    <div class="sidebar-logo">SmartKuri Admin</div>
+
+    <ul>
+        <li class="{% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
+            <a href="{% url 'accounts:admin_dashboard' %}">
+                <i class="fas fa-gauge"></i> Dashboard
+            </a>
+        </li>
+
+        <li class="{% if request.resolver_match.url_name == 'member_list' %}active{% endif %}">
+            <a href="{% url 'members:member_list' %}">
+                <i class="fas fa-users"></i> Members
+            </a>
+        </li>
+
+        <li class="{% if request.resolver_match.url_name == 'chitti_group_list' %}active{% endif %}">
+            <a href="{% url 'chitti:chitti_group_list' %}">
+                <i class="fas fa-layer-group"></i> Chitti Groups
+            </a>
+        </li>
+
+            <li class="{% if request.resolver_match.url_name == 'auction_list' %}active{% endif %}">
+                <a href="{% url 'chitti:auction_list' %}">
+                    <i class="fas fa-gavel"></i> Auctions
+            </a>
+        </li>
+
+        <li class="{% if request.resolver_match.url_name == 'payment_list' %}active{% endif %}">
+            <a href="{% url 'payments:payment_list' %}">
+                <i class="fas fa-money-bill-wave"></i> Payments
+            </a>
+        </li>
+
+        <li class="{% if request.resolver_match.url_name == 'admin_cash_history' %}active{% endif %}">
+            <a href="{% url 'payments:admin_cash_history' %}">
+                <i class="fas fa-coins"></i> Cash History
+            </a>
+        </li>
+
+        <li>
+            <a href="{% url 'accounts:logout' %}">
+                <i class="fas fa-right-from-bracket"></i> Logout
+            </a>
+        </li>
+    </ul>
+</aside>
+
+<!-- ============ MAIN CONTENT ============ -->
+<div class="main">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+        <h1>{% block page_title %}{% endblock %}</h1>
+        <div class="user">{{ request.user.username }}</div>
+    </div>
+
+    <!-- PAGE CONTENT -->
+    <div class="content">
+        {% block content %}{% endblock %}
+    </div>
+
+</div>
+
+</body>
+</html>

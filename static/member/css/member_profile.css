@@ -1,0 +1,144 @@
+/* member/css/member_profile.css
+   Ultra Pro Max Glassmorphism – Member Profile
+*/
+
+:root {
+  --primary: #10b981;
+  --primary-dark: #059669;
+  --indigo: #6366f1;
+  --indigo-dark: #4f46e5;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --light: #f8fafc;
+  --dark: #0f172a;
+  --gray: #64748b;
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.25);
+  --shadow-sm: 0 8px 32px rgba(31, 38, 135, 0.15);
+  --shadow-md: 0 15px 40px rgba(0, 0, 0, 0.18);
+  --radius-lg: 20px;
+  --radius-md: 16px;
+  --transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+body {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--dark);
+}
+
+/* Page Title */
+h2 {
+  font-size: 2.2rem;
+  font-weight: 800;
+  background: linear-gradient(90deg, var(--indigo), var(--primary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Profile Card */
+.card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: var(--transition);
+}
+
+.card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Profile Table */
+.table {
+  margin-bottom: 0;
+}
+
+.table th {
+  width: 35%;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.8px;
+  color: var(--gray);
+  background: rgba(99, 102, 241, 0.06);
+  padding: 1.2rem 1.4rem;
+  border: none;
+}
+
+.table td {
+  font-size: 1.05rem;
+  font-weight: 600;
+  padding: 1.2rem 1.4rem;
+  color: var(--dark);
+  border: none;
+}
+
+/* Row separation */
+.table tr + tr {
+  border-top: 1px solid rgba(226, 232, 240, 0.5);
+}
+
+/* Highlight important fields */
+.table tr:first-child td,
+.table tr:nth-child(2) td {
+  background: linear-gradient(90deg, rgba(16,185,129,0.08), transparent);
+}
+
+/* Back Button */
+.btn-secondary {
+  background: linear-gradient(90deg, var(--indigo), var(--primary));
+  border: none;
+  border-radius: 999px;
+  padding: 0.7rem 1.6rem;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.35);
+  transition: var(--transition);
+}
+
+.btn-secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(16, 185, 129, 0.45);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+
+  h2 {
+    font-size: 1.8rem;
+  }
+
+  .table th,
+  .table td {
+    padding: 1rem 1.1rem;
+  }
+
+  .table th {
+    font-size: 0.78rem;
+  }
+
+  .table td {
+    font-size: 0.95rem;
+  }
+}
+
+/* Dark Mode Ready */
+[data-bs-theme="dark"] body {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #e2e8f0;
+}
+
+[data-bs-theme="dark"] .card {
+  background: rgba(30, 41, 59, 0.65);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+[data-bs-theme="dark"] h2 {
+  background: linear-gradient(90deg, #a78bfa, #c084fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}

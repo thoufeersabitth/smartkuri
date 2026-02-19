@@ -1,0 +1,102 @@
+/* ===================== VARIABLES ===================== */
+:root {
+    --bg: #f9fafb;
+    --card-bg: #ffffff;
+    --text-main: #1f2937;
+    --text-secondary: #6b7280;
+
+    --primary: #4f46e5;
+    --secondary: #3b82f6;
+    --accent: #10b981;
+
+    --success: #16a34a;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+
+    --radius: 12px;
+    --spacing: 1rem;
+    --shadow: 0 10px 20px rgba(0,0,0,0.08);
+}
+
+/* ===================== BASE ===================== */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text-main);
+    line-height: 1.6;
+}
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: var(--spacing);
+}
+h2.section-title {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    background: linear-gradient(120deg, var(--primary), var(--secondary), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* ===================== GROUP LIST ===================== */
+.group-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+    list-style: none;
+    padding: 0;
+}
+.group-item {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: var(--spacing);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.25s, box-shadow 0.25s;
+}
+.group-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 25px rgba(0,0,0,0.15);
+}
+.group-info {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text-main);
+}
+.group-action {
+    margin-top: auto;
+}
+.view-auctions-btn {
+    display: inline-block;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius);
+    background: var(--primary);
+    color: #fff;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-align: center;
+    transition: all 0.25s ease;
+}
+.view-auctions-btn:hover {
+    background: var(--secondary);
+    transform: scale(1.05);
+}
+
+/* ===================== RESPONSIVE ===================== */
+@media (max-width: 1024px) {
+    .container { padding: 0.75rem; }
+}
+@media (max-width: 768px) {
+    .group-list { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+    h2.section-title { font-size: 1.5rem; }
+    .group-item { padding: 0.75rem; }
+    .view-auctions-btn { font-size: 0.85rem; padding: 0.45rem 0.6rem; }
+}

@@ -1,0 +1,35 @@
+{% extends "chitti/group_admin_base.html" %}
+{% load static %}
+
+{% block title %}Add / Edit Collection{% endblock %}
+
+{% block content %}
+<h2>Add / Edit Collection</h2>
+
+<form method="post" style="max-width:500px;">
+    {% csrf_token %}
+
+    <div>
+        <label>Member</label><br>
+        {{ form.member }}
+    </div><br>
+
+    <div>
+        <label>Amount</label><br>
+        {{ form.amount }}
+    </div><br>
+
+    <div>
+        <label>Payment Method</label><br>
+        {{ form.payment_method }}
+    </div><br>
+
+    <div>
+        <label>Payment Status</label><br>
+        {{ form.payment_status }}
+    </div><br>
+
+    <button type="submit">Save Payment</button>
+    <a href="{% url 'payments:collection_management' %}">Cancel</a>
+</form>
+{% endblock %}

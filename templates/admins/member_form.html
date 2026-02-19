@@ -1,0 +1,101 @@
+{% extends "admins/admin_base.html" %}
+
+{% block title %}Member Form{% endblock %}
+{% block page_title %}{{ form.instance.id|yesno:"Edit Member,Add Member" }}{% endblock %}
+
+{% block content %}
+<style>
+    /* Form container */
+    .form-wrapper {
+        max-width: 600px;
+        background: white;
+        padding: 25px;
+        border-radius: 10px;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+        margin-top: 20px;
+    }
+
+    .form-wrapper h2 {
+        margin-bottom: 20px;
+        font-size: 22px;
+        color: #1f2937;
+    }
+
+    /* Input fields */
+    .form-wrapper input, 
+    .form-wrapper select {
+        width: 100%;
+        padding: 10px 12px;
+        margin-bottom: 15px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 14px;
+        box-sizing: border-box;
+        transition: border-color 0.3s;
+    }
+
+    .form-wrapper input:focus, 
+    .form-wrapper select:focus {
+        border-color: #2575fc;
+        outline: none;
+    }
+
+    /* Labels */
+    .form-wrapper label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+        color: #374151;
+    }
+
+    /* Submit button */
+    .form-wrapper .btn-submit {
+        background: #2575fc;
+        color: white;
+        padding: 10px 18px;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+
+    .form-wrapper .btn-submit:hover {
+        background: #6a11cb;
+    }
+
+    /* Cancel button */
+    .form-wrapper .btn-cancel {
+        background: #e5e7eb;
+        color: #374151;
+        padding: 10px 18px;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        cursor: pointer;
+        margin-left: 10px;
+        text-decoration: none;
+    }
+
+    .form-wrapper .btn-cancel:hover {
+        background: #d1d5db;
+    }
+</style>
+
+<div class="form-wrapper">
+    <h2>{{ form.instance.id|yesno:"Edit Member,Add Member" }}</h2>
+    <form method="post">
+        {% csrf_token %}
+        {% for field in form %}
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+                <div style="color:red; font-size:13px;">{{ field.errors }}</div>
+            {% endif %}
+        {% endfor %}
+
+        <button type="submit" class="btn-submit">Save</button>
+        <a href="{% url 'members:member_list' %}" class="btn-cancel">Cancel</a>
+    </form>
+</div>
+{% endblock %}

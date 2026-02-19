@@ -1,0 +1,67 @@
+{% extends "chitti/group_admin_base.html" %}
+{% load static %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'group_admin/css/auction_form.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="form-wrapper">
+
+    <div class="form-card">
+
+        <h2 class="form-title">➕ Add New Auction</h2>
+
+        <!-- Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert-custom alert-{{ message.tags }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <form method="POST">
+            {% csrf_token %}
+
+            <!-- Group -->
+            <div class="form-group">
+                <label class="form-label">Select Group</label>
+                <select name="group_id" class="form-control" required>
+                    <option value="">---------</option>
+                    {% for group in groups %}
+                        <option value="{{ group.id }}">
+                            {{ group.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Auction Date -->
+            <div class="form-group">
+                <label class="form-label">Auction Date</label>
+                <input type="date"
+                       name="auction_date"
+                       class="form-control"
+                       required>
+            </div>
+
+            <!-- Buttons -->
+            <div style="display:flex; justify-content:space-between; margin-top:1.5rem;">
+                <a href="{% url 'chitti:auction_list' %}" class="btn-secondary-custom">
+                    ← Back
+                </a>
+
+                <button type="submit" class="btn-primary-custom">
+                    Save Auction
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+{% endblock %}

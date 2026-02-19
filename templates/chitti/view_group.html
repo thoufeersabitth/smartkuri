@@ -1,0 +1,156 @@
+{% extends "chitti/group_admin_base.html" %}
+{% load static %}
+
+{% block title %}Group Details{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'group_admin/css/group_details.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+
+<h2 class="page-title">Group : {{ group.name }}</h2>
+
+<!-- GROUP INFO -->
+<div class="info-grid">
+
+    <div class="info-card">
+        <span>Monthly Amount</span>
+        <strong>₹ {{ group.monthly_amount }}</strong>
+    </div>
+
+    <div class="info-card">
+        <span>Duration</span>
+        <strong>
+        {% if group.duration_months %}
+            {{ group.duration_months }} Month{% if group.duration_months > 1 %}s{% endif %}
+        {% else %}
+            Unlimited
+        {% endif %}
+        </strong>
+    </div>
+
+    <div class="info-card">
+        <span>Total Amount</span>
+        <strong>₹ {{ group.total_amount }}</strong>
+    </div>
+
+    <div class="info-card">
+        <span>Start Date</span>
+        <strong>{{ group.start_date|date:"d M Y" }}</strong>
+    </div>
+
+    <div class="info-card">
+        <span>End Date</span>
+        <strong>
+        {% if group.end_date_calculated %}
+            {{ group.end_date_calculated|date:"d M Y" }}
+        {% else %}
+            Unlimited
+        {% endif %}
+        </strong>
+    </div>
+
+    <div class="info-card">
+        <span>Status</span>
+        {% if group.is_expired %}
+            <span class="status expired">Expired</span>
+        {% else %}
+            <span class="status active">Active</span>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- MEMBERS -->
+<h3 class="section-title">Members</h3>
+
+<div class="table-container">
+<table class="data-table">
+<thead>
+<tr>
+<th>Token</th>
+<th>Name</th>
+<th>Phone</th>
+<th>Status</th>
+</tr>
+</thead>
+
+<tbody>
+{% for cm in members %}
+<tr>
+<td>{{ cm.token_no }}</td>
+<td>{{ cm.member.name }}</td>
+<td>{{ cm.member.phone }}</td>
+<td>
+{% if cm.member_status == "Active" %}
+<span class="badge active">Active</span>
+{% elif cm.member_status == "Defaulted" %}
+<span class="badge danger">Defaulted</span>
+{% elif cm.member_status == "Completed" %}
+<span class="badge done">Completed</span>
+{% else %}
+<span class="badge">{{ cm.member_status }}</span>
+{% endif %}
+</td>
+</tr>
+{% empty %}
+<tr><td colspan="4" class="empty">No members yet</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+
+<!-- AUCTIONS -->
+<h3 class="section-title">Auctions</h3>
+
+<div class="table-container">
+<table class="data-table">
+<thead>
+<tr>
+<th>Month</th>
+<th>Date</th>
+<th>Winner</th>
+<th>Status</th>
+<th>Action</th>
+</tr>
+</thead>
+
+<tbody>
+{% for auction in auctions %}
+<tr>
+<td>Month {{ auction.month_no }}</td>
+<td>{{ auction.auction_date|date:"d M Y" }}</td>
+<td>{% if auction.winner %}{{ auction.winner.member.name }}{% else %}—{% endif %}</td>
+
+<td>
+{% if auction.is_closed %}
+<span class="badge done">Completed</span>
+{% elif auction.is_today %}
+<span class="badge warning">Today</span>
+{% else %}
+<span class="badge">Upcoming</span>
+{% endif %}
+</td>
+
+<td>
+{% if not auction.is_closed %}
+<a href="{% url 'chitti:auction_spin' auction.id %}" class="btn primary">Spin</a>
+{% else %}
+<a href="{% url 'chitti:auction_detail' auction.id %}" class="btn outline">View</a>
+{% endif %}
+</td>
+
+</tr>
+{% empty %}
+<tr><td colspan="5" class="empty">No auctions yet</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+
+<a href="{% url 'chitti:group_management' %}" class="btn back">← Back</a>
+
+</div>
+{% endblock %}

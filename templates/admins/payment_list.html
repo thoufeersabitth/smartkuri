@@ -1,0 +1,45 @@
+{% extends "admins/admin_base.html" %}
+
+{% block title %}Payments List{% endblock %}
+{% block page_title %}Payments{% endblock %}
+
+{% block content %}
+<h2>Payments List</h2>
+<a href="{% url 'payments:payment_create' %}" class="btn">Add Payment</a>
+
+<table>
+    <tr>
+        <th>ID</th>
+        <th>Member</th>
+        <th>Amount</th>
+        <th>Date</th>
+        <th>Actions</th>
+    </tr>
+    {% for payment in payments %}
+    <tr>
+        <td>{{ payment.id }}</td>
+        <td>{{ payment.member.name }}</td>
+        <td>{{ payment.amount }}</td>
+        <td>{{ payment.payment_date }}</td>
+        <td>
+            <a href="{% url 'payments:payment_edit' payment.id %}" class="btn">Edit</a>
+            <a href="{% url 'payments:payment_delete' payment.id %}" class="btn" style="background:red;">Delete</a>
+        </td>
+    </tr>
+    {% empty %}
+    <tr>
+        <td colspan="5">No payments found.</td>
+    </tr>
+    {% endfor %}
+</table>
+
+<style>
+    body { font-family: 'Poppins', sans-serif; background: #f1f5f9; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+    th { background: #2575fc; color: white; }
+    tr:nth-child(even) { background: #f9f9f9; }
+    .btn { padding: 8px 15px; background: #2575fc; color: white; border: none; border-radius: 5px; text-decoration: none; cursor: pointer; }
+    .btn:hover { background: #6a11cb; }
+</style>
+{% endblock %}

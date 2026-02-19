@@ -1,0 +1,14 @@
+{% extends 'admins/admin_base.html' %}
+
+{% block title %}{% if auction %}Edit Auction{% else %}Add Auction{% endif %}{% endblock %}
+
+{% block content %}
+<h1>{% if auction %}Edit{% else %}Add{% endif %} Auction</h1>
+
+<form method="POST">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-success">{% if auction %}Update{% else %}Add{% endif %}</button>
+    <a href="{% url 'chitti:auction_list' %}" class="btn btn-secondary">Cancel</a>
+</form>
+{% endblock %}

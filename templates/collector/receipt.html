@@ -1,0 +1,28 @@
+{% extends "collector/collector_base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'collector/css/payment_receipt.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="container">
+
+    <h4>Payment Receipt</h4>
+
+    <ul class="list-group">
+        <li class="list-group-item"><strong>Member:</strong> {{ payment.member.name }}</li>
+        <li class="list-group-item"><strong>Group:</strong> {{ payment.group.name }}</li>
+        <li class="list-group-item"><strong>Amount:</strong> ₹{{ payment.amount }}</li>
+        <li class="list-group-item"><strong>Date:</strong> {{ payment.paid_date }}</li>
+        <li class="list-group-item"><strong>Method:</strong> {{ payment.payment_method }}</li>
+    </ul>
+
+    <button onclick="window.print()" class="btn btn-primary mt-3">
+        Print Receipt
+    </button>
+
+</div>
+
+{% endblock %}

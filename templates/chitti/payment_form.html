@@ -1,0 +1,78 @@
+{% extends "chitti/group_admin_base.html" %}
+{% load static %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'group_admin/css/payment_form.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="form-container">
+        <h2 class="mb-4">Add Group Payment</h2>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags|default:'info' }} mb-4">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="mb-3">
+                <label class="form-label">Chitti Group</label>
+                <select name="group" class="form-select" onchange="this.form.submit();">
+                    <option value="">Select Group</option>
+                    {% for group in form.group.field.queryset %}
+                        <option value="{{ group.id }}" {% if form.group.value|stringformat:"s" == group.id|stringformat:"s" %}selected{% endif %}>
+                            {{ group.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+                {% if form.group.errors %}<div class="text-danger small">{{ form.group.errors }}</div>{% endif %}
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Member</label>
+                {{ form.chitti_member }}
+                {% if form.chitti_member.errors %}<div class="text-danger small">{{ form.chitti_member.errors }}</div>{% endif %}
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Amount</label>
+                    {{ form.amount }}
+                    {% if form.amount.errors %}<div class="text-danger small">{{ form.amount.errors }}</div>{% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Paid Date</label>
+                    {{ form.paid_date }}
+                    {% if form.paid_date.errors %}<div class="text-danger small">{{ form.paid_date.errors }}</div>{% endif %}
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Payment Method</label>
+                    {{ form.payment_method }}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Payment Status</label>
+                    {{ form.payment_status }}
+                </div>
+            </div>
+
+            <div class="mt-4 d-flex gap-3">
+                <button type="submit" class="btn btn-primary flex-grow-1">
+                    Submit Payment
+                </button>
+                <a href="{% url 'payments:group_payment_list' %}" class="btn btn-secondary">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

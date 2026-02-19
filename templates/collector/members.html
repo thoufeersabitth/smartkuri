@@ -1,0 +1,50 @@
+{% extends "collector/collector_base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'collector/css/members.css' %}?v=1">
+{% endblock %}
+
+{% block content %}
+<h4>Assigned Members</h4>
+
+<form method="get" class="search-form">
+    <input type="text" name="q" placeholder="Search by name or phone"
+           value="{{ request.GET.q }}">
+    <button type="submit" class="btn-search">Search</button>
+</form>
+
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Phone</th>
+                <th>Group</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in members %}
+            <tr>
+                <td>{{ m.name }}</td>
+                <td>{{ m.phone }}</td>
+                <td>{{ m.assigned_chitti_group.name }}</td>
+                <td>
+                    <a href="{% url 'collector:history' m.id %}" class="btn-primary">
+                        View History
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr class="empty-state">
+                <td colspan="4">
+                    <h3>No members found</h3>
+                    <p>Try adjusting your search criteria.</p>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

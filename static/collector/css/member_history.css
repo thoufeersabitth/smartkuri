@@ -1,0 +1,132 @@
+/* ====== Body Background ====== */
+body {
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #f0f4f8, #d9e2ec);
+    margin: 0;
+    padding: 0;
+}
+
+/* ====== Main Container ====== */
+.member-history-container {
+    max-width: 950px;
+    margin: 50px auto;
+    padding: 35px;
+    background: linear-gradient(145deg, #ffffff, #f9fafc);
+    border-radius: 20px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+    animation: fadeInDown 1s ease;
+    position: relative;
+}
+
+/* Animated top bar */
+.member-history-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 5px;
+    width: 0;
+    background: linear-gradient(90deg, #ff4d4d, #ff6b6b);
+    animation: expandBar 1.2s forwards;
+}
+
+/* ====== Heading ====== */
+.member-history-container h4 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #2d3436;
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+/* ====== Summary Box ====== */
+.summary-box {
+    background: #f8f9fb;
+    padding: 20px;
+    border-radius: 15px;
+    margin-bottom: 30px;
+    line-height: 1.9;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+    font-size: 1rem;
+}
+
+.summary-box p {
+    margin: 8px 0;
+}
+
+/* ====== Table ====== */
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+}
+
+.history-table thead {
+    background: linear-gradient(90deg, #ff4d4d, #ff6b6b);
+    color: #ffffff;
+}
+
+.history-table th {
+    padding: 15px;
+    text-align: center;
+    font-weight: 600;
+}
+
+.history-table td {
+    padding: 14px;
+    text-align: center;
+    background: #ffffff;
+}
+
+.history-table tbody tr:nth-child(even) td {
+    background: #f9fafc;
+}
+
+.history-table tbody tr:hover td {
+    background: #ffecec;
+    transition: 0.3s ease;
+}
+
+/* No Data Row */
+.no-data {
+    padding: 20px;
+    font-weight: 600;
+    color: #888;
+}
+
+/* ====== Animations ====== */
+@keyframes fadeInDown {
+    0% {
+        opacity: 0;
+        transform: translateY(-40px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes expandBar {
+    0% { width: 0; }
+    100% { width: 100%; }
+}
+
+/* ====== Responsive ====== */
+@media (max-width: 768px) {
+    .member-history-container {
+        margin: 20px;
+        padding: 20px;
+    }
+
+    .member-history-container h4 {
+        font-size: 1.5rem;
+    }
+
+    .history-table th,
+    .history-table td {
+        font-size: 0.9rem;
+        padding: 10px;
+    }
+}

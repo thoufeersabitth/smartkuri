@@ -1,0 +1,97 @@
+{% extends "admins/admin_base.html" %}
+
+{% block title %}Chitti Groups{% endblock %}
+{% block page_title %}Chitti Group List{% endblock %}
+
+{% block content %}
+<style>
+    .btn {
+        padding: 8px 15px;
+        background: #2575fc;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        text-decoration: none;
+        cursor: pointer;
+        margin-bottom: 15px;
+        display: inline-block;
+    }
+
+    .btn:hover {
+        background: #6a11cb;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+
+    table th, table td {
+        padding: 12px;
+        border: 1px solid #ddd;
+        text-align: left;
+    }
+
+    table th {
+        background: #2575fc;
+        color: white;
+    }
+
+    table tr:nth-child(even) {
+        background: #f9f9f9;
+    }
+
+    table td a {
+        margin-right: 5px;
+        text-decoration: none;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 4px;
+    }
+
+    table td a.edit {
+        background-color: #4caf50;
+    }
+
+    table td a.delete {
+        background-color: #f44336;
+    }
+
+    table td a.edit:hover {
+        background-color: #45a049;
+    }
+
+    table td a.delete:hover {
+        background-color: #e53935;
+    }
+</style>
+
+<a href="{% url 'chitti:chitti_group_create' %}" class="btn">Add Chitti Group</a>
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Total Amount</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for group in groups %}
+        <tr>
+            <td>{{ group.name }}</td>
+            <td>{{ group.total_amount }}</td>
+            <td>
+                <a href="{% url 'chitti:chitti_group_edit' group.id %}" class="edit">Edit</a>
+                <a href="{% url 'chitti:chitti_group_delete' group.id %}" class="delete">Delete</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="3">No groups found.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

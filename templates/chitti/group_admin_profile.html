@@ -1,0 +1,106 @@
+{% extends "chitti/group_admin_base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'group_admin/css/group_admin_profile.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Group Admin Profile</h1>
+
+    <div class="stats-grid">
+
+        <!-- ADMIN INFO -->
+        <div class="stats-card">
+            <div class="stats-icon">👤</div>
+            <div>
+                <div class="stats-label">Admin Info</div>
+
+                <div class="stats-value">
+                    {{ profile.user.get_full_name|default:profile.user.username }}
+                </div>
+
+                <p><strong>Phone:</strong> {{ profile.phone }}</p>
+                <p><strong>Email:</strong> {{ profile.user.email }}</p>
+            </div>
+        </div>
+
+        <!-- SUBSCRIPTION -->
+        <div class="stats-card">
+            <div class="stats-icon">💳</div>
+            <div>
+                <div class="stats-label">Subscription</div>
+
+                <p><strong>Plan:</strong>
+                    {% if effective_sub %}
+                        {{ effective_sub.plan.name }}
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </p>
+
+                <p><strong>Status:</strong>
+                    {% if subscription_status and subscription_status.active %}
+                        <span class="status-badge status-active">Active 🟢</span>
+                    {% else %}
+                        <span class="status-badge status-inactive">Expired 🔴</span>
+                    {% endif %}
+                </p>
+
+                <p><strong>Validity:</strong>
+                    {% if effective_sub %}
+                        {{ effective_sub.start_date|date:"M d, Y" }} →
+                        {{ effective_sub.end_date|date:"M d, Y" }}
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </p>
+
+                <p><strong>Time Left:</strong>
+                    {{ time_left|default:"N/A" }}
+                </p>
+            </div>
+        </div>
+
+        <!-- GROUPS & MEMBERS -->
+        <div class="stats-card">
+            <div class="stats-icon">👥</div>
+            <div>
+                <div class="stats-label">Groups & Members</div>
+
+                <p><strong>Total Groups:</strong>
+                    {{ groups_count|intcomma }}
+                </p>
+
+                <p><strong>Total Members:</strong>
+                    {{ members_count|intcomma }}
+                </p>
+
+                {% if effective_sub %}
+                <hr>
+
+                <p><strong>Max Groups:</strong>
+                    {{ max_groups|intcomma }}
+                </p>
+
+                <p><strong>Remaining Groups:</strong>
+                    {{ remaining_groups|intcomma }}
+                </p>
+
+                <p><strong>Max Members:</strong>
+                    {{ max_members|intcomma }}
+                </p>
+
+                <p><strong>Remaining Members:</strong>
+                    {{ remaining_members|intcomma }}
+                </p>
+                {% endif %}
+
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "admins/admin_base.html" %}
+
+{% block title %}Add/Edit Payment{% endblock %}
+{% block page_title %}{% if form.instance.pk %}Edit{% else %}Add{% endif %} Payment{% endblock %}
+
+{% block content %}
+<div class="form-wrapper">
+    <h2>{% if form.instance.pk %}Edit{% else %}Add{% endif %} Payment</h2>
+    <form method="POST">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">{% if form.instance.pk %}Update{% else %}Add{% endif %}</button>
+    </form>
+</div>
+
+<style>
+    body { font-family: 'Poppins', sans-serif; background: #f1f5f9; display:flex; justify-content:center; padding:20px; }
+    .form-wrapper { background:white; padding:30px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.1); width:400px; }
+    input, select { width:100%; padding:10px; margin-bottom:15px; border-radius:5px; border:1px solid #ccc; }
+    button { width:100%; padding:12px; background:#2575fc; color:white; border:none; border-radius:5px; cursor:pointer; }
+    button:hover { background:#6a11cb; }
+</style>
+{% endblock %}

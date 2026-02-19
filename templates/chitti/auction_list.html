@@ -1,0 +1,30 @@
+    {% extends "chitti/group_admin_base.html" %}
+    {% load static %}
+
+    {% block extra_head %}
+    <link rel="stylesheet" href="{% static 'group_admin/css/auction.css' %}">
+    {% endblock %}
+
+    {% block content %}
+    <div class="container mt-5">
+        <h2 class="section-title">Your Groups & Auctions</h2>
+        <ul class="group-list">
+            {% if groups %}
+                {% for group in groups %}
+                    <li class="group-item">
+                        <div class="group-info">
+                            <strong>{{ group.name }}</strong> ({{ group.duration_months }} Months)
+                        </div>
+                        <div class="group-action">
+                            <a href="{% url 'chitti:auction_list_group' group.id %}" class="view-auctions-btn">
+                                View Auctions & Spin 🎯
+                            </a>
+                        </div>
+                    </li>
+                {% endfor %}
+            {% else %}
+                <p>No Groups Found</p>
+            {% endif %}
+        </ul>
+    </div>
+    {% endblock %}

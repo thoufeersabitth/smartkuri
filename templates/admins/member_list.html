@@ -1,0 +1,121 @@
+{% extends "admins/admin_base.html" %}
+
+{% block title %}Members{% endblock %}
+{% block page_title %}Member List{% endblock %}
+
+{% block content %}
+<style>
+table { width:100%; border-collapse: collapse; margin-top:20px; background:white; border-radius:8px; overflow:hidden; box-shadow:0 3px 6px rgba(0,0,0,0.1);}
+table th, table td { padding:12px 10px; border-bottom:1px solid #e5e7eb; font-size:14px; text-align:left; vertical-align:top; }
+table th { background:#2575fc; color:white; font-weight:600; }
+table tr:nth-child(even) { background:#f9f9f9; }
+table tr:hover { background:#e0e7ff; }
+
+.btn { padding:6px 12px; margin-right:5px; background:#2575fc; color:white; border-radius:5px; text-decoration:none; font-size:13px; }
+.btn:hover { background:#6a11cb; }
+.add-member-btn { margin-bottom:15px; background:#10b981; }
+
+.badge { padding:4px 8px; border-radius:6px; font-size:12px; color:#fff; font-weight:500; }
+.badge-paid { background:#16a34a; }
+.badge-due { background:#dc2626; }
+.badge-nogroup { background:#f59e0b; }
+</style>
+
+<a href="{% url 'members:member_create' %}" class="btn add-member-btn">Add Member</a>
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Chitti Group</th>
+            <th>Total Amount</th>
+            <th>Monthly</th>
+            <th>Paid</th>
+            <th>Remaining</th>
+            <th>Next Due</th>
+            <th>Status</th>
+            <th>Payment Date</th>
+            <th>Payment Time</th>
+            <th>Collector</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in members %}
+        {% if row.payment_history %}
+            {% for p in row.payment_history %}
+            <tr>
+                {% if forloop.first %}
+                    <td rowspan="{{ row.payment_history|length }}">{{ row.member.name }}</td>
+                    <td rowspan="{{ row.payment_history|length }}">{{ row.email|default:"-" }}</td>
+                    <td rowspan="{{ row.payment_history|length }}">{{ row.phone|default:"-" }}</td>
+                    <td rowspan="{{ row.payment_history|length }}">{{ row.group_name|default:"No Group" }}</td>
+                    <td rowspan="{{ row.payment_history|length }}">{{ row.total_amount|default:"-" }}</td>
+                    <td rowspan="{{ row.payment_history|length }}">{{ row.monthly_amount|default:"-" }}</td>
+                    <td rowspan="{{ row.payment_history|length }}">{{ row.paid_amount }}</td>
+                    <td rowspan="{{ row.payment_history|length }}">{{ row.remaining_amount }}</td>
+                    <td rowspan="{{ row.payment_history|length }}">
+                        {% if row.next_due_date %}{{ row.next_due_date|date:"d-m-Y" }}{% else %}-{% endif %}
+                    </td>
+                    <td rowspan="{{ row.payment_history|length }}">
+                        {% if row.status == "PAID" %}
+                            <span class="badge badge-paid">PAID</span>
+                        {% elif row.status == "DUE" %}
+                            <span class="badge badge-due">DUE</span>
+                        {% else %}
+                            <span class="badge badge-nogroup">NO GROUP</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ p.paid_date|date:"d-m-Y" }}</td>
+                    <td>{{ p.paid_date|time:"H:i" }}</td>
+                    <td>{{ p.collector }}</td>
+                    <td rowspan="{{ row.payment_history|length }}">
+                        <a href="{% url 'members:member_edit' row.member.id %}" class="btn">Edit</a>
+                        <a href="{% url 'members:member_delete' row.member.id %}" class="btn" onclick="return confirm('Are you sure?')">Delete</a>
+                    </td>
+                {% else %}
+                    <td>{{ p.paid_date|date:"d-m-Y" }}</td>
+                    <td>{{ p.paid_date|time:"H:i" }}</td>
+                    <td>{{ p.collector }}</td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        {% else %}
+            <tr>
+                <td>{{ row.member.name }}</td>
+                <td>{{ row.email|default:"-" }}</td>
+                <td>{{ row.phone|default:"-" }}</td>
+                <td>{{ row.group_name|default:"No Group" }}</td>
+                <td>{{ row.total_amount|default:"-" }}</td>
+                <td>{{ row.monthly_amount|default:"-" }}</td>
+                <td>{{ row.paid_amount }}</td>
+                <td>{{ row.remaining_amount }}</td>
+                <td>{% if row.next_due_date %}{{ row.next_due_date|date:"d-m-Y" }}{% else %}-{% endif %}</td>
+                <td>
+                    {% if row.status == "PAID" %}
+                        <span class="badge badge-paid">PAID</span>
+                    {% elif row.status == "DUE" %}
+                        <span class="badge badge-due">DUE</span>
+                    {% else %}
+                        <span class="badge badge-nogroup">NO GROUP</span>
+                    {% endif %}
+                </td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>
+                    <a href="{% url 'members:member_edit' row.member.id %}" class="btn">Edit</a>
+                    <a href="{% url 'members:member_delete' row.member.id %}" class="btn" onclick="return confirm('Are you sure?')">Delete</a>
+                </td>
+            </tr>
+        {% endif %}
+        {% empty %}
+        <tr>
+            <td colspan="14" style="text-align:center; color:#6b7280;">No members found.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

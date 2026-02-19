@@ -1,0 +1,66 @@
+{% extends "chitti/group_admin_base.html" %}
+{% block title %}Member Details{% endblock %}
+{% load static %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'group_admin/css/member_details.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>👤 Member Details</h2>
+
+    <!-- ================= Member Info ================= -->
+    <div class="table-container">
+        <table class="details-table">
+            <tbody>
+                <tr><th>Name</th><td>{{ member.member.name }}</td></tr>
+                <tr><th>Email</th><td>{{ member.member.email|default:"-" }}</td></tr>
+                <tr><th>Phone</th><td>{{ member.member.phone }}</td></tr>
+                <tr><th>Address</th><td>{{ member.member.address|default:"-" }}</td></tr>
+                <tr><th>Aadhaar No</th><td>{{ member.member.aadhaar_no|default:"-" }}</td></tr>
+                <tr><th>Chitti Group</th><td>{{ member.group.name }}</td></tr>
+                <tr><th>Monthly Amount</th><td>₹{{ member.group.monthly_amount }}</td></tr>
+                <tr><th>Total Collected</th><td>₹{{ total_collected }}</td></tr>
+                <tr><th>Pending Amount</th><td>₹{{ total_due }}</td></tr>
+                <tr><th>Status</th><td>{{ member.member_status }}</td></tr>
+                <tr><th>Months Paid</th><td>{{ months_paid }} / {{ duration_months }}</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ================= Month-wise Payment ================= -->
+    <h3>💰 Month-wise Payment Status</h3>
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Month</th>
+                    <th>Amount (₹)</th>
+                    <th>Paid Date</th>
+                    <th>Collector</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for month in month_wise %}
+                <tr>
+                    <td>Month {{ month.month }}</td>
+                    <td>{% if month.status == 'Paid' %}₹{{ month.amount }}{% else %}-{% endif %}</td>
+                    <td>{% if month.paid_date %}{{ month.paid_date|date:"d M, Y" }}{% else %}-{% endif %}</td>
+                    <td>{{ month.collector|default:"-" }}</td>
+                    <td class="{% if month.status == 'Paid' %}status-paid{% else %}status-pending{% endif %}">
+                        {{ month.status }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ================= Back Button ================= -->
+    <a href="{% url 'members:member_list' %}" class="btn btn-secondary mt-3">
+        ← Back to List
+    </a>
+</div>
+{% endblock %}

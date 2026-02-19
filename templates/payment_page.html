@@ -1,0 +1,11 @@
+<h2>Payment Page 💳</h2>
+<p>Pay ₹{{ data.plan_price }} to activate your Chitti Group subscription.</p>
+
+<form method="post">
+  {% csrf_token %}
+  <button type="submit" class="btn btn-success">Pay Now 💰</button>
+</form>
+
+{% for message in messages %}
+<p>{{ message }}</p>
+{% endfor %}

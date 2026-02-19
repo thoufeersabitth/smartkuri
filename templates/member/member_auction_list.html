@@ -1,0 +1,67 @@
+{% extends "member/member_base.html" %}
+{% load static %}
+
+{% block title %}Auctions{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'member/css/auctions.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+    <!-- PAGE HEADER -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="fw-bold">🏆 Auctions</h4>
+        <span class="text-muted">Total Auctions: {{ auctions|length }}</span>
+    </div>
+
+    <!-- AUCTIONS TABLE -->
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle mb-0 auctions-table">
+                <thead class="table-light text-center">
+                    <tr>
+                        <th>#</th>
+                        <th>Month</th>
+                        <th>Status</th>
+                        <th>Winner</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for auction in auctions %}
+                    <tr class="text-center">
+                        <td data-label="No">{{ forloop.counter }}</td>
+                        <td data-label="Month">{{ auction.auction_date|date:"M Y" }}</td>
+                        <td data-label="Status">
+                            {% if auction.is_closed %}
+                                <span class="badge bg-success">Done</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td data-label="Winner">
+                            {% if auction.winner %}
+                                {{ auction.winner.member.name }}
+                                {% if auction.winner.member.user == request.user %}
+                                    <span class="badge bg-primary text-white ms-1">You</span>
+                                {% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-5">
+                            No auctions found
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

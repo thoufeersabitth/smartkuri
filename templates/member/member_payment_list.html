@@ -1,0 +1,105 @@
+{% extends "member/member_base.html" %}
+{% load static %}
+
+{% block title %}Transaction History{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'member/css/member_pay.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid">
+
+    <!-- HEADER -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="fw-bold">📜 Transaction History</h4>
+        <h5 class="text-success fw-bold">
+            Total Paid: ₹ {{ total_paid }}
+        </h5>
+    </div>
+
+    <!-- TABLE -->
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle mb-0 transactions-table">
+                <thead class="table-light text-center">
+                    <tr>
+                        <th>#</th>
+                        <th>Group</th>
+                        <th>Amount</th>
+                        <th>Paid Date</th>
+                        <th>Method</th>
+                        <th>Status</th>
+                        <th>Collected By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in payments %}
+                    <tr class="text-center">
+                        <td data-label="No">{{ forloop.counter }}</td>
+                        <td data-label="Group">{{ payment.group.name }}</td>
+                        <td data-label="Amount" class="fw-bold text-success">₹ {{ payment.amount }}</td>
+                        <td data-label="Paid Date">{{ payment.paid_date|date:"M d, Y" }}</td>
+                        <td data-label="Method">{{ payment.payment_method|title }}</td>
+                        <td data-label="Status">
+                            {% if payment.payment_status == "success" %}
+                                <span class="badge bg-success">Success</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">
+                                    {{ payment.payment_status|title }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td data-label="Collected By">
+                            {% if payment.collected_by %}
+                                {% if payment.collected_by.role == "collector" %}
+                                    👤 {{ payment.collected_by.user.get_full_name|default:payment.collected_by.user.username }}
+                                {% else %}
+                                    👑 Admin
+                                {% endif %}
+                            {% else %}
+                                👑 Admin
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-5">
+                            No transactions found
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- PAGINATION -->
+    {% if payments.has_other_pages %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if payments.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ payments.previous_page_number }}">Previous</a>
+            </li>
+            {% endif %}
+
+            <li class="page-item active">
+                <span class="page-link">
+                    Page {{ payments.number }} of {{ payments.paginator.num_pages }}
+                </span>
+            </li>
+
+            {% if payments.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ payments.next_page_number }}">Next</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+</div>
+
+{% endblock %}

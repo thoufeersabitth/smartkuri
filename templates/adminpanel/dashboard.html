@@ -1,0 +1,108 @@
+{% extends 'adminpanel/base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Dashboard</h2>
+
+    <div class="row mt-3">
+        <!-- Total Groups -->
+        <div class="col-md-3">
+            <div class="card text-white bg-primary mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Total Groups</h5>
+                    <p class="card-text fs-3">{{ total_groups }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Group Admins -->
+        <div class="col-md-3">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Group Admins</h5>
+                    <p class="card-text fs-3">{{ total_group_admins }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Subscriptions -->
+        <div class="col-md-3">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Active Subscriptions</h5>
+                    <p class="card-text fs-3">{{ active_subscriptions }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Expired Subscriptions -->
+        <div class="col-md-3">
+            <div class="card text-white bg-danger mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Expired Subscriptions</h5>
+                    <p class="card-text fs-3">{{ expired_subscriptions }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Revenue -->
+    <div class="row mt-3">
+        <div class="col-md-3">
+            <div class="card text-white bg-warning mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Total Revenue</h5>
+                    <p class="card-text fs-3">₹{{ total_revenue }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <h4>Recent Group Admin Signups</h4>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Phone</th>
+                        <th>Group</th>
+                        <th>Created At</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for admin in recent_activities %}
+                    <tr>
+                        <td>{{ admin.user.username }}</td>
+                        <td>{{ admin.phone }}</td>
+
+                        <!-- ✅ Correct way -->
+                        <td>
+                            {% if admin.group %}
+                                {{ admin.group.name }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if admin.created_at %}
+                                {{ admin.created_at|date:"d M Y" }}
+                            {% else %}
+                                {{ admin.user.date_joined|date:"d M Y" }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">
+                            No recent activity
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

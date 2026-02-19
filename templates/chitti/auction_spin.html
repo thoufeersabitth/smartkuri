@@ -1,0 +1,146 @@
+{% extends 'chitti/group_admin_base.html' %}
+{% load static %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'group_admin/css/auction_spin.css' %}">
+<style>
+/* Error / info messages */
+.alert-error {
+    color: #ef4444;
+    font-weight: bold;
+    margin-top: 10px;
+}
+.alert-info {
+    color: #1f2937;
+    font-weight: bold;
+    margin-top: 10px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="spin-card">
+
+    <h2 class="spin-title">Spin the Wheel</h2>
+
+    <div class="wheel-wrapper">
+
+        <canvas id="wheelCanvas" width="320" height="320"></canvas>
+
+        <!-- center button -->
+        <button id="spinButton" class="spin-center">SPIN</button>
+
+        <!-- arrow -->
+        <div class="wheel-arrow"></div>
+
+    </div>
+
+    <p class="spin-help">Click Spin Button to Start!</p>
+
+    <div id="winnerResult"></div>
+
+</div>
+
+<script>
+// Build members array from Django context
+let members = [
+{% for m in members %}
+{id: {{ m.id }}, name: "{{ m.member.name }}"}{% if not forloop.last %},{% endif %}
+{% endfor %}
+];
+
+const canvas = document.getElementById("wheelCanvas");
+const ctx = canvas.getContext("2d");
+const size = canvas.width;
+const center = size/2;
+const radius = center-10;
+const spinButton = document.getElementById("spinButton");
+const winnerResult = document.getElementById("winnerResult");
+
+// Draw the wheel with current members
+function drawWheel() {
+    ctx.clearRect(0, 0, size, size);
+    if (!members.length) return;
+
+    const slice = 2 * Math.PI / members.length;
+
+    members.forEach((m, i) => {
+        ctx.beginPath();
+        ctx.moveTo(center, center);
+        ctx.arc(center, center, radius, i * slice, (i + 1) * slice);
+        ctx.fillStyle = ["#8e24aa","#ec4899","#4fb3d8","#1f473a","#4ade80","#a39a21"][i % 6];
+        ctx.fill();
+
+        ctx.save();
+        ctx.translate(center, center);
+        ctx.rotate(i * slice + slice/2);
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#fff";
+        ctx.font = "13px Arial";
+        ctx.fillText(m.name, radius / 2, 0);
+        ctx.restore();
+    });
+}
+
+drawWheel();
+
+// Spin button click
+spinButton.onclick = () => {
+
+    if (!members.length) {
+        winnerResult.innerHTML = `<span class="alert-error">No eligible members left to spin!</span>`;
+        return;
+    }
+
+    spinButton.disabled = true;
+
+    const spins = 6; // number of full rotations
+    const stop = Math.random() * 2 * Math.PI;
+    const total = spins * 2 * Math.PI + stop;
+    const start = performance.now();
+
+    function anim(t) {
+        let p = Math.min((t - start) / 4000, 1);
+        let a = total * (1 - Math.pow(1 - p, 3));
+
+        ctx.clearRect(0, 0, size, size);
+        ctx.save();
+        ctx.translate(center, center);
+        ctx.rotate(a);
+        ctx.translate(-center, -center);
+        drawWheel();
+        ctx.restore();
+
+        if (p < 1) requestAnimationFrame(anim);
+        else {
+            // Assign winner via AJAX
+            fetch("{% url 'chitti:assign_winner_ajax' auction.id %}", {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": "{{ csrf_token }}"
+                }
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    winnerResult.innerHTML = `Winner: <b>${d.winner_name}</b>`;
+                    members = members.filter(m => m.id !== d.winner_id);
+                    drawWheel();
+                } else {
+                    winnerResult.innerHTML = `<span class="alert-error">${d.error}</span>`;
+                }
+                spinButton.disabled = false;
+            })
+            .catch(() => {
+                winnerResult.innerHTML = `<span class="alert-error">Something went wrong!</span>`;
+                spinButton.disabled = false;
+            });
+        }
+    }
+
+    requestAnimationFrame(anim);
+}
+</script>
+
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends "collector/collector_base.html" %}
+{% load static %}
+
+{% block title %}Payments{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'collector/css/pending.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="payment-status-buttons mb-3">
+    <a href="?status=pending"
+       class="btn {% if current_status == 'pending' %}btn-danger{% else %}btn-outline-danger{% endif %}">
+        Pending
+    </a>
+
+    <a href="?status=success"
+       class="btn {% if current_status == 'success' %}btn-success{% else %}btn-outline-success{% endif %}">
+        Success
+    </a>
+</div>
+
+<h2 class="mb-3">
+    {% if current_status == "success" %}
+        🟢 Success Payments – {{ now|date:"F Y" }}
+    {% else %}
+        🔴 Pending Payments – {{ now|date:"F Y" }}
+    {% endif %}
+</h2>
+
+<div class="table-container">
+    <table class="data-table">
+        <thead class="{% if current_status == 'success' %}thead-success{% else %}thead-pending{% endif %}">
+            <tr>
+                <th>#</th>
+                <th>Member Name</th>
+                <th>Group</th>
+                <th>Month</th>
+                <th>Paid Amount</th>
+                <th>Due Amount</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if member_list %}
+                {% for row in member_list %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ row.member.name }}</td>
+                    <td>{{ row.group }}</td>
+                    <td>{{ row.month }}</td>
+                    <td>₹{{ row.paid }}</td>
+                    <td class="due-amount">
+                        {% if current_status == "success" %} ₹0 {% else %} ₹{{ row.due }} {% endif %}
+                    </td>
+                    <td class="status {% if current_status == 'success' %}status-success{% else %}status-pending{% endif %}">
+                        {% if current_status == "success" %} Success {% else %} Pending {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr class="empty-state">
+                    <td colspan="7">No payments found.</td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

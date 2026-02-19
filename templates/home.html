@@ -1,0 +1,221 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>SmartKuri - Modern Chitty Management</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="{% static 'home/css/style.css' %}">
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header" id="header">
+    <div class="container">
+        <div class="logo">
+            <!-- Changed: Traditional wallet / purse feel instead of piggy bank -->
+            <i class="fas fa-wallet"></i>
+            SmartKuri
+        </div>
+
+        <div class="mobile-toggle" id="mobileToggle">
+            <i class="fas fa-bars"></i>
+        </div>
+
+        <ul class="nav-menu" id="navMenu">
+            <li><a href="{% url 'core:home' %}">Home</a></li>
+            <li><a href="#">Chittis</a></li>
+            <li><a href="#">Members</a></li>
+            <li><a href="{% url 'accounts:login' %}">Login</a></li>
+            <li><a href="{% url 'accounts:group_signup' %}" class="btn btn-primary">Sign Up</a></li>
+        </ul>
+    </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+    <div class="container">
+        <div class="hero-content">
+            <h1>Modern Chitty Management <span>Made Simple</span></h1>
+            <p>SmartKuri helps you run your kuri/chitty groups digitally — secure payments, smart reminders, beautiful reports, and zero confusion.</p>
+            <div class="hero-btns">
+                <a href="{% url 'accounts:login' %}" class="btn btn-primary">Get Started Now</a>
+                <a href="#" class="btn btn-secondary">See How It Works</a>
+            </div>
+        </div>
+
+        <div class="hero-image">
+            <div class="placeholder">
+                <!-- Changed: Hand holding money → traditional chitty prize / savings receive feel -->
+                <i class="fas fa-hand-holding-dollar"></i>
+            </div>
+            <!-- Replace with real image when ready -->
+            <!-- <img src="{% static 'images/dashboard-preview.png' %}" alt="SmartKuri Dashboard"> -->
+        </div>
+    </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features">
+    <div class="container">
+        <div class="section-title">
+            <h2>Why SmartKuri?</h2>
+            <p>Everything you need to manage your chitty confidently and professionally</p>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-shield-halved"></i></div>
+                <h3>Bank Grade Security</h3>
+                <p>End-to-end encryption and secure data handling trusted by thousands.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-bell-concierge"></i></div>
+                <h3>Smart Reminders</h3>
+                <p>Automatic SMS, WhatsApp & email reminders — never miss a payment.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-chart-simple"></i></div>
+                <h3>Clear Analytics</h3>
+                <p>Beautiful charts and reports — know exactly how your chitty is doing.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-users-gear"></i></div>
+                <h3>Easy Member Management</h3>
+                <p>Add/remove members, track contributions, manage auctions/draws easily.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-mobile-screen"></i></div>
+                <h3>Fully Mobile Ready</h3>
+                <p>Works perfectly on phone, tablet & computer — anytime, anywhere.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-headset"></i></div>
+                <h3>Fast Support</h3>
+                <p>Our team is here to help you 24×7 via chat, call & email.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how-it-works">
+    <div class="container">
+        <div class="section-title">
+            <h2>How It Works</h2>
+            <p>Super simple 4-step process to run your chitty digitally</p>
+        </div>
+
+        <div class="steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <h3>Create Group</h3>
+                <p>Set contribution amount, total months, start date & invite members.</p>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <h3>Collect Payments</h3>
+                <p>Members pay online or you record offline — everything updates live.</p>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <h3>Run Auction / Draw</h3>
+                <p>Conduct monthly auction or lucky draw — winner gets amount instantly.</p>
+            </div>
+            <div class="step">
+                <div class="step-number">4</div>
+                <h3>Track & Grow</h3>
+                <p>Get full reports, reminders & insights — manage multiple groups easily.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA -->
+<section class="cta">
+    <div class="container">
+        <h2>Ready to Modernize Your Chitty?</h2>
+        <p>Join thousands of collectors & members who are already using SmartKuri to save time and reduce stress.</p>
+        <a href="{% url 'accounts:group_signup' %}" class="btn">Start Your Free Trial Today</a>
+    </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+    <div class="container">
+        <div class="footer-content">
+            <div class="footer-column">
+                <h3>SmartKuri</h3>
+                <p>Modern chitty & kuri management platform built for Kerala families and groups.</p>
+                <div class="social-links">
+                    <a href="#"><i class="fab fa-whatsapp"></i></a>
+                    <a href="#"><i class="fab fa-facebook-f"></i></a>
+                    <a href="#"><i class="fab fa-instagram"></i></a>
+                </div>
+            </div>
+
+            <div class="footer-column">
+                <h3>Quick Links</h3>
+                <ul class="footer-links">
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Features</a></li>
+                    <li><a href="#">How It Works</a></li>
+                    <li><a href="#">Pricing</a></li>
+                    <li><a href="#">Contact Us</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-column">
+                <h3>Support</h3>
+                <ul class="footer-links">
+                    <li><a href="#">Help Center</a></li>
+                    <li><a href="#">FAQs</a></li>
+                    <li><a href="#">Terms of Service</a></li>
+                    <li><a href="#">Privacy Policy</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+
+    </div>
+</footer>
+
+<script>
+    // Mobile menu toggle
+    const mobileToggle = document.getElementById('mobileToggle');
+    const navMenu = document.getElementById('navMenu');
+
+    if (mobileToggle && navMenu) {
+        mobileToggle.addEventListener('click', () => {
+            navMenu.classList.toggle('active');
+            mobileToggle.innerHTML = navMenu.classList.contains('active')
+                ? '<i class="fas fa-times"></i>'
+                : '<i class="fas fa-bars"></i>';
+        });
+
+        // Close menu when link is clicked
+        document.querySelectorAll('.nav-menu a').forEach(link => {
+            link.addEventListener('click', () => {
+                navMenu.classList.remove('active');
+                mobileToggle.innerHTML = '<i class="fas fa-bars"></i>';
+            });
+        });
+    }
+
+    // Header scroll effect
+    window.addEventListener('scroll', () => {
+        const header = document.getElementById('header');
+        if (header) {
+            header.classList.toggle('scrolled', window.scrollY > 50);
+        }
+    });
+</script>
+
+</body>
+</html>

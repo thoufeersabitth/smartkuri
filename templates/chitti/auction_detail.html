@@ -1,0 +1,45 @@
+{% extends "chitti/group_admin_base.html" %}
+{% load static %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'group_admin/css/auction_detail.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="auction-detail-card">
+
+    <h2 class="page-title">Auction Details</h2>
+
+    <div class="detail-row">
+        <span>Group</span>
+        <strong>{{ auction.group.name }}</strong>
+    </div>
+
+    <div class="detail-row">
+        <span>Date</span>
+        <strong>{{ auction.auction_date }}</strong>
+    </div>
+
+    <div class="detail-row">
+        <span>Winner</span>
+        <strong>
+            {% if auction.winner %}
+                {{ auction.winner.member.name }}
+            {% else %}
+                Not yet spun
+            {% endif %}
+        </strong>
+    </div>
+
+    {% if not auction.is_closed %}
+        <a href="{% url 'chitti:auction_spin' auction.id %}" class="spin-btn">
+            🎯 Spin Auction
+        </a>
+    {% else %}
+        <span class="closed-badge">Auction Closed</span>
+    {% endif %}
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,221 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartKuri - Group Signup</title>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="{% static 'accounts/css/group_signup.css' %}">
+</head>
+<body>
+
+<!-- ================= DJANGO MESSAGES ================= -->
+{% if messages %}
+<div class="supra-messages-container">
+  {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show supra-alert"
+         role="alert">
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="supra-container">
+
+  <!-- Back to Login -->
+  <div class="back-to-login">
+    <a href="{% url 'accounts:login' %}" class="back-link">
+      <i class="bi bi-arrow-left"></i> Back to Login
+    </a>
+  </div>
+
+  <!-- ================= HEADER ================= -->
+  <header class="supra-header">
+    <div class="supra-header-badge">
+      <i class="bi bi-stars"></i>
+      <span> GROUP PLATFORM</span>
+    </div>
+
+    <div class="supra-title-wrapper">
+      <div class="supra-title-icon left">
+        <i class="bi bi-lightning-charge-fill"></i>
+      </div>
+
+      <h1 class="supra-main-title">
+        <span class="supra-title-gradient">Smart</span>
+        <span class="supra-title-outline">Kuri</span>
+      </h1>
+
+      <div class="supra-title-icon right">
+        <i class="bi bi-rocket-takeoff-fill"></i>
+      </div>
+    </div>
+
+    <p class="supra-tagline">
+      Where Groups Learn, Collaborate & Succeed Together
+    </p>
+  </header>
+
+  <!-- ================= PLANS ================= -->
+  <section class="supra-plans-section">
+    <div class="supra-section-header">
+      <h2 class="supra-section-title">
+        <i class="bi bi-gem"></i>
+        Choose Your Group Plan
+        <i class="bi bi-gem"></i>
+      </h2>
+      <p class="supra-section-subtitle">
+        Select the perfect plan that fits your team's needs
+      </p>
+    </div>
+
+    <div class="supra-plans-grid">
+      {% for plan in plans %}
+      <div class="supra-plan-card" data-plan-id="{{ plan.id }}">
+        <div class="supra-plan-badge">POPULAR</div>
+
+        <div class="supra-plan-header">
+          <h3 class="supra-plan-name">{{ plan.name }}</h3>
+          <div class="supra-plan-icon">
+            <i class="bi bi-people-fill"></i>
+          </div>
+        </div>
+
+        <div class="supra-plan-pricing">
+          <div class="supra-price-main">
+            <span class="supra-currency">₹</span>
+            <span class="supra-price">{{ plan.price|floatformat:0 }}</span>
+          </div>
+          <div class="supra-price-total">
+            <strong>{{ plan.duration_days }} Days Access</strong>
+          </div>
+        </div>
+
+        <div class="supra-plan-features">
+          <div class="supra-feature"><i class="bi bi-check-circle-fill"></i> {{ plan.duration_days }} Days Access</div>
+          <div class="supra-feature"><i class="bi bi-check-circle-fill"></i> Up to {{ plan.max_groups }} Groups</div>
+          <div class="supra-feature"><i class="bi bi-check-circle-fill"></i> {{ plan.max_members }} Members Each</div>
+          <div class="supra-feature"><i class="bi bi-check-circle-fill"></i> Priority Support</div>
+          <div class="supra-feature"><i class="bi bi-check-circle-fill"></i> Advanced Analytics</div>
+        </div>
+
+        <button type="button" class="supra-plan-select-btn">
+          <i class="bi bi-cart-plus"></i> Select Plan
+        </button>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- ================= FORM ================= -->
+  <section class="supra-form-section">
+    <div class="supra-form-container">
+      <div class="supra-form-header">
+        <h2>
+          <i class="bi bi-plus-square-fill"></i> Create Your Group
+        </h2>
+        <p>Fill in the details below to get started</p>
+      </div>
+
+      <form method="post" class="supra-form" novalidate>
+        {% csrf_token %}
+        <input type="hidden" id="supraPlanId" name="plan">
+
+        {% if form.errors %}
+        <div class="alert alert-danger">
+          Please correct the errors below.
+        </div>
+        {% endif %}
+
+        <div class="supra-form-row">
+          <div class="supra-form-group">
+            <label>Group Name</label>
+            {{ form.group_name }}
+          </div>
+
+          <div class="supra-form-group">
+            <label>Phone Number</label>
+            {{ form.phone }}
+          </div>
+        </div>
+
+        <div class="supra-form-group">
+          <label>Email</label>
+          {{ form.email }}
+        </div>
+
+        <div class="supra-form-row">
+          <div class="supra-form-group">
+            <label>Password</label>
+            {{ form.password1 }}
+          </div>
+
+          <div class="supra-form-group">
+            <label>Confirm Password</label>
+            {{ form.password2 }}
+          </div>
+        </div>
+
+        <div class="supra-form-group">
+          <label>Description</label>
+          {{ form.description }}
+        </div>
+
+        <div class="supra-form-actions">
+          <button type="submit" class="supra-submit-btn">
+            <i class="bi bi-credit-card-fill"></i>
+            Proceed to Payment
+          </button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+</div>
+
+<!-- ================= JS ================= -->
+<script>
+  const planCards = document.querySelectorAll('.supra-plan-card');
+  const planInput = document.getElementById('supraPlanId');
+
+  planCards.forEach(card => {
+    card.addEventListener('click', function () {
+      planCards.forEach(c => {
+        c.classList.remove('selected');
+        c.querySelector('.supra-plan-select-btn').innerHTML =
+          '<i class="bi bi-cart-plus"></i> Select Plan';
+      });
+
+      this.classList.add('selected');
+      planInput.value = this.dataset.planId;
+
+      this.querySelector('.supra-plan-select-btn').innerHTML =
+        '<i class="bi bi-check-circle-fill"></i> Selected';
+    });
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (planCards.length && !planInput.value) {
+      planCards[0].click();
+    }
+  });
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>

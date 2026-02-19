@@ -1,0 +1,180 @@
+/* ===================== VARIABLES ===================== */
+:root {
+    --bg: #f9fafb;
+    --card-bg: #ffffff;
+    --text-main: #1f2937;
+    --text-secondary: #6b7280;
+
+    --primary: #4f46e5;      /* Purple */
+    --secondary: #3b82f6;    /* Blue */
+    --accent: #10b981;       /* Green */
+
+    --success: #16a34a;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+
+    --radius: 12px;
+    --shadow: 0 10px 25px rgba(0,0,0,0.08);
+}
+
+/* ===================== LAYOUT & HEADINGS ===================== */
+body {
+    background-color: var(--bg);
+    color: var(--text-main);
+    font-family: 'Inter', sans-serif;
+}
+
+h2 {
+    font-size: 2.2rem;
+    font-weight: 800;
+    text-align: center;
+    background: linear-gradient(120deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 1.5rem;
+    animation: fadeIn 0.8s ease forwards;
+}
+
+/* ===================== FORM CONTAINER ===================== */
+.form-container {
+    background: var(--card-bg);
+    padding: 2.5rem;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    max-width: 650px;
+    margin: 0 auto;
+    border-top: 5px solid var(--primary);
+    position: relative;
+    animation: slideUp 0.6s ease-out;
+}
+
+/* ===================== ALERTS & INFO ===================== */
+.alert {
+    padding: 1rem 1.25rem;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    border: none;
+    border-left: 5px solid;
+    animation: fadeIn 0.5s ease;
+}
+
+.alert-info { background: #e0f2fe; color: #0369a1; border-left-color: var(--secondary); }
+.alert-danger { background: #fee2e2; color: #b91c1c; border-left-color: var(--danger); }
+.alert-warning { background: #fef3c7; color: #b45309; border-left-color: var(--warning); }
+.alert-success { background: #dcfce7; color: #15803d; border-left-color: var(--success); }
+
+/* ===================== FORM INPUTS ===================== */
+.form-group label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    background-color: #fcfcfc;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--primary);
+    background-color: #fff;
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+}
+
+.form-control:disabled {
+    background-color: #f3f4f6;
+    cursor: not-allowed;
+    border-color: #e5e7eb;
+}
+
+/* ===================== BUTTONS ===================== */
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #f3f4f6;
+}
+
+.btn {
+    padding: 0.8rem 1.5rem;
+    border-radius: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
+    text-decoration: none;
+    font-size: 0.95rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-success {
+    background: var(--success);
+    color: white;
+    flex: 2;
+}
+
+.btn-success:hover:not(:disabled) {
+    background: #15803d;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(22, 163, 74, 0.3);
+}
+
+.btn-secondary {
+    background: #f3f4f6;
+    color: var(--text-secondary);
+    flex: 1;
+}
+
+.btn-secondary:hover {
+    background: #e5e7eb;
+    color: var(--text-main);
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: white;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ===================== ANIMATIONS ===================== */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===================== RESPONSIVE ===================== */
+@media (max-width: 600px) {
+    .form-container {
+        padding: 1.5rem;
+        margin: 1rem;
+    }
+    .form-actions {
+        flex-direction: column;
+    }
+    .btn {
+        width: 100%;
+    }
+}

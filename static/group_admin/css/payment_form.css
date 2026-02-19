@@ -1,0 +1,224 @@
+/* ===================== VARIABLES (Global Theme) ===================== */
+:root {
+    --bg: #f3f4f6;
+    --card-bg: #ffffff;
+    --text-main: #1f2937;
+    --text-secondary: #6b7280;
+
+    --primary: #4f46e5;
+    --secondary: #3b82f6;
+    --accent: #10b981;
+
+    --success: #16a34a;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+
+    --radius: 12px;
+    --spacing: 1.25rem;
+    --shadow: 0 10px 25px rgba(0,0,0,0.05);
+}
+
+/* ===================== BASE ===================== */
+body {
+    background: var(--bg);
+    font-family: 'Inter', system-ui, sans-serif;
+    color: var(--text-main);
+}
+
+.container {
+    max-width: 1400px;
+    margin: auto;
+    padding: var(--spacing);
+}
+
+/* ===================== FORM CARD ===================== */
+.form-container {
+    max-width: 650px;
+    margin: 2rem auto;
+    background: var(--card-bg);
+    padding: 2rem;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(0,0,0,0.03);
+    animation: fadeIn 0.4s ease;
+}
+
+/* Top Accent Line */
+.form-container::before {
+    content: '';
+    display: block;
+    height: 4px;
+    width: 100%;
+    border-radius: var(--radius) var(--radius) 0 0;
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
+    margin-bottom: 1.5rem;
+}
+
+/* ===================== TITLE ===================== */
+h2 {
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin-bottom: 2rem;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-align: center;
+}
+
+/* ===================== LABELS ===================== */
+.form-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ===================== INPUT FIELDS ===================== */
+input,
+select,
+textarea,
+.form-control,
+.form-select {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    background: #fafafa;
+    transition: 0.2s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+/* ===================== ERROR ===================== */
+.text-danger {
+    font-size: 0.75rem;
+    color: var(--danger);
+    margin-top: 4px;
+}
+
+/* ===================== BUTTONS ===================== */
+.btn {
+    padding: 0.7rem 1.2rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: 0.2s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #4338ca;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(79, 70, 229, 0.25);
+}
+
+.btn-secondary {
+    background: #f3f4f6;
+    color: var(--text-secondary);
+}
+
+.btn-secondary:hover {
+    background: #e5e7eb;
+    color: var(--text-main);
+}
+
+/* Button Layout */
+.d-flex.gap-3 {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+/* ===================== ALERTS ===================== */
+.alert {
+    padding: 0.9rem 1rem;
+    border-radius: var(--radius);
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+    border-left: 4px solid;
+}
+
+.alert-success {
+    background: #dcfce7;
+    color: var(--success);
+    border-left-color: var(--success);
+}
+
+.alert-danger {
+    background: #fee2e2;
+    color: var(--danger);
+    border-left-color: var(--danger);
+}
+
+.alert-info {
+    background: #e0f2fe;
+    color: var(--secondary);
+    border-left-color: var(--secondary);
+}
+
+/* ===================== ANIMATION ===================== */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===================== RESPONSIVE ===================== */
+@media (max-width: 768px) {
+
+    .form-container {
+        max-width: 95%;
+        padding: 1.5rem;
+    }
+
+    h2 {
+        font-size: 1.5rem;
+    }
+
+    .row {
+        flex-direction: column;
+    }
+
+    .col-md-6 {
+        width: 100%;
+    }
+
+    .d-flex.gap-3 {
+        flex-direction: column;
+    }
+
+    .btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+
+    .form-container {
+        padding: 1.2rem;
+    }
+
+    h2 {
+        font-size: 1.3rem;
+    }
+
+    input,
+    select {
+        font-size: 0.9rem;
+    }
+}

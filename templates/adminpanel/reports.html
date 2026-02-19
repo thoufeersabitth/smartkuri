@@ -1,0 +1,48 @@
+{% extends 'adminpanel/base.html' %}
+
+{% block content %}
+<h2>Reports</h2>
+
+<h4 class="mt-3">Groups</h4>
+<table class="table table-striped">
+    <thead class="table-dark">
+        <tr>
+            <th>Group Name</th>
+            <th>Admin</th>
+            <th>Members Count</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for g in groups %}
+        <tr>
+            <td>{{ g.name }}</td>
+            <td>{{ g.admin.username }}</td>
+            <td>{{ g.members.count }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h4 class="mt-4">Members</h4>
+<table class="table table-striped">
+    <thead class="table-dark">
+        <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Group</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for m in members %}
+        <tr>
+            <td>{{ m.name }}</td>
+            <td>{{ m.email }}</td>
+            <td>{{ m.phone }}</td>
+            <td>{{ m.group.name }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
+ 

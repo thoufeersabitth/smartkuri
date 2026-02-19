@@ -1,0 +1,60 @@
+.spin-card{
+ max-width:420px;
+ margin:40px auto;
+ background:white;
+ padding:25px;
+ border-radius:20px;
+ text-align:center;
+ box-shadow:0 15px 40px rgba(0,0,0,.15);
+}
+
+.spin-title{
+ font-size:22px;
+ font-weight:700;
+ margin-bottom:15px;
+}
+
+.wheel-wrapper{
+ position:relative;
+ width:320px;
+ height:320px;
+ margin:0 auto;
+}
+
+.spin-center{
+ position:absolute;
+ top:50%;
+ left:50%;
+ transform:translate(-50%,-50%);
+ width:70px;
+ height:70px;
+ border-radius:50%;
+ border:none;
+ background:#c7d2fe;
+ font-weight:700;
+ cursor:pointer;
+ z-index:5;
+}
+
+.wheel-arrow{
+ position:absolute;
+ right:-18px;
+ top:50%;
+ transform:translateY(-50%);
+ width:0;
+ height:0;
+ border-top:15px solid transparent;
+ border-bottom:15px solid transparent;
+ border-left:20px solid #3b82f6;
+}
+
+.spin-help{
+ margin-top:10px;
+ color:#555;
+}
+
+#winnerResult{
+ margin-top:15px;
+ font-size:18px;
+ font-weight:600;
+}

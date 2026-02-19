@@ -1,0 +1,85 @@
+{% extends "chitti/group_admin_base.html" %}
+{% load static %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'group_admin/css/auction_list.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+
+    <div class="header-row">
+        <h2 class="section-title">Auction Details: {{ group.name }} ({{ group.duration_months }} Months)</h2>
+        <a href="{% url 'chitti:add_auction' %}" class="btn-add-new">+ Add Auction</a>
+    </div>
+
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Month</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Winner</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in months %}
+                    <tr>
+                        <td>Month {{ m.month_no }}</td>
+
+                        <!-- Date -->
+                        <td>
+                            {% if m.auction %}
+                                {{ m.auction.auction_date|date:"d M Y" }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+
+                        <!-- Status -->
+                        <td>
+                            {% if m.auction %}
+                                {% if m.auction.is_closed %}
+                                    <span class="month-badge done">Done</span>
+                                {% else %}
+                                    <span class="month-badge current">Current</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="month-badge pending">Pending</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Winner -->
+                        <td>
+                            {% if m.auction and m.auction.winner %}
+                                {{ m.auction.winner.member.name }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+
+                        <!-- Action -->
+                        <td>
+                            {% if m.auction %}
+                                <div class="action-buttons">
+                                    <a class="action-btn view-btn" href="{% url 'chitti:auction_detail' m.auction.id %}">View</a>
+                                    {% if not m.auction.is_closed %}
+                                        <a class="action-btn edit-btn" href="{% url 'chitti:auction_spin' m.auction.id %}">Spin</a>
+                                    {% else %}
+                                        <span class="status-badge">Closed</span>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,113 @@
+/* ===================== AUCTION DETAIL CARD ===================== */
+.auction-detail-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 2.5rem;
+    max-width: 600px;
+    margin: 3rem auto;
+    box-shadow: var(--shadow);
+    position: relative;
+    overflow: hidden;
+    animation: fadeIn 0.8s ease forwards;
+}
+
+/* The "Full Vanam" Animated Top Border */
+.auction-detail-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 6px;
+    background: linear-gradient(90deg, var(--primary), var(--secondary), var(--accent));
+    background-size: 300% 100%;
+    animation: gradientMove 6s linear infinite;
+}
+
+.page-title {
+    font-size: 2rem;
+    font-weight: 800;
+    text-align: center;
+    margin-bottom: 2rem;
+    background: linear-gradient(120deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* ===================== DETAIL ROWS ===================== */
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.detail-row:hover {
+    background: rgba(79, 70, 229, 0.03);
+    padding-left: 10px;
+    padding-right: 10px;
+    border-radius: 8px;
+}
+
+.detail-row span {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.detail-row strong {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+/* ===================== SPIN BUTTON (THE ACTION) ===================== */
+.spin-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    margin-top: 2.5rem;
+    padding: 1.2rem;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: #fff;
+    text-decoration: none;
+    border-radius: var(--radius);
+    font-weight: 800;
+    font-size: 1.2rem;
+    box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.spin-btn:hover {
+    transform: scale(1.03);
+    box-shadow: 0 15px 30px rgba(79, 70, 229, 0.4);
+    filter: brightness(1.1);
+}
+
+.spin-btn:active {
+    transform: scale(0.98);
+}
+
+/* ===================== CLOSED STATE ===================== */
+.closed-badge {
+    display: block;
+    text-align: center;
+    margin-top: 2.5rem;
+    padding: 1.2rem;
+    background: #f3f4f6;
+    color: var(--text-secondary);
+    border-radius: var(--radius);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border: 2px dashed #d1d5db;
+}
+
+/* Reusing your animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}

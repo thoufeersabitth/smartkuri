@@ -1,0 +1,53 @@
+{% extends "admins/admin_base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block header %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="cards">
+    <div class="card">
+        <h3>Total Members</h3>
+        <p>{{ total_members }}</p>
+    </div>
+    <div class="card">
+        <h3>Total Groups</h3>
+        <p>{{ total_groups }}</p>
+    </div>
+    <div class="card">
+        <h3>Total Payments</h3>
+        <p>{{ total_payments }}</p>
+    </div>
+    <div class="card">
+        <h3>Total Amount Collected</h3>
+        <p>₹ {{ total_amount_collected }}</p>
+    </div>
+</div>
+
+<div>
+    <div class="section-title">Recent Payments</div>
+    {% if recent_payments %}
+    <table>
+        <thead>
+            <tr>
+                <th>Member</th>
+                <th>Amount</th>
+                <th>Group</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for p in recent_payments %}
+            <tr>
+                <td>{{ p.member.name }}</td>
+                <td>₹ {{ p.amount }}</td>
+                <td>{{ p.group.name }}</td>
+                <td>{{ p.paid_date|date:"d M Y" }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="no-data">No recent payments found.</div>
+    {% endif %}
+</div>
+{% endblock %}

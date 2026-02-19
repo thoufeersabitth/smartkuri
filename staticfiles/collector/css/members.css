@@ -1,0 +1,146 @@
+/* ===================== GLOBAL ===================== */
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f9fafb;
+    color: #111827;
+}
+
+h4 {
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+/* ===================== SEARCH FORM ===================== */
+.search-form {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+
+.search-form input[type="text"] {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid #d1d5db;
+    font-size: 0.95rem;
+    transition: all 0.25s ease;
+}
+
+.search-form input[type="text"]:focus {
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 2px rgba(79,70,229,0.2);
+}
+
+.btn-search {
+    background: #4f46e5;
+    color: #fff;
+    padding: 0.55rem 1.25rem;
+    border-radius: 0.5rem;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.btn-search:hover {
+    background: #3b82f6;
+    transform: scale(1.05);
+}
+
+/* ===================== TABLE CONTAINER ===================== */
+.table-container {
+    background: #fff;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.05);
+    overflow-x: auto;
+}
+
+/* ===================== TABLE STYLES ===================== */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 600px;
+}
+
+.data-table th,
+.data-table td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.data-table th {
+    background: #4f46e5;
+    color: #fff;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+}
+
+.data-table tbody tr:nth-child(even) {
+    background: rgba(59,130,246,0.05);
+}
+
+.data-table tbody tr:hover {
+    background: rgba(16,185,129,0.08);
+    transform: translateX(1px);
+    transition: 0.25s;
+}
+
+/* ===================== BUTTON IN TABLE ===================== */
+.btn-primary {
+    background: #4f46e5;
+    color: #fff;
+    padding: 0.4rem 0.8rem;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    display: inline-block;
+    transition: all 0.25s ease;
+}
+
+.btn-primary:hover {
+    background: #3b82f6;
+    transform: scale(1.05);
+}
+
+/* ===================== EMPTY STATE ===================== */
+.empty-state {
+    text-align: center;
+    padding: 1.5rem;
+    color: #6b7280;
+}
+
+.empty-state h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.empty-state p {
+    font-size: 0.95rem;
+}
+
+/* ===================== RESPONSIVE ===================== */
+@media (max-width: 768px) {
+    .search-form {
+        flex-direction: column;
+    }
+
+    .btn-search {
+        width: 100%;
+    }
+
+    .data-table {
+        min-width: unset;
+        font-size: 0.85rem;
+    }
+
+    .data-table th,
+    .data-table td {
+        padding: 0.5rem 0.75rem;
+    }
+}

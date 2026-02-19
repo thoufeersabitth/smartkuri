@@ -1,0 +1,118 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SmartKuri Collector | {% block title %}{% endblock %}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<link rel="stylesheet" href="{% static 'collector/css/collector.css' %}">
+
+<!-- Extra CSS block for page-specific styles -->
+{% block extra_css %}{% endblock %}
+
+</head>
+
+<body>
+
+<!-- MOBILE TOP BAR -->
+<nav class="navbar navbar-dark bg-dark d-md-none">
+    <div class="container-fluid">
+        <span class="navbar-brand fw-bold">SmartKuri</span>
+
+        <button class="btn btn-outline-light" type="button"
+                data-bs-toggle="offcanvas" data-bs-target="#sidebar">
+            <i class="fas fa-bars"></i>
+        </button>
+    </div>
+</nav>
+
+<!-- SIDEBAR -->
+<div class="offcanvas-md offcanvas-start text-white" id="sidebar">
+
+    <div class="offcanvas-header d-md-none">
+        <h5 class="fw-bold">SmartKuri</h5>
+        <button type="button" class="btn-close btn-close-white"
+                data-bs-dismiss="offcanvas"></button>
+    </div>
+
+    <div class="pt-3">
+
+        <ul class="nav flex-column">
+
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'accounts:collector_dashboard' %}">
+                    <i class="fas fa-gauge"></i> Dashboard
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'collector:members' %}">
+                    <i class="fas fa-users"></i> Members
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'collector:pending' %}">
+                    <i class="fas fa-exclamation-circle"></i> Pending
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'collector:add' %}">
+                    <i class="fas fa-plus-circle"></i> Add Collection
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'collector:today' %}">
+                    <i class="fas fa-calendar-day"></i> Today
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'collector:reports' %}">
+                    <i class="fas fa-chart-line"></i> Reports
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'collector:profile' %}">
+                    <i class="fas fa-user"></i> Profile
+                </a>
+            </li>
+
+            <li class="nav-item mt-3 px-3">
+                <form method="post" action="{% url 'accounts:logout' %}">
+                    {% csrf_token %}
+                    <button class="btn btn-danger w-100">Logout</button>
+                </form>
+            </li>
+
+        </ul>
+
+    </div>
+</div>
+
+<!-- MAIN -->
+<main>
+
+<h4>{% block page_title %}{% endblock %}</h4>
+
+{% if messages %}
+{% for message in messages %}
+<div class="alert alert-{{ message.tags }}">{{ message }}</div>
+{% endfor %}
+{% endif %}
+
+{% block content %}{% endblock %}
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>

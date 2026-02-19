@@ -1,0 +1,106 @@
+/* ====== Body & Container ====== */
+body {
+    font-family: 'Poppins', sans-serif;
+    background: #f0f4f8;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    max-width: 600px;
+    margin: 40px auto;
+    padding: 30px;
+    background: linear-gradient(145deg, #ffffff, #f9fafc);
+    border-radius: 20px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.1);
+    animation: fadeInDown 1s ease;
+}
+
+/* ====== Heading ====== */
+h4 {
+    text-align: center;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #2d3436;
+    margin-bottom: 25px;
+    position: relative;
+}
+
+/* ====== List Group ====== */
+.list-group {
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+}
+
+.list-group-item {
+    font-size: 1rem;
+    padding: 15px 20px;
+    border: none;
+    border-bottom: 1px solid #eee;
+    background: #fff;
+    transition: background 0.3s ease;
+}
+
+.list-group-item:last-child {
+    border-bottom: none;
+}
+
+.list-group-item:hover {
+    background: #fffbf8;
+}
+
+/* Strong label style */
+.list-group-item strong {
+    color: #ff4d4d;
+}
+
+/* ====== Print Button ====== */
+.btn-primary {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-radius: 12px;
+    border: none;
+    background: linear-gradient(90deg, #ff4d4d, #ff6b6b);
+    color: #fff;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: all 0.3s ease;
+    box-shadow: 0 6px 20px rgba(255,77,77,0.3);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(255,77,77,0.5);
+}
+
+/* ====== Animations ====== */
+@keyframes fadeInDown {
+    0% {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ====== Responsive ====== */
+@media (max-width: 768px) {
+    .container {
+        margin: 20px;
+        padding: 20px;
+    }
+
+    h4 {
+        font-size: 1.6rem;
+    }
+
+    .btn-primary {
+        font-size: 1rem;
+    }
+}

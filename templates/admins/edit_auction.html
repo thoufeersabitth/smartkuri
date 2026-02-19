@@ -1,0 +1,14 @@
+{% extends 'admins/admin_base.html' %}
+
+{% block title %}Edit Auction{% endblock %}
+
+{% block content %}
+<h1>Edit Auction</h1>
+
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Save Changes</button>
+    <a href="{% url 'chitti:auction_list' %}" class="btn btn-secondary">Cancel</a>
+</form>
+{% endblock %}

@@ -1,0 +1,262 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify OTP - SmartKuri</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{% static 'accounts/css/verify_group_otp.css' %}">
+    
+    <!-- Favicon -->
+    <link rel="shortcut icon" href="{% static 'accounts/images/favicon.ico' %}" type="image/x-icon">
+</head>
+<body>
+
+<div class="container-fluid vh-100 d-flex align-items-center justify-content-center">
+    <div class="otp-card">
+        <!-- Header with Logo -->
+        <div class="text-center mb-4">
+            <div class="logo-container mb-3">
+                <i class="bi bi-shield-check logo-icon"></i>
+                <h3 class="logo-text">SmartKuri</h3>
+            </div>
+            <h2 class="fw-bold">Verify OTP</h2>
+            <p class="text-muted">for group "<span class="group-name-highlight">{{ data.group_name }}</span>"</p>
+        </div>
+
+        <!-- Messages -->
+        {% if messages %}
+        <div class="supra-messages mb-3">
+            {% for message in messages %}
+            <div class="supra-message alert alert-{{ message.tags }} d-flex align-items-center" role="alert">
+                {% if message.tags == 'success' %}
+                    <i class="bi bi-check-circle-fill me-2"></i>
+                {% elif message.tags == 'error' %}
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                {% else %}
+                    <i class="bi bi-info-circle-fill me-2"></i>
+                {% endif %}
+                <div>{{ message }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- OTP Form -->
+        <form method="POST" class="verify-form" id="otpForm" onsubmit="combineOTP()">
+            {% csrf_token %}
+            <input type="hidden" name="otp" id="otp-value">
+            
+            <div class="mb-4">
+                <label class="form-label fw-semibold mb-3">
+                    <i class="bi bi-envelope-fill me-2"></i>Enter 6-digit OTP sent to your email
+                </label>
+                
+                <div class="otp-inputs" id="otpContainer">
+                    <input type="text" maxlength="1" class="otp-box" required autofocus>
+                    <input type="text" maxlength="1" class="otp-box" required>
+                    <input type="text" maxlength="1" class="otp-box" required>
+                    <input type="text" maxlength="1" class="otp-box" required>
+                    <input type="text" maxlength="1" class="otp-box" required>
+                    <input type="text" maxlength="1" class="otp-box" required>
+                </div>
+                
+                <div class="form-text mt-2">
+                    <small><i class="bi bi-clock-history me-1"></i> OTP expires in: <span id="timer" class="fw-bold">05:00</span></small>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="btn btn-verify w-100 py-3">
+                <i class="bi bi-shield-check me-2"></i> Verify & Continue
+            </button>
+        </form>
+
+        <!-- Resend OTP Section -->
+        <div class="mt-4 text-center">
+            <form method="POST" action="{% url 'accounts:resend_group_otp' %}" class="resend-form d-inline-block">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-resend" id="resendBtn" disabled>
+                    <i class="bi bi-arrow-clockwise me-1"></i> Resend OTP
+                </button>
+            </form>
+            
+            <div class="mt-3">
+                <a href="{% url 'accounts:login' %}" class="text-decoration-none">
+                    <i class="bi bi-arrow-left me-1"></i> Back to Login
+                </a>
+            </div>
+        </div>
+
+        <!-- Security Info -->
+        <div class="security-info mt-4 text-center">
+            <p class="otp-note">
+                <i class="bi bi-shield-lock-fill me-2"></i> 
+                <span class="d-inline-block">Your data is protected with 256-bit SSL encryption</span>
+            </p>
+            <div class="d-flex justify-content-center gap-3 mt-2">
+                <small class="text-muted"><i class="bi bi-check-circle text-success"></i> Secure</small>
+                <small class="text-muted"><i class="bi bi-check-circle text-success"></i> Encrypted</small>
+                <small class="text-muted"><i class="bi bi-check-circle text-success"></i> Verified</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // OTP Input Management
+    const inputs = document.querySelectorAll('.otp-box');
+    const otpValue = document.getElementById('otp-value');
+    const form = document.getElementById('otpForm');
+    const resendBtn = document.getElementById('resendBtn');
+
+    // Auto-focus and navigation
+    inputs.forEach((input, index) => {
+        input.addEventListener('input', (e) => {
+            // Allow only numbers
+            input.value = input.value.replace(/[^0-9]/g, '');
+            
+            if (input.value.length === 1 && index < inputs.length - 1) {
+                inputs[index + 1].focus();
+            }
+            
+            // Auto submit if last digit entered
+            if (index === inputs.length - 1 && input.value.length === 1) {
+                const allFilled = Array.from(inputs).every(inp => inp.value.length === 1);
+                if (allFilled) {
+                    combineOTP();
+                    form.submit();
+                }
+            }
+        });
+        
+        input.addEventListener('keydown', (e) => {
+            if (e.key === "Backspace" && input.value === "" && index > 0) {
+                inputs[index - 1].focus();
+            }
+            
+            // Paste OTP
+            if (e.key === "v" && (e.ctrlKey || e.metaKey)) {
+                setTimeout(() => {
+                    pasteOTP(input, index);
+                }, 10);
+            }
+        });
+        
+        // Click to select all
+        input.addEventListener('click', () => {
+            input.select();
+        });
+    });
+
+    // Timer Countdown
+    let timeLeft = 300; // 5 minutes
+    const timerElement = document.getElementById('timer');
+    
+    const countdown = setInterval(() => {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        
+        // Color change based on time
+        if (timeLeft <= 60) {
+            timerElement.style.color = "#dc3545";
+        } else if (timeLeft <= 120) {
+            timerElement.style.color = "#ffc107";
+        }
+        
+        if (timeLeft <= 0) {
+            clearInterval(countdown);
+            timerElement.textContent = "00:00";
+            timerElement.style.color = "#6c757d";
+            if (resendBtn) {
+                resendBtn.disabled = false;
+                resendBtn.classList.remove('disabled');
+                resendBtn.classList.add('btn-primary');
+            }
+        } else {
+            timeLeft--;
+        }
+    }, 1000);
+
+    // Combine OTP
+    function combineOTP() {
+        let otp = "";
+        inputs.forEach(input => otp += input.value);
+        otpValue.value = otp;
+        return true;
+    }
+
+    // Paste OTP from clipboard
+    function pasteOTP(currentInput, currentIndex) {
+        navigator.clipboard.readText().then(text => {
+            const otp = text.replace(/\D/g, '').substring(0, 6);
+            if (otp.length === 6) {
+                inputs.forEach((input, idx) => {
+                    input.value = otp[idx] || '';
+                });
+                combineOTP();
+            }
+        }).catch(err => {
+            console.log("Paste failed:", err);
+        });
+    }
+
+    // Form submission
+    form.addEventListener('submit', function(e) {
+        if (!combineOTP()) {
+            e.preventDefault();
+            return false;
+        }
+        
+        // Add loading state
+        const submitBtn = this.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="bi bi-arrow-repeat spin me-2"></i> Verifying...';
+        }
+    });
+
+    // Modern OTP Autofill API
+    if ('OTPCredential' in window) {
+        window.addEventListener('DOMContentLoaded', e => {
+            const ac = new AbortController();
+            navigator.credentials.get({
+                otp: { transport:['sms'] },
+                signal: ac.signal
+            }).then(otp => {
+                const code = otp.code;
+                if (code && code.length === 6) {
+                    inputs.forEach((input, idx) => {
+                        input.value = code[idx] || '';
+                    });
+                    combineOTP();
+                    
+                    // Auto submit after 1 second
+                    setTimeout(() => {
+                        form.submit();
+                    }, 1000);
+                }
+            }).catch(err => {
+                console.log("OTP autofill not available");
+            });
+        });
+    }
+</script>
+
+</body>
+</html>

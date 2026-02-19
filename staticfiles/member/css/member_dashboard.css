@@ -1,0 +1,149 @@
+/* ===== GLOBAL RESET & BASE ===== */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+    margin: 0;
+    padding: 0;
+    color: #343a40;
+}
+
+a {
+    text-decoration: none;
+    color: inherit;
+}
+
+/* ===== SIDEBAR ===== */
+.sidebar {
+    position: fixed;
+    top: 56px; /* navbar height */
+    left: 0;
+    width: 220px;
+    height: calc(100% - 56px);
+    background-color: #0d6efd;
+    padding-top: 20px;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s ease;
+    z-index: 1000;
+}
+
+.sidebar a {
+    padding: 12px 20px;
+    color: #fff;
+    font-weight: 500;
+    border-left: 5px solid transparent;
+    margin-bottom: 5px;
+    border-radius: 0 10px 10px 0;
+    transition: all 0.2s ease;
+}
+
+.sidebar a:hover,
+.sidebar a.active {
+    background-color: #0056b3;
+    border-left: 5px solid #ffc107;
+}
+
+/* SIDEBAR MOBILE TOGGLE */
+.sidebar.active {
+    transform: translateX(-100%);
+}
+
+/* ===== MAIN CONTENT ===== */
+.main-content {
+    margin-left: 220px;
+    padding: 80px 30px 30px 30px; /* top space for navbar */
+    transition: margin-left 0.3s ease;
+}
+
+/* Adjust content margin when sidebar hidden */
+.sidebar.active ~ .main-content {
+    margin-left: 0;
+}
+
+/* ===== TOP NAVBAR ===== */
+.navbar {
+    padding: 0.5rem 1rem;
+}
+
+.mobile-sidebar-toggle {
+    display: none;
+    font-size: 24px;
+    background: none;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+}
+
+.navbar-brand {
+    font-weight: 700;
+}
+
+/* ===== SUMMARY CARDS ===== */
+.card {
+    border-radius: 12px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+}
+
+.card h6 {
+    font-weight: 500;
+    color: #6c757d;
+}
+
+.card h4 {
+    font-weight: 700;
+}
+
+/* ===== AUCTION WINNER CARD ===== */
+.card.border-success {
+    border-width: 2px !important;
+}
+
+.card-header.bg-success {
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+}
+
+/* ===== FOOTER ===== */
+footer {
+    text-align: center;
+    padding: 20px 0;
+    background: #e9ecef;
+    margin-top: 50px;
+    font-size: 14px;
+    color: #6c757d;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 992px) {
+    .sidebar {
+        transform: translateX(-100%);
+        width: 200px;
+    }
+    .sidebar.active {
+        transform: translateX(0);
+    }
+
+    .main-content {
+        margin-left: 0;
+        padding: 80px 15px 30px 15px;
+    }
+
+    .mobile-sidebar-toggle {
+        display: inline-block;
+    }
+}
+
+/* Small devices */
+@media (max-width: 576px) {
+    .card h4 {
+        font-size: 1.25rem;
+    }
+    .card h6 {
+        font-size: 0.9rem;
+    }
+}

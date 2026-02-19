@@ -1,0 +1,156 @@
+/* ===================== VARIABLES ===================== */
+:root {
+    --bg: #f3f4f6;
+    --card-bg: #ffffff;
+    --text-main: #1f2937;
+    --text-secondary: #6b7280;
+
+    --primary: #4f46e5;      /* Purple */
+    --secondary: #3b82f6;    /* Blue */
+    --accent: #10b981;       /* Green */
+
+    --success: #16a34a;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+
+    --radius: 12px;
+    --spacing: 1rem;
+    --shadow: 0 10px 25px rgba(0,0,0,0.05);
+}
+
+/* ===================== BASE ===================== */
+body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text-main);
+    line-height: 1.6;
+}
+
+.form-wrapper {
+    max-width: 600px;
+    margin: 2rem auto;
+    padding: var(--spacing);
+}
+
+.form-card {
+    background: var(--card-bg);
+    padding: 2rem;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(0,0,0,0.03);
+    animation: fadeIn 0.6s ease-out;
+}
+
+/* ===================== HEADINGS ===================== */
+.form-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* ===================== FORM ELEMENTS ===================== */
+.form-group {
+    margin-bottom: 1.2rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.form-label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text-main);
+}
+
+.form-control {
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    font-size: 0.95rem;
+    transition: 0.3s;
+}
+
+.form-control:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+    outline: none;
+}
+
+/* ===================== BUTTONS ===================== */
+.btn-primary-custom {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 0.65rem 1.2rem;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.btn-primary-custom:hover {
+    background: var(--secondary);
+}
+
+.btn-secondary-custom {
+    background: #f3f4f6;
+    color: var(--text-main);
+    border: 1px solid #d1d5db;
+    padding: 0.65rem 1.2rem;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    text-align: center;
+    transition: 0.3s;
+}
+
+.btn-secondary-custom:hover {
+    background: #e5e7eb;
+}
+
+/* ===================== ALERT MESSAGES ===================== */
+.alert-custom {
+    padding: 0.8rem 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    border-left: 4px solid transparent;
+}
+
+.alert-success {
+    background: #dcfce7;
+    color: #166534;
+    border-left-color: #16a34a;
+}
+
+.alert-error, .alert-danger {
+    background: #fee2e2;
+    color: #991b1b;
+    border-left-color: #ef4444;
+}
+
+.alert-warning {
+    background: #fef3c7;
+    color: #78350f;
+    border-left-color: #f59e0b;
+}
+
+/* ===================== ANIMATIONS ===================== */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===================== RESPONSIVE ===================== */
+@media (max-width: 768px) {
+    .form-wrapper {
+        padding: 1rem;
+    }
+    .form-card {
+        padding: 1.5rem;
+    }
+}

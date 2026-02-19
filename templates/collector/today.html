@@ -1,0 +1,50 @@
+{% extends "collector/collector_base.html" %}
+{% load static %}
+
+{% block title %}Today's Collections{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'collector/css/today_collections.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<h4>Today's Collections</h4>
+<h5>Total: ₹{{ total }}</h5>
+
+<div class="table-container">
+    <table class="table data-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Member</th>
+                <th>Amount</th>
+                <th>Method</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if payments %}
+                {% for p in payments %}
+                <tr>
+                    <td data-label="#"> {{ forloop.counter }} </td>
+                    <td data-label="Member"> {{ p.member.name }} </td>
+                    <td data-label="Amount"> ₹{{ p.amount }} </td>
+                    <td data-label="Method"> {{ p.payment_method }} </td>
+                    <td data-label="Actions">
+                        <a href="{% url 'collector:receipt' p.id %}" class="btn btn-sm btn-info">Receipt</a>
+                        <a href="{% url 'collector:edit_payment' p.id %}" class="btn btn-sm btn-warning">Edit</a>
+                        <a href="{% url 'collector:delete_payment' p.id %}" class="btn btn-sm btn-danger" onclick="return confirm('Delete payment?')">Delete</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr class="empty-state">
+                    <td colspan="5">No collections today</td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

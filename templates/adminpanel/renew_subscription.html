@@ -1,0 +1,41 @@
+{% extends "adminpanel/base.html" %}
+{% block content %}
+
+<h3 class="mb-4">
+    Renew Subscription – {{ admin.user.username }}
+</h3>
+
+<div class="card">
+    <div class="card-body">
+
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="mb-3">
+                <label class="form-label">Select Plan</label>
+                <select name="plan" class="form-select" required>
+                    <option value="">-- Select Plan --</option>
+                    {% for plan in plans %}
+                        <option value="{{ plan.id }}">
+                            {{ plan.name }} – ₹{{ plan.price }} ({{ plan.duration_days }} days)
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-success">
+                    Renew Subscription
+                </button>
+
+                <a href="{% url 'adminpanel:subscription_reports' %}"
+                   class="btn btn-secondary ms-2">
+                    Cancel
+                </a>
+            </div>
+        </form>
+
+    </div>
+</div>
+
+{% endblock %}

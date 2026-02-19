@@ -1,0 +1,62 @@
+{% extends "member/member_base.html" %}
+{% load static %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'member/css/member_dashboard.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="dashboard-header mb-4">
+    <h2>Welcome back, {{ member.name }} 👋</h2>
+    <p class="text-muted">Here's your chitty overview</p>
+</div>
+
+<div class="row g-4 mb-5">
+    <div class="col-lg-4 col-md-6">
+        <div class="summary-card total">
+            <i class="fas fa-wallet card-icon"></i>
+            <h6>Total Amount</h6>
+            <h3>₹{{ total_amount|floatformat:0 }}</h3>
+        </div>
+    </div>
+
+    <div class="col-lg-4 col-md-6">
+        <div class="summary-card paid">
+            <i class="fas fa-check-circle card-icon"></i>
+            <h6>Total Paid</h6>
+            <h3 class="text-success">₹{{ total_paid|floatformat:0 }}</h3>
+        </div>
+    </div>
+
+    <div class="col-lg-4 col-md-6">
+        <div class="summary-card remaining">
+            <i class="fas fa-exclamation-triangle card-icon"></i>
+            <h6>Remaining</h6>
+            <h3 class="text-danger">₹{{ remaining|floatformat:0 }}</h3>
+        </div>
+    </div>
+</div>
+
+{% if latest_auction and latest_auction.winner %}
+<div class="winner-card">
+    <h5><i class="fas fa-trophy"></i> Auction Winner</h5>
+
+    {% if latest_auction.winner.member == member %}
+        <h4 class="text-success mt-3">🎉 YOU WON THIS AUCTION!</h4>
+    {% else %}
+        <p class="mt-3">
+            Winner: <strong>{{ latest_auction.winner.member.name }}</strong>
+        </p>
+    {% endif %}
+
+    <p class="mt-2">
+        <strong>Date:</strong> {{ latest_auction.auction_date|date:"d M Y" }} <br>
+        <strong>Group:</strong> {{ latest_auction.group.name }}
+    </p>
+</div>
+{% endif %}
+
+{% endblock %}

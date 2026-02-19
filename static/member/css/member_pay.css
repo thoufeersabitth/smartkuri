@@ -1,0 +1,281 @@
+/* member/css/member_pay.css */
+/* Glassmorphism + Money Green / Indigo Theme - Adipoli Responsive 2025-2026 Style */
+
+:root {
+  --primary: #10b981;
+  --primary-light: #34d399;
+  --indigo: #6366f1;
+  --indigo-dark: #4f46e5;
+  --dark: #0f172a;
+  --gray: #64748b;
+  --glass-bg: rgba(255, 255, 255, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.42);
+  --shadow-sm: 0 8px 32px rgba(31, 38, 135, 0.12);
+  --shadow-md: 0 16px 48px rgba(0, 0, 0, 0.14);
+  --radius: 18px;
+  --transition: all 0.28s ease;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.container-fluid {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 1.2rem 1rem;
+}
+
+/* Header */
+.d-flex.justify-content-between.align-items-center {
+  padding: 1.3rem 0 1rem;
+  margin-bottom: 1.6rem;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.5);
+}
+
+h4.fw-bold {
+  font-size: 1.95rem;
+  font-weight: 800;
+  background: linear-gradient(90deg, var(--indigo), var(--primary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.4px;
+}
+
+h5.text-success.fw-bold {
+  font-size: 1.4rem;
+  font-weight: 700;
+  background: linear-gradient(90deg, var(--primary), var(--primary-light));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Card */
+.card.shadow-sm.border-0 {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: var(--transition);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-4px);
+}
+
+/* Table - Desktop */
+.transactions-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.transactions-table thead th {
+  background: linear-gradient(90deg, rgba(99,102,241,0.09), rgba(16,185,129,0.07));
+  color: var(--dark);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.86rem;
+  letter-spacing: 0.7px;
+  padding: 1.2rem 1rem;
+  border-bottom: 2px solid rgba(226,232,240,0.45);
+}
+
+.transactions-table tbody td {
+  padding: 1.2rem 1rem;
+  font-size: 0.98rem;
+  color: var(--dark);
+  border-top: 1px solid rgba(226,232,240,0.3);
+  vertical-align: middle;
+}
+
+/* Hover only on devices that support it */
+@media (hover: hover) {
+  .transactions-table tbody tr:hover {
+    background: rgba(16,185,129,0.08);
+    transition: var(--transition);
+  }
+}
+
+/* Amount column */
+td.fw-bold.text-success {
+  font-size: 1.2rem;
+  font-weight: 800 !important;
+  background: linear-gradient(90deg, var(--primary), var(--primary-light));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Badges */
+.badge {
+  padding: 0.55em 1.1em;
+  font-weight: 600;
+  font-size: 0.88rem;
+  border-radius: 50px;
+  letter-spacing: 0.3px;
+}
+
+.bg-success {
+  background: linear-gradient(90deg, #10b981, #34d399) !important;
+  color: white !important;
+  box-shadow: 0 3px 10px rgba(16,185,129,0.25);
+}
+
+.bg-warning {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24) !important;
+  color: #1e293b !important;
+  box-shadow: 0 3px 10px rgba(245,158,11,0.25);
+}
+
+/* Empty state */
+.text-center.text-muted.py-5 {
+  font-size: 1.15rem;
+  color: var(--gray);
+  padding: 6rem 1.5rem !important;
+  font-weight: 500;
+}
+
+/* Pagination */
+.pagination {
+  margin-top: 2.6rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.page-link {
+  border-radius: 12px !important;
+  margin: 0 4px;
+  border: 1px solid rgba(226,232,240,0.6);
+  color: var(--indigo);
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  padding: 0.6rem 1.1rem;
+  min-width: 44px;
+  text-align: center;
+  transition: var(--transition);
+}
+
+.page-link:hover {
+  background: rgba(99,102,241,0.14);
+  color: var(--indigo-dark);
+  transform: translateY(-2px);
+}
+
+.page-item.active .page-link {
+  background: linear-gradient(90deg, var(--indigo), var(--primary)) !important;
+  border: none;
+  color: white !important;
+  font-weight: 700;
+}
+
+/* ───────────────────── RESPONSIVE ───────────────────── */
+
+@media (max-width: 768px) {
+  .container-fluid {
+    padding: 0.9rem 0.7rem;
+  }
+
+  .d-flex.justify-content-between.align-items-center {
+    padding: 1.1rem 0 0.9rem;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+  }
+
+  h4.fw-bold {
+    font-size: 1.75rem;
+  }
+
+  h5.text-success.fw-bold {
+    font-size: 1.3rem;
+  }
+
+  .card {
+    border-radius: 16px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .table-responsive {
+    overflow: visible;
+  }
+
+  .transactions-table thead {
+    display: none;
+  }
+
+  .transactions-table tbody tr {
+    display: block;
+    margin-bottom: 1.6rem;
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    box-shadow: 0 6px 22px rgba(0,0,0,0.09);
+    overflow: hidden;
+  }
+
+  .transactions-table tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-align: right;
+    padding: 1.1rem 1.4rem;
+    border: none;
+    border-bottom: 1px solid rgba(226,232,240,0.28);
+    font-size: 1rem;
+  }
+
+  .transactions-table tbody td:last-child {
+    border-bottom: none;
+  }
+
+  .transactions-table tbody td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    color: var(--gray);
+    text-transform: uppercase;
+    font-size: 0.86rem;
+    letter-spacing: 0.5px;
+    flex: 1;
+    text-align: left;
+  }
+
+  /* Highlight amount on mobile */
+  td[data-label="Amount"] {
+    font-size: 1.4rem !important;
+    font-weight: 800;
+    justify-content: flex-end;
+  }
+
+  td[data-label="Status"] {
+    justify-content: flex-end;
+  }
+
+  .pagination {
+    margin-top: 2.2rem;
+  }
+
+  .page-link {
+    padding: 0.55rem 1rem;
+    font-size: 0.96rem;
+  }
+}
+
+/* Tablet adjustment */
+@media (min-width: 769px) and (max-width: 992px) {
+  .container-fluid {
+    padding: 1.3rem 1rem;
+  }
+
+  .transactions-table thead th,
+  .transactions-table tbody td {
+    padding: 1.1rem 0.9rem;
+    font-size: 0.95rem;
+  }
+}

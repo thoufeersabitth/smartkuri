@@ -1,0 +1,41 @@
+{% extends "chitti/group_admin_base.html" %}
+{% load static %}
+
+{% block title %}{% if form.instance.pk %}Edit{% else %}Add{% endif %} Member{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'group_admin/css/add_member.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h3>{% if form.instance.pk %}Edit{% else %}Add{% endif %} Member</h3>
+
+    {% if form.instance.pk %}
+    <p class="text-warning">
+        ⚠️ You can edit only Name, Email, Phone, Address, Aadhaar no, and Assigned Chitti Group.
+    </p>
+    {% endif %}
+
+    <form method="POST">
+        {% csrf_token %}
+        {% for field in form %}
+        <div class="mb-3">
+            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}
+                <small class="form-text text-muted">{{ field.help_text }}</small>
+            {% endif %}
+            {% for error in field.errors %}
+                <div class="text-danger">{{ error }}</div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+
+        <button type="submit" class="btn btn-success">
+            {% if form.instance.pk %}Update{% else %}Add{% endif %} Member
+        </button>
+        <a href="{% url 'members:member_list' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

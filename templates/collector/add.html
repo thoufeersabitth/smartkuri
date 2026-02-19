@@ -1,0 +1,80 @@
+{% extends "collector/collector_base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'collector/css/add_collection.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <h4 class="mb-4">Add Collection</h4>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+
+        <!-- Member -->
+        <div class="mb-3">
+            <label class="form-label">Member</label>
+            <select name="member" class="form-control" required>
+                <option value="">Select Member</option>
+                {% for m in members %}
+                    <option value="{{ m.id }}">
+                        {{ m.name }} ({{ m.phone }})
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Amount -->
+        <div class="mb-3">
+            <label class="form-label">Amount</label>
+            <input
+                type="number"
+                name="amount"
+                class="form-control"
+                placeholder="Enter amount"
+                required
+            >
+        </div>
+
+        <!-- Date -->
+        <div class="mb-3">
+            <label class="form-label">Paid Date</label>
+            <input
+                type="date"
+                name="paid_date"
+                class="form-control"
+                value="{% now 'Y-m-d' %}"
+                required
+            >
+        </div>
+
+        <!-- Payment Method -->
+        <div class="mb-3">
+            <label class="form-label">Payment Method</label>
+            <select name="payment_method" class="form-control">
+                <option value="Cash">Cash</option>
+                <option value="UPI">UPI</option>
+                <option value="Bank">Bank</option>
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-success w-100">
+            Save Payment
+        </button>
+
+    </form>
+
+</div>
+
+{% endblock %}

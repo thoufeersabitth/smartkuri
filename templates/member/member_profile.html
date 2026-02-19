@@ -1,0 +1,57 @@
+{% extends "member/member_base.html" %}
+{% load static %}
+
+{% block title %}Member Profile{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'member/css/member_profile.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <h2 class="mb-4">👤 Member Profile</h2>
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped mb-0">
+                <tr>
+                    <th>Name</th>
+                    <td>{{ member.name }}</td>
+                </tr>
+                <tr>
+                    <th>Email</th>
+                    <td>{{ member.email|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <th>Phone</th>
+                    <td>{{ member.phone|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <th>Address</th>
+                    <td>{{ member.address|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <th>Aadhaar No</th>
+                    <td>{{ member.aadhaar_no|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <th>Join Date</th>
+                    <td>{{ member.join_date|date:"d M Y" }}</td>
+                </tr>
+                <tr>
+                    <th>Group</th>
+                    <td>{{ member.assigned_chitti_group.name|default:"-" }}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="mt-3">
+        <a href="{% url 'members:member_dashboard' %}" class="btn btn-secondary">
+            ← Back to Dashboard
+        </a>
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,188 @@
+{% extends 'adminpanel/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+
+  <!-- ================= ADMIN BASIC INFO ================= -->
+  <div class="card mb-3">
+    <div class="card-header">
+      <h5>Admin Details: {{ admin.user.username }}</h5>
+    </div>
+    <div class="card-body">
+      <p><strong>Phone:</strong> {{ admin.phone }}</p>
+
+      <p>
+        <strong>Plan:</strong>
+        {% if plan %}
+          {{ plan.name }}
+        {% else %}
+          -
+        {% endif %}
+        <br>
+
+        <strong>Status:</strong>
+        {% if subscription_active %}
+          <span class="badge bg-success">Active</span>
+        {% else %}
+          <span class="badge bg-danger">Expired</span>
+        {% endif %}
+        <br>
+
+        <strong>Validity:</strong>
+        {% if subscription_start %}
+          {{ subscription_start|date:"M d, Y" }}
+        {% else %}
+          -
+        {% endif %}
+        →
+        {% if subscription_end %}
+          {{ subscription_end|date:"M d, Y" }}
+        {% else %}
+          -
+        {% endif %}
+      </p>
+
+      <p>
+        <strong>Time Left:</strong>
+        {% if subscription_active %}
+          {% if days_left == 0 %}
+            {% if hours_left > 0 %}
+              Expires in {{ hours_left }} hour{% if hours_left > 1 %}s{% endif %}
+            {% else %}
+              Expires today
+            {% endif %}
+          {% else %}
+            {{ days_left }} day{% if days_left > 1 %}s{% endif %}
+          {% endif %}
+        {% else %}
+          0
+        {% endif %}
+      </p>
+    </div>
+  </div>
+
+  <!-- ================= GROUP SUMMARY ================= -->
+  <div class="card mb-3">
+    <div class="card-header">
+      <h5>Groups Summary</h5>
+    </div>
+    <div class="card-body">
+      <p>
+        <strong>Total Groups:</strong> {{ groups_count }} <br>
+        <strong>Total Members:</strong> {{ members_count }}
+      </p>
+    </div>
+  </div>
+
+  <!-- ================= GROUP LIST ================= -->
+  <div class="card mb-3">
+    <div class="card-header">
+      <h5>Groups under this Admin</h5>
+    </div>
+    <div class="card-body table-responsive">
+      {% if groups %}
+        <table class="table table-bordered align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Group Name</th>
+              <th>Members</th>
+              <th>Status</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for group in groups %}
+              <tr>
+                <td>{{ group.name }}</td>
+                <td>{{ group.member_count }}</td>
+                <td>
+                  {% if group.is_active %}
+                    <span class="badge bg-success">Active</span>
+                  {% else %}
+                    <span class="badge bg-secondary">Closed</span>
+                  {% endif %}
+                </td>
+                <td>{{ group.created_at|date:"M d, Y" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="text-muted">No groups created yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ================= PAYMENT SUMMARY ================= -->
+  <div class="card mb-3">
+    <div class="card-header">
+      <h5>Payment Summary</h5>
+    </div>
+    <div class="card-body">
+      <p>
+        <strong>Total Paid:</strong> ₹{{ total_paid }} <br>
+        <strong>Total Payments:</strong> {{ payment_count }}
+      </p>
+
+      {% if last_payment %}
+        <hr>
+        <p>
+          <strong>Last Payment</strong><br>
+          Amount: ₹{{ last_payment.amount }} <br>
+          Method: {{ last_payment.payment_method|capfirst }} <br>
+          Date: {{ last_payment.paid_date|date:"M d, Y" }} <br>
+          Transaction ID: {{ last_payment.transaction_id }} <br>
+          Invoice: {{ last_payment.invoice_number }} <br>
+          Status:
+          {% if last_payment.payment_status == "success" %}
+            <span class="badge bg-success">Success</span>
+          {% else %}
+            <span class="badge bg-warning">{{ last_payment.payment_status }}</span>
+          {% endif %}
+        </p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ================= PAYMENT HISTORY ================= -->
+  <div class="card mb-5">
+    <div class="card-header">
+      <h5>Payment History</h5>
+    </div>
+    <div class="card-body table-responsive">
+      {% if payments %}
+        <table class="table table-bordered align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Amount</th>
+              <th>Date</th>
+              <th>Method</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for payment in payments %}
+              <tr>
+                <td>₹{{ payment.amount }}</td>
+                <td>{{ payment.paid_date|date:"M d, Y" }}</td>
+                <td>{{ payment.payment_method|capfirst }}</td>
+                <td>
+                  {% if payment.payment_status == "success" %}
+                    <span class="badge bg-success">Success</span>
+                  {% else %}
+                    <span class="badge bg-warning">{{ payment.payment_status }}</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="text-muted">No payment history available.</p>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}
