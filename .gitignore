@@ -1,1 +1,20 @@
+# Python virtual environment
 venv/
+
+# Environment variables
+.env
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Django static / media
+staticfiles/
+static_root/
+media/
+
+# Optional: Django migrations (if you want to ignore)
+*/migrations/*.py
+*/migrations/*.pyc
