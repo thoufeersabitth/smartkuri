@@ -8,88 +8,181 @@
 {% block content %}
 <div class="container mt-4">
 
-    <h2>Add Group</h2>
+<h2>Create New Chitti Group</h2>
 
-    {# ---------------- MESSAGES ---------------- #}
-    {% if messages %}
-        <div class="mt-3">
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }}">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        </div>
-    {% endif %}
+<p class="text-muted">
+Fill the details below. The system will handle everything automatically.
+</p>
 
-    {# ---------------- SUBSCRIPTION STATUS ---------------- #}
-    {% if not subscription %}
-        <div class="alert alert-danger">
-            <strong>Subscription Expired 🔴</strong><br>
-            Please renew to create new groups.
-        </div>
-    {% else %}
-        <div class="alert alert-info">
-            <strong>Plan:</strong> {{ plan.name }}<br>
-            <strong>Max Groups:</strong> {{ plan.max_groups }}<br>
-            <strong>Remaining:</strong> {{ remaining_groups }}
-        </div>
-    {% endif %}
-
-    {% if subscription and remaining_groups <= 0 %}
-        <div class="alert alert-warning">
-            You have reached your group creation limit for this plan.
-        </div>
-    {% endif %}
-
-    {# ---------------- CREATE FORM ---------------- #}
-    <form method="post" class="form-container mt-3">
-        {% csrf_token %}
-
-        <div class="form-group mb-3">
-            <label for="name">Group Name</label>
-            <input type="text" name="name" id="name" class="form-control"
-                   placeholder="Enter group name"
-                   required {% if remaining_groups <= 0 or not subscription %}disabled{% endif %}>
-        </div>
-
-        <div class="form-group mb-3">
-            <label for="monthly_amount">Monthly Amount</label>
-            <input type="number" step="0.01" name="monthly_amount" id="monthly_amount"
-                   class="form-control" placeholder="₹0.00"
-                   required {% if remaining_groups <= 0 or not subscription %}disabled{% endif %}>
-        </div>
-
-        <div class="form-group mb-3">
-            <label for="duration_months">Duration (Months)</label>
-            <input type="number" name="duration_months" id="duration_months"
-                   class="form-control" placeholder="e.g. 12"
-                   required {% if remaining_groups <= 0 or not subscription %}disabled{% endif %}>
-        </div>
-
-        <div class="form-group mb-4">
-            <label for="start_date">Start Date</label>
-            <input type="date" name="start_date" id="start_date"
-                   class="form-control"
-                   required {% if remaining_groups <= 0 or not subscription %}disabled{% endif %}>
-        </div>
-
-        {# ---------------- BUTTONS ---------------- #}
-        <div class="form-actions">
-            <button type="submit" class="btn btn-success"
-                    {% if remaining_groups <= 0 or not subscription %}disabled{% endif %}>
-                Create Group
-            </button>
-
-            <a href="{% url 'chitti:group_management' %}" class="btn btn-secondary ms-2">
-                Cancel
-            </a>
-
-            {% if not subscription or remaining_groups <= 0 %}
-                <a href="{% url 'subscriptions:renew_subscription' %}" class="btn btn-primary ms-2">
-                    Renew / Upgrade Plan
-                </a>
-            {% endif %}
-        </div>
-    </form>
+{% if messages %}
+<div class="mt-3">
+{% for message in messages %}
+<div class="alert alert-{{ message.tags }}">
+{{ message }}
 </div>
+{% endfor %}
+</div>
+{% endif %}
+
+<form method="post" class="form-container mt-3">
+{% csrf_token %}
+
+<!-- Group Name -->
+<div class="form-group mb-3">
+<label>Group Name</label>
+<input type="text" name="name" class="form-control"
+placeholder="Example: Friends Group" required>
+<small class="text-muted">Enter a name for your group</small>
+</div>
+
+<!-- Monthly Amount -->
+<div class="form-group mb-3">
+<label>Monthly Payment (per person)</label>
+<input type="number" step="0.01" name="monthly_amount"
+class="form-control" required>
+<small class="text-muted">How much each person pays every month</small>
+
+</div>
+
+<!-- Duration -->
+<div class="form-group mb-3">
+<label>Total Duration (months)</label>
+<input type="number" name="duration_months"
+class="form-control" required>
+<small class="text-muted">How many months this group will run</small>
+</div>
+
+<!-- Collections -->
+<div class="form-group mb-3">
+<label>Payments per Month</label>
+<select name="collections_per_month" class="form-control">
+<option value="1">1 time</option>
+<option value="2">2 times</option>
+<option value="3">3 times</option>
+<option value="4">4 times</option>
+</select>
+<small class="text-muted">How many times members pay in a month</small>
+</div>
+
+<!-- AUCTION TYPE -->
+<div class="form-group mb-3">
+<label>Prize Frequency</label>
+<select id="simple_type" name="auction_type" class="form-control">
+<option value="monthly">Every Month</option>
+<option value="interval">After Few Months</option>
+</select>
+<small class="text-muted">Choose how often the prize is given</small>
+</div>
+
+<!-- AUCTIONS PER MONTH -->
+<div class="form-group mb-3">
+<label>Number of Winners</label>
+<select id="auction_count" name="auctions_per_month" class="form-control">
+<option value="1">1 winner</option>
+<option value="2">2 winners</option>
+<option value="3">3 winners</option>
+<option value="4">4 winners</option>
+</select>
+<small class="text-muted">How many people get the prize each time</small>
+</div>
+
+<!-- INTERVAL -->
+<div class="form-group mb-3" id="interval_field" style="display:none;">
+<label>Gap Between Prizes (months)</label>
+<input type="number" name="auction_interval_months"
+class="form-control" placeholder="Example: 2">
+<small class="text-muted">Example: 2 means prize every 2 months</small>
+</div>
+
+<!-- START DATE -->
+<div class="form-group mb-3">
+<label>Start Date</label>
+<input type="date" name="start_date"
+class="form-control" required>
+<small class="text-muted">Select when the group starts</small>
+</div>
+
+<!-- AUCTION DATES -->
+<div class="form-group mb-4">
+<label>Auction Dates (First Month Only)</label>
+
+<div id="auction_dates_container"></div>
+
+<small class="text-muted">
+Enter dates only for the first month. The system will repeat automatically.
+</small>
+</div>
+
+<!-- HELP BOX -->
+<div class="alert alert-success">
+
+<b>Simple Examples:</b><br><br>
+
+• Every month + 1 winner  
+→ 12 months = 12 winners<br><br>
+
+• Every 2 months + 1 winner  
+→ 12 months = 6 winners<br><br>
+
+• Every month + 2 winners  
+→ 12 months = 24 winners<br><br>
+
+<hr>
+
+<b>Dates Example:</b><br><br>
+
+• If you select 2 winners → enter 2 dates  
+• If you select 4 winners → enter 4 dates<br><br>
+
+The system will automatically repeat these dates every month.
+
+</div>
+
+<!-- BUTTON -->
+<button type="submit" class="btn btn-success">
+Create Group
+</button>
+
+</form>
+</div>
+
+<!-- JS -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const simpleType = document.getElementById("simple_type");
+    const intervalField = document.getElementById("interval_field");
+    const auctionCount = document.getElementById("auction_count");
+    const container = document.getElementById("auction_dates_container");
+
+    function toggleInterval() {
+        intervalField.style.display = simpleType.value === "interval" ? "block" : "none";
+    }
+
+    function generateDateInputs() {
+        container.innerHTML = "";
+
+        let count = parseInt(auctionCount.value);
+
+        for (let i = 1; i <= count; i++) {
+            let div = document.createElement("div");
+            div.classList.add("mb-2");
+
+            div.innerHTML = `
+                <label>Auction ${i} Date</label>
+                <input type="date" name="auction_date_${i}" class="form-control" required>
+            `;
+
+            container.appendChild(div);
+        }
+    }
+
+    simpleType.addEventListener("change", toggleInterval);
+    auctionCount.addEventListener("change", generateDateInputs);
+
+    toggleInterval();
+    generateDateInputs();
+});
+</script>
+
 {% endblock %}

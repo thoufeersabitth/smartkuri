@@ -6,14 +6,18 @@ from payments.models import Payment
 
 class MemberSerializer(serializers.ModelSerializer):
     is_active = serializers.BooleanField(source="user.is_active", read_only=True)
+
     group_name = serializers.CharField(
         source="assigned_chitti_group.name",
         read_only=True
     )
+
     group_id = serializers.IntegerField(
         source="assigned_chitti_group.id",
         read_only=True
     )
+
+    aadhaar_masked = serializers.SerializerMethodField()
 
     class Meta:
         model = Member
@@ -22,11 +26,18 @@ class MemberSerializer(serializers.ModelSerializer):
             "name",
             "phone",
             "email",
-            "is_active",     
-            "group_id",      
-            "group_name",    
+            "is_active",
+            "group_id",
+            "group_name",
+            "address",          
+            "join_date",        
+            "aadhaar_masked",  
         ]
 
+    def get_aadhaar_masked(self, obj):
+        if obj.aadhaar_no:
+            return "XXXX-XXXX-" + obj.aadhaar_no[-4:]
+        return None
 
 class MemberCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(

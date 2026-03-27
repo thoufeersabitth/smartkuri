@@ -1,0 +1,66 @@
+{% extends "chitti/group_admin_base.html" %}
+{% load static %}
+
+{% block title %}{{ group.name }} - Payment Details{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'group_admin/css/admin_payment_details.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+
+    <!-- Page Header -->
+    <h1 class="page-title">{{ group.name }} - Payment Details</h1>
+    <p class="page-subtitle">All collections for this group</p>
+    <hr class="divider">
+
+    {% if payments %}
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Member</th>
+                    <th>Amount</th>
+                    <th>Date</th>
+                    <th>Collector</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in payments %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ p.member.name|default:"-" }}</td>
+                    <td>₹{{ p.amount|floatformat:2 }}</td>
+                    <td>{{ p.paid_date|date:"d M Y" }}</td>
+                    <td>
+                        {% if p.collected_by %}
+                            {{ p.collected_by.user.get_full_name|default:p.collected_by.user.username }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if p.received_by_admin %}
+                            <span class="status-badge status-received">Received</span>
+                        {% else %}
+                            <span class="status-badge status-pending">Pending</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-wallet"></i>
+        <h3>No payments yet</h3>
+        <p>Payments collected will appear here for admin approval.</p>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

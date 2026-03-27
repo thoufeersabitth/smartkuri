@@ -7,9 +7,9 @@ from .views import (
     MemberHistoryAPIView,
     PendingMembersAPIView,
     TodayCollectionsAPIView,
-    EditPaymentAPIView,    # ✅ Edit Payment API
-    DeletePaymentAPIView,  # ✅ Delete Payment API
-    CollectorReportsAPIView # ✅ Reports API
+    EditPaymentAPIView,    
+    DeletePaymentAPIView, 
+    CollectorReportsAPIView 
 )
 
 urlpatterns = [

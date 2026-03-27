@@ -10,7 +10,7 @@ from django.db.models import Count, Sum
 from django.utils import timezone
 from django.core.paginator import Paginator
 from django.db.models import Q
-
+from collections import defaultdict
 from accounts.decorators import member_required, group_admin_required
 from accounts.models import StaffProfile
 from members.models import Member
@@ -340,58 +340,80 @@ def member_details(request, pk):
         group__owner=request.user
     )
 
+    member = member_record.member
     group = member_record.group
+
     duration_months = group.duration_months
+    collections_per_month = group.collections_per_month
 
-    # All successful payments
-    payments = list(
-        Payment.objects.filter(
-            member=member_record.member,
-            group=group,
-            payment_status='success'
-        ).order_by('paid_date')
-    )
+    # 🔥 IMPORTANT: filter by group also
+    payments = Payment.objects.filter(
+        member=member,
+        group=group,
+        payment_status='success'
+    ).order_by('paid_date')
 
-    total_collected = sum(p.amount for p in payments)
-    total_due = member_record.pending_amount
+    # 💰 Total Paid
+    total_paid = payments.aggregate(total=Sum('amount'))['total'] or 0
 
-    month_wise = []
-    payment_index = 0
+    # 💸 Total Kuri Amount
+    total_kuri_amount = group.total_amount
 
-    for month_no in range(1, duration_months + 1):
+    # 🔥 SAME LOGIC as member_history
+    total_due = max(total_kuri_amount - total_paid, 0)
 
-        if payment_index < len(payments):
-            payment = payments[payment_index]
+    # 📊 Collection Table Build
+    payment_rows = []
 
-            month_wise.append({
-                'month': month_no,
-                'amount': payment.amount,  # ✅ EXACT COLLECTED AMOUNT
-                'paid_date': payment.paid_date,
-                'collector': (
-                    payment.collected_by.user.get_full_name()
-                    if payment.collected_by and payment.collected_by.user
-                    else "Admin"
-                ),
-                'status': 'Paid',
-            })
+    start_year = group.start_date.year
+    start_month = group.start_date.month
 
-            payment_index += 1
-        else:
-            month_wise.append({
-                'month': month_no,
-                'amount': None,          # ✅ Pending month → blank
-                'paid_date': None,
-                'collector': None,
-                'status': 'Pending',
-            })
+    from collections import defaultdict
+    month_payments_dict = defaultdict(list)
+
+    for p in payments:
+        month_no = (p.paid_date.year - start_year) * 12 + (p.paid_date.month - start_month) + 1
+        if month_no <= duration_months:
+            month_payments_dict[month_no].append(p)
+
+    for month in range(1, duration_months + 1):
+        month_payments = month_payments_dict.get(month, [])
+
+        for c_no in range(1, collections_per_month + 1):
+            if c_no <= len(month_payments):
+                p = month_payments[c_no - 1]
+                payment_rows.append({
+                    'month': month,
+                    'collection_no': c_no,
+                    'amount': p.amount,
+                    'paid_date': p.paid_date,
+                    'collector': p.collected_by.user.get_full_name() if p.collected_by and p.collected_by.user else "Admin",
+                    'status': 'Paid'
+                })
+            else:
+                payment_rows.append({
+                    'month': month,
+                    'collection_no': c_no,
+                    'amount': None,
+                    'paid_date': None,
+                    'collector': None,
+                    'status': 'Pending'
+                })
+
+    total_collections = duration_months * collections_per_month
+    collections_paid = sum(1 for row in payment_rows if row['status'] == 'Paid')
 
     context = {
         'member': member_record,
-        'month_wise': month_wise,
-        'total_collected': total_collected,
+        'payment_rows': payment_rows,
+
+        # ✅ Synced values
+        'total_paid': total_paid,
         'total_due': total_due,
-        'months_paid': payment_index,
-        'duration_months': duration_months,
+        'total_kuri_amount': total_kuri_amount,
+
+        'collections_paid': collections_paid,
+        'total_collections': total_collections,
     }
 
     return render(request, 'chitti/member_details.html', context)

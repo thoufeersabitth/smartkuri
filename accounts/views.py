@@ -1,8 +1,10 @@
 from builtins import float, hasattr, int, print, str
 import string
 import uuid
+from django.db.models import Sum, Q
 import random
 import time
+from django.db import models
 from django.views.decorators.csrf import csrf_exempt
 import razorpay
 from dateutil.relativedelta import relativedelta
@@ -36,11 +38,14 @@ from django.contrib.auth.models import User
 from django.core.mail import send_mail
 from django.conf import settings
 from django.db import transaction
+from payments.models import Payment
 from django.utils.crypto import get_random_string
+
 
 def group_signup(request):
     if request.method == 'POST':
         form = GroupSignUpForm(request.POST)
+
         if form.is_valid():
             group_name = form.cleaned_data['group_name']
             phone = form.cleaned_data['phone']
@@ -48,43 +53,63 @@ def group_signup(request):
             password = form.cleaned_data['password1']
             plan = form.cleaned_data['plan']
 
-            # 1️⃣ Group name check
+            # ✅ VALIDATIONS
             if ChittiGroup.objects.filter(name=group_name).exists():
                 messages.error(request, "Group name already exists.")
                 return redirect('accounts:group_signup')
 
-            # 2️⃣ Email check → already used by another group?
             if User.objects.filter(email=email).exists():
-                messages.error(request, f"The email '{email}' is already used by another group.")
+                messages.error(request, f"The email '{email}' is already used.")
                 return redirect('accounts:group_signup')
 
-            # 3️⃣ OTP generate
+            # 🔥 OTP
             otp = random.randint(100000, 999999)
+
+            # ✅ STORE FULL DATA (IMPORTANT FIX)
             request.session['pending_group_data'] = {
                 'group_name': group_name,
                 'phone': phone,
                 'email': email,
                 'password': password,
+                'description': form.cleaned_data.get('description'),
+
+                'monthly_amount': float(form.cleaned_data.get('monthly_amount')),
+                'duration_months': form.cleaned_data.get('duration_months'),
+                'collections_per_month': form.cleaned_data.get('collections_per_month'),
+                'auction_type': form.cleaned_data.get('auction_type'),
+                'auctions_per_month': form.cleaned_data.get('auctions_per_month'),
+                'auction_interval_months': form.cleaned_data.get('auction_interval_months'),
+                'start_date': str(form.cleaned_data.get('start_date')),
+                'auction_dates': form.cleaned_data.get('auction_dates'),
+
                 'plan_id': plan.id,
                 'plan_price': float(plan.price),
+
                 'otp': otp,
                 'otp_created_at': time.time(),
                 'otp_verified': False,
                 'payment_done': False,
-                'otp_sent': True
             }
 
-            # 4️⃣ Send OTP mail
-            send_mail(
-                "SmartKuri - Group Signup OTP",
-                f"Your OTP for group '{group_name}' signup is: {otp}",
-                settings.DEFAULT_FROM_EMAIL,
-                [email],
-                fail_silently=False
-            )
+            # 📧 SEND MAIL
+            try:
+                send_mail(
+                    "SmartKuri - OTP",
+                    f"Your OTP is: {otp}",
+                    settings.DEFAULT_FROM_EMAIL,
+                    [email],
+                    fail_silently=False
+                )
+                messages.success(request, "OTP sent!")
+            except Exception as e:
+                messages.error(request, f"Email failed: {str(e)}")
+                return redirect('accounts:group_signup')
 
-            messages.success(request, "OTP sent! Verify to proceed to payment.")
             return redirect('accounts:verify_group_otp')
+
+        else:
+            print(form.errors)  # 🔥 Debug
+
     else:
         form = GroupSignUpForm()
 
@@ -93,11 +118,11 @@ def group_signup(request):
 
 
 
+
 # VERIFY OTP
 # -----------------------------
 def verify_group_otp(request):
     data = request.session.get('pending_group_data')
-
     if not data:
         messages.error(request, "No signup data found.")
         return redirect('accounts:group_signup')
@@ -105,39 +130,31 @@ def verify_group_otp(request):
     if request.method == 'POST':
         otp_entered = request.POST.get('otp')
 
-        # ⏰ OTP expiry (10 minutes)
+        # OTP expiry check (10 minutes)
         if time.time() - data['otp_created_at'] > 600:
-            messages.error(request, "OTP expired. Please signup again.")
+            messages.error(request, "OTP expired.")
             del request.session['pending_group_data']
             return redirect('accounts:group_signup')
 
         if str(otp_entered) == str(data['otp']):
             data['otp_verified'] = True
-
-            # 🔥 IMPORTANT PART
             plan = SubscriptionPlan.objects.get(id=data['plan_id'])
 
-            # ✅ FREE / UNLIMITED PLAN → NO PAYMENT
+            # ✅ FREE / UNLIMITED PLAN: create group immediately
             if plan.price <= 0 or getattr(plan, 'is_unlimited', False):
                 data['payment_done'] = True
                 request.session['pending_group_data'] = data
-                messages.success(
-                    request,
-                    "OTP verified! Free plan activated. Creating group..."
-                )
-                return redirect('accounts:create_group_after_payment')
+                messages.success(request, "OTP verified! Creating your group...")
+                return create_group_after_payment(request)  # direct call
 
-            # 💳 PAID PLAN → GO TO PAYMENT
+            # 🔥 Paid plan: go to payment page
             request.session['pending_group_data'] = data
-            messages.success(request, "OTP verified! Proceed to payment.")
             return redirect('accounts:payment_page')
 
         else:
-            messages.error(request, "Invalid OTP. Try again.")
+            messages.error(request, "Invalid OTP")
 
     return render(request, 'accounts/verify_group_otp.html', {'data': data})
-
-
 
 # -----------------------------
 # PAYMENT PAGE
@@ -237,12 +254,12 @@ def create_group_after_payment(request):
 
     if not data or not data.get('payment_done'):
         messages.error(request, "Payment not completed!")
-        return redirect('accounts:payment_page')
+        return redirect('accounts:group_signup')
 
     plan = get_object_or_404(SubscriptionPlan, id=data['plan_id'])
 
     # ----------------------------------
-    # ✅ PLAN GROUP LIMIT CHECK (FIXED)
+    # PLAN GROUP LIMIT CHECK
     # ----------------------------------
     existing_groups_count = GroupSubscription.objects.filter(
         group__owner__staffprofile__role='group_admin',
@@ -258,7 +275,7 @@ def create_group_after_payment(request):
         return redirect('accounts:group_admin_dashboard')
 
     # ----------------------------------
-    # ✅ CREATE ADMIN USER
+    # CREATE ADMIN USER
     # ----------------------------------
     username = f"group_{get_random_string(8)}"
 
@@ -270,7 +287,7 @@ def create_group_after_payment(request):
     )
 
     # ----------------------------------
-    # ✅ CREATE CHITTI GROUP
+    # CREATE CHITTI GROUP
     # ----------------------------------
     monthly_amount = (
         round(plan.price / plan.duration_days * 30, 2)
@@ -287,7 +304,7 @@ def create_group_after_payment(request):
     )
 
     # ----------------------------------
-    # ✅ CREATE STAFF PROFILE
+    # CREATE STAFF PROFILE
     # ----------------------------------
     staff_profile = StaffProfile.objects.create(
         user=admin_user,
@@ -298,7 +315,7 @@ def create_group_after_payment(request):
     )
 
     # ----------------------------------
-    # ✅ PAYMENT ENTRY (ONLY IF PAID PLAN)
+    # PAYMENT ENTRY (ONLY IF PAID PLAN)
     # ----------------------------------
     if plan.price > 0:
         Payment.objects.create(
@@ -312,7 +329,7 @@ def create_group_after_payment(request):
         )
 
     # ----------------------------------
-    # ✅ GROUP SUBSCRIPTION
+    # GROUP SUBSCRIPTION
     # ----------------------------------
     GroupSubscription.objects.create(
         group=group,
@@ -323,14 +340,14 @@ def create_group_after_payment(request):
     )
 
     # ----------------------------------
-    # ✅ CLEAR SESSION
+    # CLEAR SESSION
     # ----------------------------------
     del request.session['pending_group_data']
 
     messages.success(request, f"Group '{group.name}' created successfully!")
 
     # ----------------------------------
-    # ✅ AUTO LOGIN (MULTI BACKEND FIX)
+    # AUTO LOGIN
     # ----------------------------------
     admin_user.backend = 'django.contrib.auth.backends.ModelBackend'
     login(request, admin_user)
@@ -564,13 +581,15 @@ def group_admin_dashboard(request):
     this_month_collection = Payment.objects.filter(
         group__owner=user,
         payment_status='success',
+        received_by_admin=True,
         paid_date__gte=month_start
     ).aggregate(total=Sum('amount'))['total'] or 0
 
     # ================= Total Collected =================
     total_received = Payment.objects.filter(
         group__owner=user,
-        payment_status='success'
+        payment_status='success',
+        received_by_admin=True
     ).aggregate(total=Sum('amount'))['total'] or 0
 
     # ================= Context =================
@@ -580,7 +599,7 @@ def group_admin_dashboard(request):
         'total_members': total_members,
         'this_month_collection': this_month_collection,
         'total_received': total_received,
-        'groups': groups,  # include groups for table rendering
+        'groups': groups,
     }
 
     return render(request, 'chitti/group_admin_dashboard.html', context)
@@ -588,21 +607,27 @@ def group_admin_dashboard(request):
 
 
 
-
-
 from datetime import date
 from django.db.models import Sum
 
+@login_required
 @collector_required
 def collector_dashboard(request):
-
     collector = request.user.staffprofile
 
-    # Today collection
+    # Recent 10 payments
+    recent_payments = Payment.objects.filter(
+        collected_by=collector,
+        payment_status='success'
+    ).order_by('-paid_date', '-paid_time')[:10]
+
+    # Today collection (non-cash or cash received by admin)
     today_collection = Payment.objects.filter(
         collected_by=collector,
         paid_date=date.today(),
         payment_status='success'
+    ).filter(
+        ~Q(payment_method='cash') | Q(received_by_admin=True)
     ).aggregate(total=Sum('amount'))['total'] or 0
 
     # Monthly collection
@@ -611,24 +636,22 @@ def collector_dashboard(request):
         paid_date__month=date.today().month,
         paid_date__year=date.today().year,
         payment_status='success'
+    ).filter(
+        ~Q(payment_method='cash') | Q(received_by_admin=True)
     ).aggregate(total=Sum('amount'))['total'] or 0
 
     # Total collection
     total_collection = Payment.objects.filter(
         collected_by=collector,
         payment_status='success'
+    ).filter(
+        ~Q(payment_method='cash') | Q(received_by_admin=True)
     ).aggregate(total=Sum('amount'))['total'] or 0
 
     # Active members
     active_members = Member.objects.filter(
         collections__collected_by=collector
     ).distinct().count()
-
-    # Recent 10 payments
-    recent_payments = Payment.objects.filter(
-        collected_by=collector,
-        payment_status='success'
-    ).order_by('-paid_date', '-paid_time')[:10]
 
     context = {
         'today_collection': today_collection,
@@ -639,9 +662,5 @@ def collector_dashboard(request):
     }
 
     return render(request, 'collector/collector_dashboard.html', context)
-
-
-
-
 
 

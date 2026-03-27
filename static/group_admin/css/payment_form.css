@@ -32,7 +32,7 @@ body {
 }
 
 /* ===================== FORM CARD ===================== */
-.form-container {
+.card {
     max-width: 650px;
     margin: 2rem auto;
     background: var(--card-bg);
@@ -44,7 +44,7 @@ body {
 }
 
 /* Top Accent Line */
-.form-container::before {
+.card::before {
     content: '';
     display: block;
     height: 4px;
@@ -55,7 +55,7 @@ body {
 }
 
 /* ===================== TITLE ===================== */
-h2 {
+h3 {
     font-size: 1.8rem;
     font-weight: 800;
     margin-bottom: 2rem;
@@ -87,12 +87,14 @@ textarea,
     border-radius: 8px;
     font-size: 0.95rem;
     background: #fafafa;
-    transition: 0.2s ease;
+    transition: 0.2s ease-in-out;
 }
 
 input:focus,
 select:focus,
-textarea:focus {
+textarea:focus,
+.form-control:focus,
+.form-select:focus {
     outline: none;
     border-color: var(--primary);
     background: #fff;
@@ -112,7 +114,7 @@ textarea:focus {
     border-radius: 8px;
     font-size: 0.9rem;
     font-weight: 600;
-    transition: 0.2s ease;
+    transition: 0.2s ease-in-out;
     border: none;
     cursor: pointer;
 }
@@ -136,13 +138,6 @@ textarea:focus {
 .btn-secondary:hover {
     background: #e5e7eb;
     color: var(--text-main);
-}
-
-/* Button Layout */
-.d-flex.gap-3 {
-    display: flex;
-    gap: 1rem;
-    margin-top: 2rem;
 }
 
 /* ===================== ALERTS ===================== */
@@ -181,25 +176,13 @@ textarea:focus {
 /* ===================== RESPONSIVE ===================== */
 @media (max-width: 768px) {
 
-    .form-container {
+    .card {
         max-width: 95%;
         padding: 1.5rem;
     }
 
-    h2 {
+    h3 {
         font-size: 1.5rem;
-    }
-
-    .row {
-        flex-direction: column;
-    }
-
-    .col-md-6 {
-        width: 100%;
-    }
-
-    .d-flex.gap-3 {
-        flex-direction: column;
     }
 
     .btn {
@@ -209,11 +192,11 @@ textarea:focus {
 
 @media (max-width: 480px) {
 
-    .form-container {
+    .card {
         padding: 1.2rem;
     }
 
-    h2 {
+    h3 {
         font-size: 1.3rem;
     }
 

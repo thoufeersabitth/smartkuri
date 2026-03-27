@@ -1,6 +1,8 @@
 from django.utils import timezone
 from chitti.models import ChittiGroup
 
+
+# ---------------- Effective Subscription ----------------
 def get_effective_subscription(group: ChittiGroup):
     """
     Returns active subscription from main group.
@@ -10,10 +12,15 @@ def get_effective_subscription(group: ChittiGroup):
         return None
 
     main_group = group.parent_group or group
-    subscription = getattr(main_group, 'subscription', None)
+    subscription = getattr(main_group, "subscription", None)
 
-    if not subscription or not subscription.is_current():
+    if not subscription:
         return None
+
+    # If subscription has method is_current(), use it safely
+    if hasattr(subscription, "is_current"):
+        if not subscription.is_current():
+            return None
 
     return subscription
 
@@ -21,11 +28,19 @@ def get_effective_subscription(group: ChittiGroup):
 # ---------------- Subscription Status ----------------
 def get_subscription_status(subscription):
     """
-    Returns a dict with active status, days left, and hours left.
-    Handles last day correctly.
+    Returns subscription status with days and hours left.
+    Handles free/unlimited plans (no end_date).
     """
-    if not subscription or not subscription.end_date:
-        return {'active': False, 'days_left': 0, 'hours_left': 0}
+    if not subscription:
+        return {"active": False, "days_left": 0, "hours_left": 0}
+
+    # Free / unlimited plan
+    if not subscription.end_date:
+        return {
+            "active": True,
+            "days_left": subscription.plan.duration_days or 0,
+            "hours_left": 0
+        }
 
     now = timezone.now()
     end = subscription.end_date
@@ -36,7 +51,7 @@ def get_subscription_status(subscription):
         days_left = delta.days
         hours_left = delta.seconds // 3600
 
-        # If less than 1 day but hours > 0, show hours
+        # Ensure at least 1 hour on last moment
         if days_left == 0 and hours_left == 0:
             hours_left = 1
     else:
@@ -44,26 +59,24 @@ def get_subscription_status(subscription):
         hours_left = 0
 
     return {
-        'active': active,
-        'days_left': days_left,
-        'hours_left': hours_left
+        "active": active,
+        "days_left": days_left,
+        "hours_left": hours_left
     }
 
 
 # ---------------- Human-readable Time Left ----------------
 def get_time_left(subscription):
     """
-    Returns human-readable string for subscription time left.
-    Examples:
-        "2 days", "1 day", "Expires in 12 hours", "Expires today"
+    Returns human-readable time left.
     """
     status = get_subscription_status(subscription)
 
-    if not status['active']:
+    if not status["active"]:
         return "0"
 
-    days = status['days_left']
-    hours = status['hours_left']
+    days = status["days_left"]
+    hours = status["hours_left"]
 
     if days > 1:
         return f"{days} days"
@@ -79,24 +92,19 @@ def get_time_left(subscription):
 
 # ---------------- Member Limit Check ----------------
 def can_add_member(group: ChittiGroup) -> bool:
-    """
-    Checks whether a new member can be added to the group
-    based on the effective subscription (main group subscription).
-    """
     subscription = get_effective_subscription(group)
 
     if not subscription:
         return False
 
     current_members = group.chitti_members.count()
-    return current_members < subscription.plan.max_members
+    max_members = subscription.plan.max_members or 0
+
+    return current_members < max_members
 
 
 # ---------------- Group Creation Limit Check ----------------
 def can_create_group(admin_user) -> bool:
-    """
-    admin_user MUST be User instance
-    """
     if not admin_user:
         return False
 
@@ -109,10 +117,10 @@ def can_create_group(admin_user) -> bool:
     if not subscription:
         return False
 
-    plan = subscription.plan
+    max_groups = subscription.plan.max_groups or 0
 
     total_groups = ChittiGroup.objects.filter(
         owner=admin_user
     ).count()
 
-    return total_groups < plan.max_groups
+    return total_groups < max_groups

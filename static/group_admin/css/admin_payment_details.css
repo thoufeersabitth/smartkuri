@@ -1,0 +1,63 @@
+/* ==================== VARIABLES ==================== */
+:root {
+    --bg: #f5f7fa;
+    --card-bg: #ffffff;
+    --text-main: #1f2937;
+    --text-secondary: #6b7280;
+    --primary: #4f46e5;
+    --secondary: #3b82f6;
+    --accent: #10b981;
+    --success: #16a34a;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --radius: 16px;
+    --shadow: 0 10px 25px rgba(0,0,0,0.08);
+    --spacing: 1rem;
+}
+
+/* ==================== BASE ==================== */
+body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text-main); }
+.container { max-width: 1200px; margin:0 auto; padding: var(--spacing); }
+.page-title { font-size: 2rem; font-weight:700; margin-bottom:0.2rem; }
+.page-subtitle { color: var(--text-secondary); margin-bottom:1rem; }
+.divider { border:none; height:1px; background: rgba(0,0,0,0.05); margin-bottom:2rem; }
+
+/* ==================== TABLE ==================== */
+.table-container { 
+    background: var(--card-bg); 
+    border-radius: var(--radius); 
+    box-shadow: var(--shadow); 
+    overflow-x:auto;
+    padding: var(--spacing);
+}
+.data-table { width:100%; border-collapse:collapse; min-width: 700px; }
+.data-table th, .data-table td { padding:0.8rem 1rem; text-align:left; font-size:0.9rem; }
+.data-table th { font-weight:600; color: var(--primary); border-bottom:2px solid #e5e7eb; text-transform:uppercase; }
+.data-table tbody tr { transition: all 0.25s ease; border-bottom:1px solid #e5e7eb; }
+.data-table tbody tr:nth-child(even) { background: rgba(59,130,246,0.05); }
+.data-table tbody tr:hover { background: rgba(16,185,129,0.08); transform: translateX(1px); }
+
+/* ==================== STATUS BADGES ==================== */
+.status-badge { 
+    padding:0.35rem 0.8rem; 
+    border-radius:20px; 
+    font-size:0.75rem; 
+    font-weight:600; 
+    text-transform:uppercase;
+    display:inline-block; 
+    transition: transform 0.25s ease;
+}
+.status-badge:hover { transform: scale(1.1); }
+.status-approved { background: linear-gradient(135deg,#34d399,#059669); color:#fff; }
+.status-pending { background: linear-gradient(135deg,#fbbf24,#f97316); color:#1f2937; }
+
+/* ==================== EMPTY STATE ==================== */
+.empty-state { text-align:center; padding:3rem 1rem; color: var(--text-secondary); }
+.empty-state i { font-size:3rem; margin-bottom:1rem; display:block; color: var(--secondary); }
+.empty-state h3 { font-size:1.5rem; font-weight:600; margin-bottom:0.5rem; }
+.empty-state p { font-size:0.95rem; }
+
+/* ==================== RESPONSIVE ==================== */
+@media (max-width:1024px){ .data-table{min-width:600px;} }
+@media (max-width:768px){ .data-table{min-width:500px;} }
+@media (max-width:480px){ .page-title{font-size:1.5rem;} .data-table{min-width:400px;} }

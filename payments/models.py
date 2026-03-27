@@ -1,4 +1,3 @@
-from builtins import getattr, max, min, property, sum, super
 from django.db import models
 from django.utils import timezone
 from accounts.models import StaffProfile
@@ -8,10 +7,6 @@ from members.models import Member
 from datetime import timedelta, datetime
 import uuid, random
 
-
-# -----------------------------
-# Payment Model –
-# -----------------------------
 class Payment(models.Model):
     member = models.ForeignKey(
         Member,
@@ -20,13 +15,16 @@ class Payment(models.Model):
         null=True,
         blank=True
     )
-
     collected_by = models.ForeignKey(
         StaffProfile,
         on_delete=models.CASCADE
     )
-
+    group = models.ForeignKey(ChittiGroup, on_delete=models.SET_NULL, null=True, blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
+
+    # New field: collection number per month
+    collection_number = models.PositiveSmallIntegerField(null=True, blank=True)
+
     PAYMENT_METHODS = [
         ('razorpay', 'Razorpay'),
         ('cash', 'Cash'),
@@ -42,9 +40,9 @@ class Payment(models.Model):
     ]
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS, default='success')
 
-    group = models.ForeignKey(ChittiGroup, on_delete=models.SET_NULL, null=True, blank=True)
-    subscription_plan = models.ForeignKey(SubscriptionPlan, on_delete=models.SET_NULL, null=True, blank=True)
-
+    subscription_plan = models.ForeignKey(
+        SubscriptionPlan, on_delete=models.SET_NULL, null=True, blank=True
+    )
     subscription_start = models.DateField(null=True, blank=True)
     subscription_end = models.DateField(null=True, blank=True)
 
@@ -57,9 +55,10 @@ class Payment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    # -----------------------------
-    # Save method for transaction, invoice & subscription
-    # -----------------------------
+    # ✅ New fields for admin approval flow
+    sent_to_admin = models.BooleanField(default=False)      # marked by collector
+    received_by_admin = models.BooleanField(default=False)  # marked by admin
+
     def save(self, *args, **kwargs):
         creating = self.pk is None
 
@@ -71,6 +70,7 @@ class Payment(models.Model):
 
         super().save(*args, **kwargs)
 
+        # Auto subscription dates
         if creating and self.payment_status == 'success' and self.subscription_plan and self.group:
             start_date = timezone.now().date()
             end_date = start_date + timedelta(days=self.subscription_plan.duration_days)
@@ -79,23 +79,7 @@ class Payment(models.Model):
                 subscription_end=end_date
             )
 
-    # -----------------------------
-    # Pending amount – auto from member total_paid
-    # -----------------------------
-    @property
-    def pending_amount(self):
-        if self.member:
-            total_paid = sum(p.amount for p in self.member.collections.filter(payment_status='success'))
-            return max(self.member.monthly_amount - total_paid, 0)
-        return 0
-
-
-    # -----------------------------
-    # Subscription active check
-    # -----------------------------
-    def is_subscription_active(self):
-        return self.subscription_end and self.subscription_end >= timezone.now().date()
-
     def __str__(self):
         member_name = self.member.name if self.member else "No Member"
-        return f"{member_name} - ₹{self.amount} ({self.payment_status})"
+        coll = f" (Collection #{self.collection_number})" if self.collection_number else ""
+        return f"{member_name} - ₹{self.amount}{coll} ({self.payment_status})"

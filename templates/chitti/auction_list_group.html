@@ -7,12 +7,6 @@
 
 {% block content %}
 <div class="container mt-5">
-
-    <div class="header-row">
-        <h2 class="section-title">Auction Details: {{ group.name }} ({{ group.duration_months }} Months)</h2>
-        <a href="{% url 'chitti:add_auction' %}" class="btn-add-new">+ Add Auction</a>
-    </div>
-
     <div class="table-container">
         <table class="data-table">
             <thead>
@@ -24,60 +18,105 @@
                     <th>Action</th>
                 </tr>
             </thead>
+
             <tbody>
                 {% for m in months %}
                     <tr>
+
+                        <!-- Month -->
                         <td>Month {{ m.month_no }}</td>
 
-                        <!-- Date -->
+                        <!-- ✅ DATE -->
                         <td>
-                            {% if m.auction %}
-                                {{ m.auction.auction_date|date:"d M Y" }}
+                            {% if not m.is_auction_month %}
+                                -
+                            {% elif m.auctions %}
+                                {% for auction in m.auctions %}
+                                    <div>{{ auction.auction_date|date:"d M Y" }}</div>
+                                {% endfor %}
+                            {% else %}
+                                <span style="color:#888;">
+                                    {{ m.auto_date|date:"d M Y" }}
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <!-- ✅ STATUS -->
+                        <td>
+                            {% if not m.is_auction_month %}
+                                <span class="month-badge disabled">No Auction</span>
+
+                            {% elif m.auctions %}
+                                {% for auction in m.auctions %}
+                                    <div>
+                                        {% if auction.is_closed %}
+                                            <span class="month-badge done">Done</span>
+                                        {% else %}
+                                            <span class="month-badge current">Upcoming</span>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+
+                            {% else %}
+                                <span class="month-badge pending">Scheduled</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- ✅ WINNER -->
+                        <td>
+                            {% if not m.is_auction_month %}
+                                -
+                            {% elif m.auctions %}
+                                {% for auction in m.auctions %}
+                                    <div>
+                                        {% if auction.winner %}
+                                            {{ auction.winner.member.name }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
                             {% else %}
                                 -
                             {% endif %}
                         </td>
 
-                        <!-- Status -->
+                        <!-- ✅ ACTION -->
                         <td>
-                            {% if m.auction %}
-                                {% if m.auction.is_closed %}
-                                    <span class="month-badge done">Done</span>
-                                {% else %}
-                                    <span class="month-badge current">Current</span>
-                                {% endif %}
+                            {% if not m.is_auction_month %}
+                                -
+
+                            {% elif m.auctions %}
+                                {% for auction in m.auctions %}
+                                    <div class="action-buttons" style="margin-bottom:5px;">
+                                        
+                                        <a class="action-btn view-btn"
+                                           href="{% url 'chitti:auction_detail' auction.id %}">
+                                           View
+                                        </a>
+
+                                        {% if not auction.is_closed %}
+                                            <a class="action-btn edit-btn"
+                                               href="{% url 'chitti:auction_spin' auction.id %}">
+                                               Spin
+                                            </a>
+                                        {% else %}
+                                            <span class="status-badge">Closed</span>
+                                        {% endif %}
+
+                                    </div>
+                                {% endfor %}
+
                             {% else %}
-                                <span class="month-badge pending">Pending</span>
+                                <!-- 🔥 FUTURE AUCTION -->
+                                <span class="month-badge pending">Waiting</span>
                             {% endif %}
                         </td>
 
-                        <!-- Winner -->
-                        <td>
-                            {% if m.auction and m.auction.winner %}
-                                {{ m.auction.winner.member.name }}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
-
-                        <!-- Action -->
-                        <td>
-                            {% if m.auction %}
-                                <div class="action-buttons">
-                                    <a class="action-btn view-btn" href="{% url 'chitti:auction_detail' m.auction.id %}">View</a>
-                                    {% if not m.auction.is_closed %}
-                                        <a class="action-btn edit-btn" href="{% url 'chitti:auction_spin' m.auction.id %}">Spin</a>
-                                    {% else %}
-                                        <span class="status-badge">Closed</span>
-                                    {% endif %}
-                                </div>
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
                     </tr>
                 {% endfor %}
             </tbody>
+
         </table>
     </div>
 

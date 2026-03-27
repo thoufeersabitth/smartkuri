@@ -1,0 +1,80 @@
+{% extends "chitti/group_admin_base.html" %}
+{% load static %}
+
+{% block title %}Payments Approval{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'group_admin/css/admin_pending_payments.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+
+    <h1 class="page-title">Payments Approval</h1>
+    <p class="page-subtitle">Summary by group</p>
+    <hr class="divider">
+
+    {% if group_list %}
+    <div class="cards-grid">
+        {% for item in group_list %}
+        <div class="payment-card">
+
+            <!-- Header -->
+            <div class="card-header">
+                <h4>{{ item.group.name }}</h4>
+            </div>
+
+            <!-- Body -->
+            <div class="card-body">
+
+                <div class="amount-row">
+                    <div>
+                        <small>Pending</small>
+                        <div class="badge badge-pending">₹{{ item.total_pending|floatformat:2 }}</div>
+                    </div>
+                    <div>
+                        <small>Approved / Received</small>
+                        <div class="badge badge-approved">₹{{ item.total_approved|floatformat:2 }}</div>
+                    </div>
+                </div>
+
+                <a href="{% url 'chitti:group_payment_details' item.group.id %}" 
+                   class="btn btn-outline-primary btn-block mt-3">View Details</a>
+
+                {% if item.total_pending > 0 %}
+                <form action="{% url 'chitti:admin_approve_payment_group' item.group.id %}" method="post">
+                    {% csrf_token %}
+                    <button class="btn btn-success btn-block mt-2">
+                        Approve All / Mark as Received (₹{{ item.total_pending|floatformat:2 }})
+                    </button>
+                </form>
+                {% else %}
+                <button class="btn btn-secondary btn-block mt-2" disabled>
+                    All Payments Received
+                </button>
+                {% endif %}
+
+            </div>
+
+            <!-- Footer -->
+            <div class="card-footer">
+                {% if item.total_pending > 0 %}
+                    {{ item.count_pending }} pending / {{ item.count_approved }} received
+                {% else %}
+                    All Payments Received
+                {% endif %}
+            </div>
+
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-wallet"></i>
+        <h3>No payments available</h3>
+        <p>Once collections are added, they will appear here for approval.</p>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

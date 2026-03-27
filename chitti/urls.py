@@ -4,6 +4,7 @@ from . import views
 app_name = 'chitti'
 
 urlpatterns = [
+
     # -----------------------------
     # Group Management
     # -----------------------------
@@ -13,7 +14,6 @@ urlpatterns = [
     path('groups/edit/<int:group_id>/', views.edit_group, name='edit_group'),
     path('groups/close/<int:group_id>/', views.close_group, name='close_group'),
     path('groups/subscribe/<int:group_id>/', views.subscribe_group, name='subscribe_group'),
-
 
     # -----------------------------
     # Cash Collector Management
@@ -28,17 +28,24 @@ urlpatterns = [
     # -----------------------------
     path('groups/renew-subscription/<int:group_id>/', views.renew_subscription, name='renew_subscription'),
     path('razorpay/callback/', views.razorpay_callback, name='razorpay_callback'),
-    
-# Auction URLs
+
+    # -----------------------------
+    # Auction URLs
+    # -----------------------------
     path('auction/', views.auction_list_view, name='auction_list'),
-    # Auction list for a single group
-path('auction/group/<int:group_id>/', views.auction_list_group_view, name='auction_list_group'),
-           
-    path('auction/add/', views.add_auction, name='add_auction'),        
-    path('auction/<int:auction_id>/', views.auction_detail_view, name='auction_detail'),  # Detail page
-    path('auction/<int:auction_id>/spin/', views.auction_spin_view, name='auction_spin'),  # Spin page
-    path('auction/<int:auction_id>/assign_winner_ajax/', views.assign_winner_ajax, name='assign_winner_ajax'),  # AJAX winner
+    path('auction/group/<int:group_id>/', views.auction_list_group_view, name='auction_list_group'),
+    path('auction/add/', views.add_auction, name='add_auction'),
+    path('auction/<int:auction_id>/', views.auction_detail_view, name='auction_detail'),
+    path('auction/<int:auction_id>/spin/', views.auction_spin_view, name='auction_spin'),
+    path('auction/<int:auction_id>/assign_winner_ajax/', views.assign_winner_ajax, name='assign_winner_ajax'),
 
-    
+    # -----------------------------
+    # Admin Payments
+    # -----------------------------
+    path('admin/payments/pending/', views.admin_pending_payments, name='admin_pending_payments'),
+    path('admin/payments/approve/<int:payment_id>/', views.admin_approve_payment, name='admin_approve_payment'),
 
+    # ✅ Approve all payments for a group
+    path('admin/payments/approve/group/<int:group_id>/', views.admin_approve_payment_group, name='admin_approve_payment_group'),
+    path('admin/payments/group/<int:group_id>/details/', views.group_payment_details, name='group_payment_details'),
 ]

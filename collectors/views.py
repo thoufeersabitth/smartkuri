@@ -1,4 +1,6 @@
 from datetime import datetime, date
+from decimal import Decimal
+from django.db import transaction
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -30,67 +32,193 @@ def assigned_members(request):
 # ---------------------------------
 # ➕ Add Collection (Payment)
 # ---------------------------------
+
+# ---------------------------------
 @login_required
 @collector_required
+@transaction.atomic
 def add_collection(request):
     staff = request.user.staffprofile
-    members = Member.objects.filter(assigned_chitti_group__collector=staff)
+    today = timezone.now().date()
 
-    if request.method == 'POST':
-        member = get_object_or_404(
-            Member,
-            id=request.POST.get('member'),
-            assigned_chitti_group__collector=staff
+    members = Member.objects.filter(
+        assigned_chitti_group__collector=staff
+    )
+
+    member_collections_options = {}
+
+    for member in members:
+        group = member.assigned_chitti_group
+
+        existing_numbers = list(
+            Payment.objects.filter(
+                member=member,
+                group=group,
+                paid_date__year=today.year,
+                paid_date__month=today.month,
+                payment_status="success"
+            ).values_list("collection_number", flat=True)
         )
 
-        amount = request.POST.get('amount')
-        paid_date_str = request.POST.get('paid_date')
-        method = request.POST.get('payment_method')
+        max_collections = group.collections_per_month
 
-        # ✅ convert string → date
-        paid_date = datetime.strptime(paid_date_str, "%Y-%m-%d").date()
+        remaining_numbers = [
+            i for i in range(1, max_collections + 1)
+            if i not in existing_numbers
+        ]
 
-        if not amount or float(amount) <= 0:
-            messages.error(request, "Invalid amount")
+        member_collections_options[member.id] = remaining_numbers
+
+    # ---------------- POST ----------------
+    if request.method == 'POST':
+        try:
+            member_id = request.POST.get('member')
+            payment_method = request.POST.get('payment_method')
+            paid_date = request.POST.get('paid_date')
+
+            member = get_object_or_404(
+                Member,
+                id=member_id,
+                assigned_chitti_group__collector=staff
+            )
+
+            group = member.assigned_chitti_group
+
+            amount = group.monthly_amount / group.collections_per_month
+
+            existing_numbers = list(
+                Payment.objects.filter(
+                    member=member,
+                    group=group,
+                    paid_date__year=today.year,
+                    paid_date__month=today.month,
+                    payment_status="success"
+                ).values_list("collection_number", flat=True)
+            )
+
+            if len(existing_numbers) >= group.collections_per_month:
+                raise ValueError("All collections completed!")
+
+            collection_number = int(request.POST.get('collection_number'))
+
+            if collection_number in existing_numbers:
+                raise ValueError("This collection already paid!")
+
+        except Exception as e:
+            messages.error(request, str(e))
             return redirect('collector:add')
 
-        # ✅ monthly duplicate check
-        exists = Payment.objects.filter(
-            member=member,
-            paid_date__year=paid_date.year,
-            paid_date__month=paid_date.month
-        ).exists()
-
-        if exists:
-            messages.error(request, "This month payment already collected")
-            return redirect('collector:add')
-
+        # ✅ CREATE PAYMENT (NOT SENT)
         Payment.objects.create(
             member=member,
             collected_by=staff,
-            group=member.assigned_chitti_group,
+            group=group,
             amount=amount,
+            collection_number=collection_number,
             paid_date=paid_date,
-            payment_method=method,
-            payment_status='success'
+            payment_method=payment_method.lower(),
+            payment_status='success',
+
+            sent_to_admin=False,       
+            received_by_admin=False
         )
 
-        messages.success(request, "Payment collected successfully")
-        return redirect('collector:today')
+        messages.success(request, f"₹{amount} collected successfully ✅")
+        return redirect('collector:add')
 
-    return render(request, 'collector/add.html', {'members': members})
-
-
+    return render(request, 'collector/add.html', {
+        'members': members,
+        'member_collections_options': member_collections_options
+    })
 # ---------------------------------
-# 📄 Today Collections
-# ---------------------------------
+# -----------------------------
+# -----------------------------
+from datetime import date
+
+from datetime import date
+from collections import defaultdict
+from collections import defaultdict
+from datetime import date
+
 @login_required
 @collector_required
-def today_collections(request):
+def all_collections(request):
     staff = request.user.staffprofile
-    payments = Payment.objects.filter(collected_by=staff, paid_date=date.today(), payment_status='success').order_by('-id')
-    total = payments.aggregate(total=Sum('amount'))['total'] or 0
-    return render(request, 'collector/today.html', {'payments': payments, 'total': total})
+    today = date.today()
+
+    payments = Payment.objects.filter(
+        collected_by=staff,
+        payment_status='success'
+    ).select_related('member', 'group').order_by('-paid_date')
+
+    payments_by_group = defaultdict(list)
+
+    for payment in payments:
+        payment.is_today = (payment.paid_date == today)
+        payments_by_group[payment.group].append(payment)
+
+    group_list = []
+
+    for group, group_payments in payments_by_group.items():
+
+        total_collector = sum(p.amount for p in group_payments)
+
+        total_admin = sum(
+            p.amount for p in group_payments if p.received_by_admin
+        )
+
+        pending = sum(
+            p.amount for p in group_payments
+            if p.sent_to_admin and not p.received_by_admin
+        )
+
+        not_sent = sum(
+            p.amount for p in group_payments
+            if not p.sent_to_admin
+        )
+
+        group_list.append({
+            'group': group,
+            'payments': group_payments,
+            'total_collector': total_collector,
+            'total_admin': total_admin,
+            'pending': pending,
+            'not_sent': not_sent,   # 🔥 NEW
+        })
+
+    return render(request, 'collector/today.html', {
+        'group_list': group_list
+    })
+
+
+from django.db.models import Sum
+
+@login_required
+@collector_required
+def request_admin_approval(request, group_id):
+    staff = request.user.staffprofile
+
+    payments = Payment.objects.filter(
+        collected_by=staff,
+        group_id=group_id,
+        payment_status='success',
+        sent_to_admin=False,
+        received_by_admin=False   
+    )
+
+    total_amount = payments.aggregate(total=Sum('amount'))['total'] or 0
+
+    if total_amount > 0:
+        payments.update(sent_to_admin=True)
+
+        messages.success(
+            request,
+            f"₹{total_amount} sent to admin for approval ✅"
+        )
+    else:
+        messages.info(request, "No pending payments to send.")
+
+    return redirect('collector:all_collections')
 
 @login_required
 @collector_required
@@ -225,17 +353,32 @@ def edit_payment(request, payment_id):
     return render(request, 'collector/edit_payment.html', context)
 
 # ---------------------------------
-# 🗑️ Delete Payment (Same Day Only)
-# ---------------------------------
 @login_required
 @collector_required
 def delete_payment(request, payment_id):
     staff = request.user.staffprofile
-    payment = get_object_or_404(Payment, id=payment_id, collected_by=staff, paid_date=date.today())
-    payment.delete()
-    messages.success(request, "Payment deleted")
-    return redirect('collector:today')
 
+    # ✅ ONLY ID + collector check
+    payment = get_object_or_404(
+        Payment,
+        id=payment_id,
+        collected_by=staff
+    )
+
+    # 🔥 CONDITION 1: Only today
+    if payment.paid_date != date.today():
+        messages.error(request, "Only today's payments can be deleted ❌")
+        return redirect('collector:all_collections')
+
+    # 🔥 CONDITION 2: Not sent to admin
+    if payment.sent_to_admin:
+        messages.error(request, "Cannot delete. Already sent to admin ❌")
+        return redirect('collector:all_collections')
+
+    payment.delete()
+    messages.success(request, "Payment deleted successfully ✅")
+
+    return redirect('collector:all_collections')
 
 # ---------------------------------
 # 👤 Collector Profile

@@ -14,6 +14,7 @@ from accounts.api.v1.views import (
     PasswordResetRequestAPIView,
     PasswordResetConfirmAPIView,
     FirstLoginChangePasswordAPIView,
+    SubscriptionPlanListAPIView,
     VerifyGroupOTPAPIView,
 )
 
@@ -25,6 +26,7 @@ urlpatterns = [
 
     # Group Signup / Payment
     path('group/signup/', GroupSignupAPIView.as_view(), name='api_group_signup'),
+    path("plans/", SubscriptionPlanListAPIView.as_view(), name="plans-list"),
     path('group/verify-otp/', VerifyGroupOTPAPIView.as_view(), name='api_group_verify_otp'),
     path('group/resend-otp/', ResendGroupOTPAPIView.as_view(), name='resend_group_otp'),
     path('group/payment-order/', CreatePaymentOrderAPIView.as_view(), name='api_group_payment_order'),

@@ -48,31 +48,44 @@ class GroupAdminProfileAPIView(APIView):
         profile = get_object_or_404(
             StaffProfile,
             user=user,
-            role='group_admin'
+            role="group_admin"
         )
 
         # Groups under this admin
         groups = ChittiGroup.objects.filter(owner=user).annotate(
-            members_count=Count('chitti_members')
+            members_count=Count("chitti_members")
         )
 
         groups_count = groups.count()
         total_members_count = sum(g.members_count for g in groups)
 
-        # Main group (for subscription)
+        # Main group for subscription
         main_group = groups.filter(parent_group__isnull=True).first()
 
-        effective_sub = get_effective_subscription(main_group) if main_group else None
-        subscription_status = get_subscription_status(effective_sub) if effective_sub else None
-        time_left = get_time_left(effective_sub) if effective_sub else "0"
+        effective_sub = None
+        subscription_status = {
+            "active": False,
+            "days_left": 0,
+            "hours_left": 0
+        }
+        time_left = "0"
 
-        # 🔹 Max/Remaining groups
-        max_groups = effective_sub.plan.max_groups if effective_sub else None
-        remaining_groups = max_groups - groups_count if max_groups is not None else None
+        max_groups = 0
+        max_members = 0
 
-        # 🔹 Max/Remaining members (total across all groups)
-        max_members = effective_sub.plan.max_members if effective_sub else None
-        remaining_members = max_members - total_members_count if max_members is not None else None
+        if main_group:
+            effective_sub = get_effective_subscription(main_group)
+
+        if effective_sub:
+            subscription_status = get_subscription_status(effective_sub)
+            time_left = get_time_left(effective_sub)
+
+            max_groups = effective_sub.plan.max_groups
+            max_members = effective_sub.plan.max_members
+
+        # Remaining calculations (avoid negative values)
+        remaining_groups = max(max_groups - groups_count, 0)
+        remaining_members = max(max_members - total_members_count, 0)
 
         data = {
             "profile": {
@@ -82,24 +95,24 @@ class GroupAdminProfileAPIView(APIView):
                 "phone": profile.phone,
                 "role": profile.role,
             },
+
             "groups_count": groups_count,
             "members_count": total_members_count,
+
             "effective_subscription": {
                 "plan": effective_sub.plan.name if effective_sub else None,
                 "is_active": effective_sub.is_active if effective_sub else False,
                 "max_groups": max_groups,
                 "remaining_groups": remaining_groups,
                 "max_members": max_members,
-                "remaining_members": remaining_members
+                "remaining_members": remaining_members,
             },
+
             "subscription_status": subscription_status,
             "time_left": time_left
         }
 
         return Response(data)
-
-
-
 
 class GroupAdminDashboardAPIView(APIView):
     authentication_classes = [JWTAuthentication]
@@ -109,7 +122,7 @@ class GroupAdminDashboardAPIView(APIView):
         user = request.user
         today = timezone.now().date()
 
-        # 🔐 role check (same as @group_admin_required)
+        # 🔐 Role check
         if not hasattr(user, "staffprofile") or user.staffprofile.role != "group_admin":
             return Response(
                 {"error": "Only group admin allowed"},
@@ -128,7 +141,6 @@ class GroupAdminDashboardAPIView(APIView):
 
         # ================= THIS MONTH COLLECTION =================
         month_start = today.replace(day=1)
-
         this_month_collection = Payment.objects.filter(
             group__owner=user,
             payment_status="success",
@@ -142,7 +154,7 @@ class GroupAdminDashboardAPIView(APIView):
         ).aggregate(total=Sum("amount"))["total"] or 0
 
         # ================= RESPONSE =================
-        return Response({
+        data = {
             "stats": {
                 "total_groups": total_groups,
                 "active_groups": active_groups,
@@ -150,21 +162,24 @@ class GroupAdminDashboardAPIView(APIView):
                 "this_month_collection": this_month_collection,
                 "total_received": total_received,
             },
- "groups": [
-            {
-                "id": g.id,
-                "name": g.name,
-                "code": g.code,
-                "is_active": g.is_active,
-                "total_members": g.total_members,
-                "monthly_amount": g.monthly_amount,
-                "duration_months": g.duration_months,
-                "start_date": g.start_date,  
-            }
-    for g in groups
-]
-        }, status=status.HTTP_200_OK)
-    
+            "groups": [
+                {
+                    "id": g.id,
+                    "name": g.name,
+                    "code": g.code,
+                    "is_active": g.is_active,
+                    "total_members": g.total_members,
+                    "monthly_amount": g.monthly_amount,
+                    "duration_months": g.duration_months,
+                    "start_date": g.start_date.strftime("%Y-%m-%d") if g.start_date else None,
+                  
+                    "collector_name": g.collector.user.username if hasattr(g, "collector") and g.collector else "Not Assigned"
+                }
+                for g in groups
+            ]
+        }
+
+        return Response(data, status=status.HTTP_200_OK)
 
 # ==================================================
 # ADMIN GROUP LIST API
@@ -185,7 +200,7 @@ class AdminGroupListAPIView(APIView):
             if group.start_date and group.duration_months:
                 group.end_date_calculated = group.start_date + relativedelta(months=group.duration_months)
             else:
-                group.end_date_calculated = None  # Unlimited
+                group.end_date_calculated = None  
 
             # Expired check
             if group.end_date_calculated and date.today() > group.end_date_calculated:
@@ -302,10 +317,7 @@ class AdminGroupCreateAPIView(APIView):
 # ==================================================
 # VIEW GROUP DETAILS API
 # ==================================================
-# ==================================================
-# VIEW GROUP DETAILS API (KURI BASED)
-# ==================================================
-from datetime import date
+
 from dateutil.relativedelta import relativedelta
 
 class GroupDetailAPIView(APIView):
@@ -325,7 +337,7 @@ class GroupDetailAPIView(APIView):
                 months=group.duration_months
             )
         else:
-            end_date_calculated = None  # Unlimited
+            end_date_calculated = None 
 
         # 🔹 Expired check
         if end_date_calculated and date.today() > end_date_calculated:

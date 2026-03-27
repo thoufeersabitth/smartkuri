@@ -17,6 +17,9 @@ from datetime import datetime
 from decimal import Decimal
 from rest_framework import status
 from django.utils import timezone
+from datetime import timedelta
+
+
 
 class CollectorDashboardAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -24,44 +27,57 @@ class CollectorDashboardAPIView(APIView):
     def get(self, request):
         collector = request.user.staffprofile
 
-        # Today collection
+        # Today date
+        today = timezone.localdate()
+
+        # =========================
+        # TODAY COLLECTION
+        # =========================
         today_collection = Payment.objects.filter(
             collected_by=collector,
-            paid_date=date.today(),
+            paid_date=today,   # ✅ Direct filter (DateField)
             payment_status='success'
         ).aggregate(total=Sum('amount'))['total'] or 0
 
-        # Monthly collection
+        # =========================
+        # MONTHLY COLLECTION
+        # =========================
         monthly_collection = Payment.objects.filter(
             collected_by=collector,
-            paid_date__month=date.today().month,
-            paid_date__year=date.today().year,
+            paid_date__year=today.year,
+            paid_date__month=today.month,
             payment_status='success'
         ).aggregate(total=Sum('amount'))['total'] or 0
 
-        # Total collection
+        # =========================
+        # TOTAL COLLECTION
+        # =========================
         total_collection = Payment.objects.filter(
             collected_by=collector,
             payment_status='success'
         ).aggregate(total=Sum('amount'))['total'] or 0
 
-        # Active members
+        # =========================
+        # ACTIVE MEMBERS
+        # =========================
         active_members = Member.objects.filter(
-            collections__collected_by=collector
+            collections__collected_by=collector,
+            collections__payment_status='success'
         ).distinct().count()
 
-        # Recent 10 payments
+        # =========================
+        # RECENT PAYMENTS
+        # =========================
         recent_payments = Payment.objects.filter(
             collected_by=collector,
             payment_status='success'
-        ).order_by('-paid_date', '-paid_time')[:10]
+        ).order_by('-paid_date')[:10]
 
         recent_data = [
             {
                 "member": payment.member.name,
                 "amount": payment.amount,
                 "date": payment.paid_date,
-                "time": payment.paid_time
             }
             for payment in recent_payments
         ]
@@ -73,7 +89,6 @@ class CollectorDashboardAPIView(APIView):
             "active_members": active_members,
             "recent_payments": recent_data
         })
-
 
 class ListMembersAPIView(ListAPIView):
     serializer_class = AssignedMemberSerializer
@@ -172,7 +187,7 @@ class MemberHistoryAPIView(APIView):
         })
     
 
-    # ==================================================
+# ==================================================
 # ➕ Add Collection API (Collector)
 # ==================================================
 class AddCollectionAPIView(APIView):
@@ -180,35 +195,67 @@ class AddCollectionAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        staff = request.user.staffprofile
+        try:
+            staff = request.user.staffprofile
+        except:
+            return Response(
+                {"error": "Staff profile not found"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         member_id = request.data.get("member")
         amount = request.data.get("amount")
         paid_date_str = request.data.get("paid_date")
         method = request.data.get("payment_method")
 
-        # Validate member exists under this collector
+        # -----------------------------
+        # Validate required fields
+        # -----------------------------
+        if not all([member_id, amount, paid_date_str, method]):
+            return Response(
+                {"error": "All fields are required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # -----------------------------
+        # Validate member under collector
+        # -----------------------------
         member = get_object_or_404(
             Member,
             id=member_id,
             assigned_chitti_group__collector=staff
         )
 
+        # -----------------------------
         # Validate amount
+        # -----------------------------
         try:
             amount = Decimal(amount)
             if amount <= 0:
-                return Response({"error": "Invalid amount"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"error": "Amount must be greater than 0"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         except:
-            return Response({"error": "Invalid amount format"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Invalid amount format"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        # Convert date
+        # -----------------------------
+        # Convert date (DD-MM-YYYY)
+        # -----------------------------
         try:
-            paid_date = datetime.strptime(paid_date_str, "%Y-%m-%d").date()
+            paid_date = datetime.strptime(paid_date_str, "%d-%m-%Y").date()
         except:
-            return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Invalid date format. Use DD-MM-YYYY"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        # Check monthly duplicate
+        # -----------------------------
+        # Prevent duplicate monthly payment
+        # -----------------------------
         exists = Payment.objects.filter(
             member=member,
             paid_date__year=paid_date.year,
@@ -216,9 +263,14 @@ class AddCollectionAPIView(APIView):
         ).exists()
 
         if exists:
-            return Response({"error": "Payment for this month already collected"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Payment for this month already collected"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
+        # -----------------------------
         # Create payment
+        # -----------------------------
         Payment.objects.create(
             member=member,
             collected_by=staff,
@@ -229,9 +281,10 @@ class AddCollectionAPIView(APIView):
             payment_status='success'
         )
 
-        return Response({"message": "Payment collected successfully"}, status=status.HTTP_201_CREATED)
-    
-
+        return Response(
+            {"message": "Payment collected successfully"},
+            status=status.HTTP_201_CREATED
+        )
 
 class TodayCollectionsAPIView(APIView):
     authentication_classes = [JWTAuthentication]
@@ -342,23 +395,58 @@ class EditPaymentAPIView(APIView):
 
     def put(self, request, payment_id):
         staff = request.user.staffprofile
-        payment = get_object_or_404(Payment, id=payment_id, collected_by=staff)
+        payment = get_object_or_404(
+            Payment, id=payment_id, collected_by=staff
+        )
 
         member_id = request.data.get("member")
         amount = request.data.get("amount")
         paid_date_str = request.data.get("paid_date")
         payment_method = request.data.get("payment_method")
 
+        # Validate required fields
+        if not all([member_id, amount, paid_date_str, payment_method]):
+            return Response(
+                {"error": "All fields are required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         # Validate member
-        member = get_object_or_404(Member, id=member_id, assigned_chitti_group__collector=staff)
+        member = get_object_or_404(
+            Member,
+            id=member_id,
+            assigned_chitti_group__collector=staff
+        )
 
-        # Parse date
+        # Validate amount
         try:
-            paid_date = datetime.strptime(paid_date_str, "%Y-%m-%d").date()
-        except:
-            return Response({"error": "Invalid date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
+            amount = float(amount)
+            if amount <= 0:
+                raise ValueError
+        except ValueError:
+            return Response(
+                {"error": "Invalid amount."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        # Check monthly duplicate (skip current payment)
+        # Flexible date parsing
+        formats = ["%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y"]
+        paid_date = None
+
+        for fmt in formats:
+            try:
+                paid_date = datetime.strptime(paid_date_str, fmt).date()
+                break
+            except ValueError:
+                continue
+
+        if not paid_date:
+            return Response(
+                {"error": "Invalid date format."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check duplicate monthly payment
         exists = Payment.objects.filter(
             member=member,
             paid_date__year=paid_date.year,
@@ -366,7 +454,10 @@ class EditPaymentAPIView(APIView):
         ).exclude(id=payment.id).exists()
 
         if exists:
-            return Response({"error": "This month payment already exists."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "This month payment already exists."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Update payment
         payment.member = member
@@ -375,9 +466,10 @@ class EditPaymentAPIView(APIView):
         payment.payment_method = payment_method
         payment.save()
 
-        return Response({"message": "Payment updated successfully"}, status=status.HTTP_200_OK)
-
-
+        return Response(
+            {"message": "Payment updated successfully"},
+            status=status.HTTP_200_OK
+        )
 # -----------------------------
 # 🗑️ Delete Payment API
 # -----------------------------
@@ -466,7 +558,6 @@ class CollectorProfileAPIView(APIView):
     def get(self, request):
         collector = request.user.staffprofile
 
-        # Only group names
         assigned_groups = ChittiGroup.objects.filter(collector=collector)
         group_names = [g.name for g in assigned_groups]
 
@@ -474,7 +565,7 @@ class CollectorProfileAPIView(APIView):
             "collector": {
                 "id": collector.id,
                 "username": collector.user.username,
-                "phone": collector.user.phone if hasattr(collector.user, 'phone') else "",
+                "phone": collector.phone,   
                 "email": collector.user.email,
                 "joined": collector.user.date_joined.strftime("%d %b %Y"),
             },

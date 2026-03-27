@@ -1,78 +1,182 @@
 {% extends "chitti/group_admin_base.html" %}
 {% load static %}
 
+{% block title %}Add Group Payment{% endblock %}
+
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'group_admin/css/payment_form.css' %}">
 {% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="form-container">
-        <h2 class="mb-4">Add Group Payment</h2>
+<div class="container mt-4">
+    <div class="card shadow p-4">
 
+        <h3 class="text-center text-primary mb-4">Add Group Payment</h3>
+
+        <!-- Messages -->
         {% if messages %}
             {% for message in messages %}
-                <div class="alert alert-{{ message.tags|default:'info' }} mb-4">
+                <div class="alert alert-{{ message.tags }}">
                     {{ message }}
                 </div>
             {% endfor %}
         {% endif %}
 
-        <form method="post">
-            {% csrf_token %}
-
+        <!-- GROUP SELECT -->
+        <form method="get">
             <div class="mb-3">
-                <label class="form-label">Chitti Group</label>
+                <label class="form-label fw-bold">Chitti Group</label>
                 <select name="group" class="form-select" onchange="this.form.submit();">
                     <option value="">Select Group</option>
-                    {% for group in form.group.field.queryset %}
-                        <option value="{{ group.id }}" {% if form.group.value|stringformat:"s" == group.id|stringformat:"s" %}selected{% endif %}>
-                            {{ group.name }}
+                    {% for g in form.fields.group.queryset %}
+                        <option value="{{ g.id }}"
+                            {% if selected_group == g.id|stringformat:"s" %} selected {% endif %}>
+                            {{ g.name }}
                         </option>
                     {% endfor %}
                 </select>
-                {% if form.group.errors %}<div class="text-danger small">{{ form.group.errors }}</div>{% endif %}
             </div>
+        </form>
 
+        <!-- PAYMENT FORM -->
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="group" value="{{ selected_group }}">
+
+            {% if form.errors %}
+                <div class="alert alert-danger">
+                    {{ form.errors }}
+                </div>
+            {% endif %}
+
+            <!-- MEMBER SELECT -->
             <div class="mb-3">
-                <label class="form-label">Member</label>
-                {{ form.chitti_member }}
-                {% if form.chitti_member.errors %}<div class="text-danger small">{{ form.chitti_member.errors }}</div>{% endif %}
+                <label class="form-label fw-bold">Member</label>
+                <select name="chitti_member" id="memberSelect" class="form-select" required>
+                    <option value="">Select Member</option>
+                    {% for member in members %}
+                        <option value="{{ member.id }}"
+                                data-member-id="{{ member.member_id }}"
+                                data-monthly="{{ member.monthly_amount }}"
+                                data-collections="{{ member.collections }}">
+                            {{ member.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <div id="statusMessage" class="mt-2"></div>
             </div>
 
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Amount</label>
-                    {{ form.amount }}
-                    {% if form.amount.errors %}<div class="text-danger small">{{ form.amount.errors }}</div>{% endif %}
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Paid Date</label>
-                    {{ form.paid_date }}
-                    {% if form.paid_date.errors %}<div class="text-danger small">{{ form.paid_date.errors }}</div>{% endif %}
-                </div>
+            <!-- COLLECTION NUMBER -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">Collection Number (this month)</label>
+                <select name="collection_number" id="collectionNumberSelect" class="form-select" required>
+                    <option value="">Select Collection</option>
+                </select>
             </div>
 
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Payment Method</label>
-                    {{ form.payment_method }}
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Payment Status</label>
-                    {{ form.payment_status }}
-                </div>
+            <!-- AMOUNT -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">Amount</label>
+                <input type="number" name="amount" id="amountInput" class="form-control" readonly>
             </div>
 
-            <div class="mt-4 d-flex gap-3">
-                <button type="submit" class="btn btn-primary flex-grow-1">
-                    Submit Payment
-                </button>
-                <a href="{% url 'payments:group_payment_list' %}" class="btn btn-secondary">
-                    Cancel
-                </a>
+            <!-- PAID DATE -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">Paid Date</label>
+                {{ form.paid_date }}
             </div>
+
+            <!-- PAYMENT METHOD -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">Payment Method</label>
+                {{ form.payment_method }}
+            </div>
+
+            <button type="submit" id="submitBtn" class="btn btn-primary w-100">Submit Payment</button>
         </form>
     </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+
+    const memberSelect = document.getElementById("memberSelect");
+    const amountInput = document.getElementById("amountInput");
+    const collectionSelect = document.getElementById("collectionNumberSelect");
+    const statusMessage = document.getElementById("statusMessage");
+    const submitBtn = document.getElementById("submitBtn");
+
+    // member_collections_options passed from Django view
+    const memberCollectionsOptions = {{ member_collections_options|safe }};
+
+    function populateCollections(memberId, monthlyAmount, collections) {
+
+        memberId = parseInt(memberId);
+
+        // reset UI
+        statusMessage.innerHTML = "";
+        collectionSelect.innerHTML = '<option value="">Select Collection</option>';
+        amountInput.value = "";
+        submitBtn.disabled = false;
+
+        if (!memberId || !memberCollectionsOptions[memberId]) return;
+
+        let remaining = memberCollectionsOptions[memberId];
+
+        // 🔴 COMPLETED CASE
+        if (remaining.length === 0) {
+            statusMessage.innerHTML = `
+                <div class="alert alert-danger">
+                    🚫 All collections for this month are already completed.
+                </div>
+            `;
+            let opt = document.createElement("option");
+            opt.textContent = "Completed";
+            opt.disabled = true;
+            collectionSelect.appendChild(opt);
+
+            // set default per-collection amount
+            if (monthlyAmount && collections) {
+                amountInput.value = (monthlyAmount / collections).toFixed(2);
+            }
+
+            submitBtn.disabled = true;
+            return;
+        }
+
+        // 🟢 NORMAL CASE
+        if (monthlyAmount && collections) {
+            amountInput.value = (monthlyAmount / collections).toFixed(2);
+        }
+
+        remaining.forEach(num => {
+            let opt = document.createElement("option");
+            opt.value = num;
+            opt.textContent = "Collection #" + num;
+            collectionSelect.appendChild(opt);
+        });
+    }
+
+    // initial population if member pre-selected
+    if (memberSelect.value) {
+        const selectedOption = memberSelect.options[memberSelect.selectedIndex];
+        populateCollections(
+            selectedOption.getAttribute("data-member-id"),
+            selectedOption.getAttribute("data-monthly"),
+            selectedOption.getAttribute("data-collections")
+        );
+    }
+
+    memberSelect.addEventListener("change", function() {
+        const selectedOption = this.options[this.selectedIndex];
+        populateCollections(
+            selectedOption.getAttribute("data-member-id"),
+            selectedOption.getAttribute("data-monthly"),
+            selectedOption.getAttribute("data-collections")
+        );
+    });
+
+});
+</script>
+
 {% endblock %}

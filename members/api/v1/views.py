@@ -1,6 +1,10 @@
+import random
+import string
+
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
+from django.db.models import Sum
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -8,8 +12,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from chitti.api.v1.serializers import AuctionSerializer
 from members.models import Member
-from chitti.models import ChittiGroup, ChittiMember
+from chitti.models import Auction, ChittiGroup, ChittiMember
+from payments.api.v1.serializers import PaymentSerializer
 from payments.models import Payment
 from subscriptions.utils import can_add_member
 
@@ -122,20 +128,21 @@ class MemberUpdateAPIView(APIView):
             assigned_chitti_group__owner=request.user
         )
 
-        serializer = MemberSerializer(member, data=request.data, partial=True)
+        # Allowed fields only
+        allowed_fields = ["name", "email", "phone", "address", "aadhaar_no"]
+
+        data = {}
+        for field in allowed_fields:
+            if field in request.data:
+                data[field] = request.data[field]
+
+        serializer = MemberSerializer(member, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
-
-        new_group = serializer.validated_data.get("assigned_chitti_group")
-        if new_group and new_group != member.assigned_chitti_group:
-            if not can_add_member(new_group):
-                return Response(
-                    {"detail": "New group limit reached"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
         serializer.save()
+
         return Response({"message": "Member updated successfully"})
     
+
 # MEMBER DELETE (Group Admin)
 class MemberDeleteAPIView(APIView):
     authentication_classes = [JWTAuthentication]
@@ -163,12 +170,13 @@ class MemberDetailAPIView(APIView):
             group__owner=request.user
         )
 
+        member = member_record.member
         group = member_record.group
         duration_months = group.duration_months
 
         payments = list(
             Payment.objects.filter(
-                member=member_record.member,
+                member=member,
                 group=group,
                 payment_status="success"
             ).order_by("paid_date")
@@ -180,6 +188,7 @@ class MemberDetailAPIView(APIView):
         for month in range(1, duration_months + 1):
             if index < len(payments):
                 p = payments[index]
+
                 month_wise.append({
                     "month": month,
                     "amount": p.amount,
@@ -190,6 +199,7 @@ class MemberDetailAPIView(APIView):
                     ),
                     "status": "Paid"
                 })
+
                 index += 1
             else:
                 month_wise.append({
@@ -201,15 +211,107 @@ class MemberDetailAPIView(APIView):
                 })
 
         return Response({
-            "member": {
-                "id": member_record.member.id,
-                "name": member_record.member.name,
-                "token_no": member_record.token_no,
-                "group": group.name,
+            "member_details": {
+                "name": member.name,
+                "email": member.email,
+                "phone": member.phone,
+                "address": member.address,
+                "aadhaar_no": member.aadhaar_no,
+                "chitti_group": group.name,
+                "monthly_amount": group.monthly_amount,
+                "status": member.member_status
             },
-            "total_collected": sum(p.amount for p in payments),
-            "total_due": member_record.pending_amount,
-            "months_paid": index,
-            "duration_months": duration_months,
-            "month_wise": month_wise
+
+            "financial_summary": {
+                "total_collected": sum(p.amount for p in payments),
+                "pending_amount": member.pending_amount,
+                "months_paid": index,
+                "duration_months": duration_months
+            },
+
+            "month_wise_payments": month_wise
         })
+
+
+
+
+# -----------------------------
+# Helper: Generate random password
+# -----------------------------
+def generate_random_password(length=8):
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
+
+# -----------------------------
+# Member Dashboard
+# -----------------------------
+class MemberDashboardAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        member = get_object_or_404(Member.objects.select_related('assigned_chitti_group'), user=request.user)
+
+        payments = Payment.objects.filter(member=member)
+        total_paid = payments.aggregate(total=Sum('amount'))['total'] or 0
+
+        group = member.assigned_chitti_group
+        total_amount = getattr(group, 'total_amount', 0)
+        remaining = total_amount - total_paid
+
+        auctions = Auction.objects.filter(group=group, winner__isnull=False).order_by('auction_date')
+        latest_auction = auctions.last()
+        is_winner = auctions.filter(winner__member=member).exists()
+
+        return Response({
+            "member": MemberSerializer(member).data,
+            "total_paid": total_paid,
+            "total_amount": total_amount,
+            "remaining": remaining,
+            "auctions": AuctionSerializer(auctions, many=True).data,
+            "latest_auction": AuctionSerializer(latest_auction).data if latest_auction else None,
+            "is_winner": is_winner
+        })
+
+
+# -----------------------------
+# Member Profile
+# -----------------------------
+class MemberProfileAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        member = get_object_or_404(Member, user=request.user)
+        return Response(MemberSerializer(member).data)
+
+
+# -----------------------------
+# Member Payment History
+# -----------------------------
+class MemberPaymentsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        member = get_object_or_404(Member, user=request.user)
+        payments_qs = Payment.objects.filter(member=member).select_related("collected_by__user").order_by("-paid_date")
+        total_paid = payments_qs.filter(payment_status="success").aggregate(total=Sum('amount'))['total'] or 0
+
+        return Response({
+            "total_paid": total_paid,
+            "payments": PaymentSerializer(payments_qs, many=True).data
+        })
+
+
+# -----------------------------
+# Member Auction List
+# -----------------------------
+class MemberAuctionsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        member = get_object_or_404(Member.objects.select_related('assigned_chitti_group'), user=request.user)
+
+        if not member.assigned_chitti_group:
+            return Response({"error": "You are not assigned to any chitti group"}, status=status.HTTP_400_BAD_REQUEST)
+
+        auctions_qs = Auction.objects.filter(group=member.assigned_chitti_group).select_related('winner__member').order_by('auction_date')
+        return Response(AuctionSerializer(auctions_qs, many=True).data)

@@ -1,9 +1,9 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
 from subscriptions.models import SubscriptionPlan
 from chitti.models import ChittiGroup
-from members.models import Member
-from accounts.models import StaffProfile
+
 
 # ----------------------
 # LOGIN
@@ -11,6 +11,7 @@ from accounts.models import StaffProfile
 class LoginSerializer(serializers.Serializer):
     identifier = serializers.CharField()
     password = serializers.CharField(write_only=True)
+
 
 # ----------------------
 # GROUP SIGNUP
@@ -24,20 +25,39 @@ class GroupSignupSerializer(serializers.Serializer):
     description = serializers.CharField(required=False, allow_blank=True)
     plan_id = serializers.IntegerField()
 
+    def validate_plan_id(self, value):
+        if not SubscriptionPlan.objects.filter(id=value, is_active=True).exists():
+            raise serializers.ValidationError("Invalid or inactive subscription plan")
+        return value
+
     def validate(self, data):
+
         if data['password1'] != data['password2']:
-            raise serializers.ValidationError("Passwords do not match")
+            raise serializers.ValidationError(
+                {"password": "Passwords do not match"}
+            )
+
+        validate_password(data['password1'])
+
         if ChittiGroup.objects.filter(name=data['group_name']).exists():
-            raise serializers.ValidationError("Group name already exists")
+            raise serializers.ValidationError(
+                {"group_name": "Group name already exists"}
+            )
+
         if User.objects.filter(email=data['email']).exists():
-            raise serializers.ValidationError("Email already registered")
+            raise serializers.ValidationError(
+                {"email": "Email already registered"}
+            )
+
         return data
+
 
 # ----------------------
 # OTP VERIFY
 # ----------------------
 class OTPVerifySerializer(serializers.Serializer):
-    otp = serializers.CharField()
+    otp = serializers.CharField(max_length=6)
+
 
 # ----------------------
 # PASSWORD RESET REQUEST
@@ -45,13 +65,24 @@ class OTPVerifySerializer(serializers.Serializer):
 class PasswordResetRequestSerializer(serializers.Serializer):
     identifier = serializers.CharField()
 
+
 # ----------------------
 # PASSWORD RESET CONFIRM
 # ----------------------
 class PasswordResetConfirmSerializer(serializers.Serializer):
-    otp = serializers.CharField()
-    password1 = serializers.CharField()
-    password2 = serializers.CharField()
+    otp = serializers.CharField(max_length=6)
+    password1 = serializers.CharField(write_only=True)
+    password2 = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        if data["password1"] != data["password2"]:
+            raise serializers.ValidationError(
+                {"password": "Passwords do not match"}
+            )
+
+        validate_password(data["password1"])
+        return data
+
 
 # ----------------------
 # CASH COLLECTOR CREATE
@@ -69,16 +100,35 @@ class CashCollectorCreateSerializer(serializers.Serializer):
         super().__init__(*args, **kwargs)
 
     def validate(self, data):
+
         if data['password'] != data['confirm_password']:
-            raise serializers.ValidationError("Passwords do not match")
+            raise serializers.ValidationError(
+                {"password": "Passwords do not match"}
+            )
+
+        validate_password(data["password"])
+
         if User.objects.filter(username=data['username']).exists():
-            raise serializers.ValidationError("Username is already taken")
+            raise serializers.ValidationError(
+                {"username": "Username is already taken"}
+            )
+
         if User.objects.filter(email=data['email']).exists():
-            raise serializers.ValidationError("Email is already registered")
+            raise serializers.ValidationError(
+                {"email": "Email is already registered"}
+            )
+
         if self.admin_user:
-            if not ChittiGroup.objects.filter(id=data['group_id'], owner=self.admin_user).exists():
-                raise serializers.ValidationError("Invalid group selection")
+            if not ChittiGroup.objects.filter(
+                id=data['group_id'],
+                owner=self.admin_user
+            ).exists():
+                raise serializers.ValidationError(
+                    {"group_id": "Invalid group selection"}
+                )
+
         return data
+
 
 # ----------------------
 # CASH COLLECTOR EDIT
@@ -94,9 +144,13 @@ class CashCollectorEditSerializer(serializers.Serializer):
         super().__init__(*args, **kwargs)
 
     def validate_group_id(self, value):
-        if self.admin_user and not ChittiGroup.objects.filter(id=value, owner=self.admin_user).exists():
+        if self.admin_user and not ChittiGroup.objects.filter(
+            id=value,
+            owner=self.admin_user
+        ).exists():
             raise serializers.ValidationError("Invalid group selection")
         return value
+
 
 # ----------------------
 # ADD ADMIN
@@ -106,4 +160,23 @@ class AddAdminSerializer(serializers.Serializer):
     email = serializers.EmailField()
     phone = serializers.CharField(max_length=15)
     password = serializers.CharField(write_only=True)
-    role = serializers.ChoiceField(choices=['admin','collector','group_admin'])
+    role = serializers.ChoiceField(
+        choices=['admin', 'collector', 'group_admin']
+    )
+
+
+# ----------------------
+# SUBSCRIPTION PLAN SERIALIZER
+# ----------------------
+class SubscriptionPlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubscriptionPlan
+        fields = [
+            "id",
+            "name",
+            "price",
+            "duration_days",
+            "max_members",
+            "max_groups",
+            "is_active",
+        ]

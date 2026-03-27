@@ -1,133 +1,193 @@
-/* Custom CSS for SmartKuri - Premium UI */
+/* =========================
+   SmartKuri Premium UI CSS
+========================= */
 
 :root {
   --primary-color: #00c6a7;
-  --secondary-color: #1e3a8a; /* Deep Navy */
+  --secondary-color: #1e3a8a;
   --bg-light: #f8fafc;
-  --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05),
+                 0 8px 10px -6px rgba(0, 0, 0, 0.05);
   --active-shadow: 0 20px 25px -5px rgba(0, 198, 167, 0.2);
 }
 
+/* ================= BODY ================= */
 body {
   background-color: var(--bg-light);
-  font-family: 'Inter', -apple-system, sans-serif;
+  font-family: 'Inter', sans-serif;
   color: #334155;
 }
 
-/* --------------------
-   Plan Cards Styling
--------------------- */
-.plan-card {
-  border: 2px solid transparent;
-  border-radius: 20px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: pointer;
-  background: white;
-  box-shadow: var(--card-shadow);
-  overflow: hidden;
-  height: 100%;
+/* ================= HEADER ================= */
+.supra-header {
+  text-align: center;
+  margin-bottom: 30px;
 }
 
-.plan-card:hover {
+.supra-main-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+}
+
+.supra-title-gradient {
+  background: linear-gradient(135deg, #00c6a7, #1e3a8a);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.supra-title-outline {
+  color: #1e3a8a;
+}
+
+.supra-tagline {
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+/* ================= PLAN CARDS ================= */
+.supra-plans-grid {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+}
+
+.supra-plan-card {
+  min-width: 250px;
+  border-radius: 20px;
+  background: white;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: var(--card-shadow);
+  border: 2px solid transparent;
+}
+
+.supra-plan-card:hover {
   transform: translateY(-5px);
 }
 
-.plan-card.plan-selected {
+.supra-plan-card.selected {
   border-color: var(--primary-color);
-  background-color: #f0fdfa;
+  background: #f0fdfa;
   box-shadow: var(--active-shadow);
 }
 
-.card-header {
-  border-bottom: none;
-  padding: 1.5rem 1rem;
-}
-
-.card-header h5 {
+.supra-plan-name {
   font-weight: 700;
-  margin: 0;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  font-size: 0.9rem;
 }
 
-.plan-price {
+.supra-plan-price {
   font-size: 1.5rem;
   font-weight: 800;
   color: var(--secondary-color);
-  margin-bottom: 0.5rem;
 }
 
-.plan-feature {
-  font-size: 0.85rem;
-  color: #64748b;
-  margin-bottom: 0.4rem;
+/* ================= FORM ================= */
+.supra-form-container {
+  max-width: 700px;
+  margin: auto;
 }
 
-/* --------------------
-   Form Styling
--------------------- */
-form {
+.supra-form {
   background: white;
-  padding: 2.5rem;
-  border-radius: 24px;
+  padding: 30px;
+  border-radius: 20px;
   box-shadow: var(--card-shadow);
-  max-width: 600px;
-  margin: 0 auto 50px;
 }
 
-.form-label {
+/* Form rows */
+.supra-form-row {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.supra-form-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 15px;
+}
+
+/* Labels */
+.supra-form-group label {
   font-weight: 600;
   font-size: 0.9rem;
   color: var(--secondary-color);
-  margin-bottom: 0.5rem;
+  margin-bottom: 5px;
 }
 
-.form-control {
+/* Inputs */
+.form-control,
+select,
+input {
   border-radius: 12px;
   border: 1.5px solid #e2e8f0;
-  padding: 0.75rem 1rem;
-  transition: all 0.2s;
+  padding: 10px 12px;
+  transition: 0.2s;
+  font-size: 0.9rem;
 }
 
-.form-control:focus {
+.form-control:focus,
+select:focus,
+input:focus {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 4px rgba(0, 198, 167, 0.1);
+  box-shadow: 0 0 0 3px rgba(0, 198, 167, 0.15);
+  outline: none;
 }
 
-/* --------------------
-   Button Styling
--------------------- */
-.btn-primary {
-  background: linear-gradient(135deg, #00c6a7 0%, #1e3a8a 100%);
+/* ================= AUCTION DATES ================= */
+#auction_dates_container input {
+  margin-bottom: 10px;
+}
+
+/* ================= BUTTON ================= */
+.supra-submit-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #00c6a7, #1e3a8a);
   border: none;
   border-radius: 12px;
-  padding: 1rem;
+  padding: 14px;
+  color: white;
   font-weight: 700;
-  font-size: 1rem;
-  margin-top: 1rem;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: 0.2s;
 }
 
-.btn-primary:hover {
+.supra-submit-btn:hover {
   transform: scale(1.02);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 15px rgba(0,0,0,0.1);
 }
 
-/* --------------------
-   Mobile Responsiveness for Plans
--------------------- */
+/* ================= BACK LINK ================= */
+.back-link {
+  text-decoration: none;
+  color: var(--secondary-color);
+  font-weight: 600;
+}
+
+.back-link:hover {
+  color: var(--primary-color);
+}
+
+/* ================= ALERT ================= */
+.supra-alert {
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+
+/* ================= MOBILE ================= */
 @media (max-width: 768px) {
-  .row.text-center {
-    display: flex;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    padding-bottom: 20px;
-    -webkit-overflow-scrolling: touch;
+
+  .supra-form-row {
+    flex-direction: column;
   }
 
-  .col-md-3 {
-    flex: 0 0 75%;
-    max-width: 75%;
+  .supra-plan-card {
+    min-width: 80%;
+  }
+
+  .supra-main-title {
+    font-size: 2rem;
   }
 }

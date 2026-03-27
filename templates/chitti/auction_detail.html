@@ -3,42 +3,76 @@
 
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'group_admin/css/auction_detail.css' %}">
+<style>
+/* Simple message styling */
+.alert {
+    padding: 10px 15px;
+    margin-bottom: 15px;
+    border-radius: 5px;
+    font-weight: bold;
+}
+.alert-error {
+    background-color: #fee2e2;
+    color: #b91c1c;
+}
+.alert-success {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+.alert-warning {
+    background-color: #fef3c7;
+    color: #78350f;
+}
+</style>
 {% endblock %}
 
 {% block content %}
 
-<div class="auction-detail-card">
+<div class="container mt-4">
 
-    <h2 class="page-title">Auction Details</h2>
-
-    <div class="detail-row">
-        <span>Group</span>
-        <strong>{{ auction.group.name }}</strong>
-    </div>
-
-    <div class="detail-row">
-        <span>Date</span>
-        <strong>{{ auction.auction_date }}</strong>
-    </div>
-
-    <div class="detail-row">
-        <span>Winner</span>
-        <strong>
-            {% if auction.winner %}
-                {{ auction.winner.member.name }}
-            {% else %}
-                Not yet spun
-            {% endif %}
-        </strong>
-    </div>
-
-    {% if not auction.is_closed %}
-        <a href="{% url 'chitti:auction_spin' auction.id %}" class="spin-btn">
-            🎯 Spin Auction
-        </a>
-    {% else %}
-        <span class="closed-badge">Auction Closed</span>
+    <!-- 🔥 Messages -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
     {% endif %}
+
+    <div class="auction-detail-card">
+
+        <h2 class="page-title">Auction Details</h2>
+
+        <div class="detail-row">
+            <span>Group</span>
+            <strong>{{ auction.group.name }}</strong>
+        </div>
+
+        <div class="detail-row">
+            <span>Date</span>
+            <strong>{{ auction.auction_date|date:"d M Y" }}</strong>
+        </div>
+
+        <div class="detail-row">
+            <span>Winner</span>
+            <strong>
+                {% if auction.winner %}
+                    {{ auction.winner.member.name }}
+                {% else %}
+                    Not yet spun
+                {% endif %}
+            </strong>
+        </div>
+
+        {% if not auction.is_closed %}
+            <a href="{% url 'chitti:auction_spin' auction.id %}" class="spin-btn">
+                🎯 Spin Auction
+            </a>
+        {% else %}
+            <span class="closed-badge">Auction Closed</span>
+        {% endif %}
+
+    </div>
 
 </div>
 

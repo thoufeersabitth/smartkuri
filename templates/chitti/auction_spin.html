@@ -4,7 +4,6 @@
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'group_admin/css/auction_spin.css' %}">
 <style>
-/* Error / info messages */
 .alert-error {
     color: #ef4444;
     font-weight: bold;
@@ -22,14 +21,37 @@
 
 <div class="spin-card">
 
-    <h2 class="spin-title">Spin the Wheel</h2>
+    <h2 class="spin-title">🎯 Spin the Wheel</h2>
+
+    <!-- Auction Date -->
+    <p class="spin-help">
+        Auction Date: <b>{{ auction.auction_date }}</b>
+    </p>
+
+    <!-- ❌ Wrong Date -->
+    {% if not auction.is_today %}
+        <div class="alert-error">
+            Spin available only on {{ auction.auction_date }}
+        </div>
+    {% endif %}
+
+    <!-- ❌ No Members -->
+    {% if no_members %}
+        <div class="alert-error">
+            No eligible members left to spin!
+        </div>
+    {% endif %}
 
     <div class="wheel-wrapper">
 
         <canvas id="wheelCanvas" width="320" height="320"></canvas>
 
         <!-- center button -->
-        <button id="spinButton" class="spin-center">SPIN</button>
+        <button id="spinButton"
+                class="spin-center"
+                {% if no_members or not auction.is_today %}disabled{% endif %}>
+            SPIN
+        </button>
 
         <!-- arrow -->
         <div class="wheel-arrow"></div>
@@ -43,7 +65,14 @@
 </div>
 
 <script>
-// Build members array from Django context
+// CSRF helper
+function getCSRFToken() {
+    return document.cookie.split('; ')
+        .find(row => row.startsWith('csrftoken='))
+        ?.split('=')[1];
+}
+
+// Members from Django
 let members = [
 {% for m in members %}
 {id: {{ m.id }}, name: "{{ m.member.name }}"}{% if not forloop.last %},{% endif %}
@@ -58,7 +87,7 @@ const radius = center-10;
 const spinButton = document.getElementById("spinButton");
 const winnerResult = document.getElementById("winnerResult");
 
-// Draw the wheel with current members
+// Draw wheel
 function drawWheel() {
     ctx.clearRect(0, 0, size, size);
     if (!members.length) return;
@@ -85,17 +114,19 @@ function drawWheel() {
 
 drawWheel();
 
-// Spin button click
+// Spin logic
 spinButton.onclick = () => {
 
+    if (spinButton.disabled) return;
+
     if (!members.length) {
-        winnerResult.innerHTML = `<span class="alert-error">No eligible members left to spin!</span>`;
+        winnerResult.innerHTML = `<span class="alert-error">No eligible members left!</span>`;
         return;
     }
 
     spinButton.disabled = true;
 
-    const spins = 6; // number of full rotations
+    const spins = 6;
     const stop = Math.random() * 2 * Math.PI;
     const total = spins * 2 * Math.PI + stop;
     const start = performance.now();
@@ -112,25 +143,36 @@ spinButton.onclick = () => {
         drawWheel();
         ctx.restore();
 
-        if (p < 1) requestAnimationFrame(anim);
-        else {
-            // Assign winner via AJAX
+        if (p < 1) {
+            requestAnimationFrame(anim);
+        } else {
+
+            // 🎯 Call backend
             fetch("{% url 'chitti:assign_winner_ajax' auction.id %}", {
                 method: "POST",
                 headers: {
-                    "X-CSRFToken": "{{ csrf_token }}"
+                    "X-CSRFToken": getCSRFToken()
                 }
             })
             .then(r => r.json())
             .then(d => {
+
                 if (d.success) {
-                    winnerResult.innerHTML = `Winner: <b>${d.winner_name}</b>`;
+                    winnerResult.innerHTML = `🏆 Winner: <b>${d.winner_name}</b>`;
+
+                    // Remove winner from wheel
                     members = members.filter(m => m.id !== d.winner_id);
                     drawWheel();
+
+                    // 🔥 Redirect after 3 sec
+                    setTimeout(() => {
+                        window.location.href = "{% url 'chitti:auction_detail' auction.id %}";
+                    }, 3000);
+
                 } else {
                     winnerResult.innerHTML = `<span class="alert-error">${d.error}</span>`;
+                    spinButton.disabled = false;
                 }
-                spinButton.disabled = false;
             })
             .catch(() => {
                 winnerResult.innerHTML = `<span class="alert-error">Something went wrong!</span>`;

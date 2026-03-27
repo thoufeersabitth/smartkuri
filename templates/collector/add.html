@@ -8,73 +8,146 @@
 {% block content %}
 
 <div class="container mt-4">
+    <div class="card shadow p-4">
 
-    <h4 class="mb-4">Add Collection</h4>
+        <h3 class="text-center text-primary mb-4">Add Collection</h3>
 
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }}">
-                {{ message }}
+        <!-- Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} mb-2">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <form method="post" id="paymentForm">
+            {% csrf_token %}
+
+            <!-- MEMBER -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">Member</label>
+                <select name="member" id="memberSelect" class="form-select" required>
+                    <option value="">Select Member</option>
+                    {% for m in members %}
+                        <option value="{{ m.id }}"
+                                data-monthly="{{ m.assigned_chitti_group.monthly_amount }}"
+                                data-collections="{{ m.assigned_chitti_group.collections_per_month }}">
+                            {{ m.name }} ({{ m.phone }})
+                        </option>
+                    {% endfor %}
+                </select>
+                <div id="statusMessage" class="mt-2"></div>
             </div>
-        {% endfor %}
-    {% endif %}
 
-    <form method="post">
-        {% csrf_token %}
+            <!-- COLLECTION NUMBER -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">Collection Number</label>
+                <select name="collection_number" id="collectionNumberSelect" class="form-select" required>
+                    <option value="">Select Collection</option>
+                </select>
+            </div>
 
-        <!-- Member -->
-        <div class="mb-3">
-            <label class="form-label">Member</label>
-            <select name="member" class="form-control" required>
-                <option value="">Select Member</option>
-                {% for m in members %}
-                    <option value="{{ m.id }}">
-                        {{ m.name }} ({{ m.phone }})
-                    </option>
-                {% endfor %}
-            </select>
-        </div>
+            <!-- AMOUNT -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">Amount</label>
+                <input type="number" name="amount" id="amountInput" class="form-control" readonly>
+            </div>
 
-        <!-- Amount -->
-        <div class="mb-3">
-            <label class="form-label">Amount</label>
-            <input
-                type="number"
-                name="amount"
-                class="form-control"
-                placeholder="Enter amount"
-                required
-            >
-        </div>
+            <!-- PAID DATE -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">Paid Date</label>
+                <input type="date" name="paid_date" class="form-control" value="{% now 'Y-m-d' %}" required>
+            </div>
 
-        <!-- Date -->
-        <div class="mb-3">
-            <label class="form-label">Paid Date</label>
-            <input
-                type="date"
-                name="paid_date"
-                class="form-control"
-                value="{% now 'Y-m-d' %}"
-                required
-            >
-        </div>
+            <!-- PAYMENT METHOD -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">Payment Method</label>
+                <select name="payment_method" class="form-select" required>
+                    <option value="cash">Cash</option>
+                    <option value="upi">UPI</option>
+                    <option value="bank">Bank</option>
+                </select>
+            </div>
 
-        <!-- Payment Method -->
-        <div class="mb-3">
-            <label class="form-label">Payment Method</label>
-            <select name="payment_method" class="form-control">
-                <option value="Cash">Cash</option>
-                <option value="UPI">UPI</option>
-                <option value="Bank">Bank</option>
-            </select>
-        </div>
+            <!-- SUBMIT BUTTON -->
+            <button type="submit" id="submitBtn" class="btn btn-primary w-100">
+                Submit Payment
+            </button>
 
-        <button type="submit" class="btn btn-success w-100">
-            Save Payment
-        </button>
-
-    </form>
-
+        </form>
+    </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+
+    const memberSelect = document.getElementById("memberSelect");
+    const amountInput = document.getElementById("amountInput");
+    const collectionSelect = document.getElementById("collectionNumberSelect");
+    const statusMessage = document.getElementById("statusMessage");
+    const submitBtn = document.getElementById("submitBtn");
+
+    const memberCollectionsOptions = {{ member_collections_options|default:"{}"|safe }};
+
+    function populateCollections(memberId) {
+
+        memberId = parseInt(memberId);
+
+        const selectedOption = memberSelect.options[memberSelect.selectedIndex];
+        if (!selectedOption) return;
+
+        const monthlyAmount = parseFloat(selectedOption.dataset.monthly) || 0;
+        const collections = parseInt(selectedOption.dataset.collections) || 1;
+
+        // RESET UI
+        statusMessage.innerHTML = "";
+        collectionSelect.innerHTML = '<option value="">Select Collection</option>';
+        amountInput.value = "";
+        submitBtn.disabled = false;
+
+        if (!memberId || !memberCollectionsOptions[memberId]) return;
+
+        let remaining = memberCollectionsOptions[memberId];
+
+        // 🔴 COMPLETED CASE
+        if (remaining.length === 0) {
+
+            statusMessage.innerHTML = `
+                <div class="alert alert-danger">
+                    🚫 <strong>Payment Blocked</strong><br>
+                    All collections for this month are already completed.
+                </div>
+            `;
+
+            amountInput.value = monthlyAmount.toFixed(2);
+
+            let opt = document.createElement("option");
+            opt.textContent = "Completed";
+            opt.disabled = true;
+            collectionSelect.appendChild(opt);
+
+            submitBtn.disabled = true;
+            return;
+        }
+
+        // 🟢 NORMAL CASE
+        let perCollection = monthlyAmount / collections;
+        amountInput.value = perCollection.toFixed(2);
+
+        remaining.forEach(num => {
+            let opt = document.createElement("option");
+            opt.value = num;
+            opt.textContent = "Collection #" + num;
+            collectionSelect.appendChild(opt);
+        });
+    }
+
+    memberSelect.addEventListener("change", function() {
+        populateCollections(this.value);
+    });
+
+});
+</script>
 
 {% endblock %}

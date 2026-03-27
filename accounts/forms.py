@@ -4,77 +4,45 @@ from django.contrib.auth.models import User
 from chitti.models import ChittiGroup
 
 
-
-
 class GroupSignUpForm(forms.Form):
+    group_name = forms.CharField(widget=forms.TextInput(attrs={'placeholder':'Group Name','class':'form-control'}))
+    phone = forms.CharField(widget=forms.TextInput(attrs={'placeholder':'Phone Number','class':'form-control'}))
+    email = forms.EmailField(widget=forms.EmailInput(attrs={'placeholder':'Admin Email','class':'form-control'}))
+    password1 = forms.CharField(widget=forms.PasswordInput(attrs={'placeholder':'Password','class':'form-control'}))
+    password2 = forms.CharField(widget=forms.PasswordInput(attrs={'placeholder':'Confirm Password','class':'form-control'}))
+    description = forms.CharField(widget=forms.Textarea(attrs={'placeholder':'Enter description','rows':3,'class':'form-control'}), required=False)
 
-    group_name = forms.CharField(
-        label="Chitti Group Name",
-        widget=forms.TextInput(attrs={
-            'placeholder': 'Group Name',
-            'class': 'form-control'
-        })
+    # ✅ Group details
+    monthly_amount = forms.DecimalField(widget=forms.NumberInput(attrs={'class':'form-control'}))
+    duration_months = forms.IntegerField(widget=forms.NumberInput(attrs={'class':'form-control'}))
+    collections_per_month = forms.ChoiceField(
+        choices=ChittiGroup._meta.get_field('collections_per_month').choices,
+        widget=forms.Select(attrs={'class':'form-control'})
     )
-
-    phone = forms.CharField(
-        label="Admin Phone",
-        widget=forms.TextInput(attrs={
-            'placeholder': 'Phone Number',
-            'class': 'form-control'
-        })
+    auction_type = forms.ChoiceField(
+        choices=ChittiGroup._meta.get_field('auction_type').choices,
+        widget=forms.Select(attrs={'class':'form-control'})
     )
-
-    email = forms.EmailField(
-        label="Admin Email",
-        widget=forms.EmailInput(attrs={
-            'placeholder': 'Admin Email',
-            'class': 'form-control'
-        })
+    auctions_per_month = forms.ChoiceField(
+        choices=ChittiGroup._meta.get_field('auctions_per_month').choices,
+        widget=forms.Select(attrs={'class':'form-control'})
     )
+    auction_interval_months = forms.IntegerField(required=False, widget=forms.NumberInput(attrs={'class':'form-control'}))
+    start_date = forms.DateField(widget=forms.DateInput(attrs={'type':'date','class':'form-control'}))
+    auction_dates = forms.CharField(required=False, widget=forms.TextInput(attrs={'placeholder':'dd-mm-yyyy, dd-mm-yyyy', 'class':'form-control'}))
 
-    password1 = forms.CharField(
-        label="Password",
-        widget=forms.PasswordInput(attrs={
-            'placeholder': 'Password',
-            'class': 'form-control'
-        })
-    )
-
-    password2 = forms.CharField(
-        label="Confirm Password",
-        widget=forms.PasswordInput(attrs={
-            'placeholder': 'Confirm Password',
-            'class': 'form-control'
-        })
-    )
-
-    description = forms.CharField(
-        label="Group Description",
-        widget=forms.Textarea(attrs={
-            'placeholder': 'Enter description',
-            'rows': 3,
-            'class': 'form-control'
-        }),
-        required=False
-    )
-
-    # 🔥 IMPORTANT FIX — MUST MATCH HIDDEN INPUT
     plan = forms.ModelChoiceField(
         queryset=SubscriptionPlan.objects.filter(is_active=True),
-        widget=forms.HiddenInput(),   # ✅ NOT Select
+        widget=forms.HiddenInput(),
         required=True
     )
 
     def clean(self):
         cleaned_data = super().clean()
-
-        password1 = cleaned_data.get('password1')
-        password2 = cleaned_data.get('password2')
-
-        if password1 and password2 and password1 != password2:
+        if cleaned_data.get('password1') != cleaned_data.get('password2'):
             raise forms.ValidationError("Passwords do not match")
-
         return cleaned_data
+
 
 class CashCollectorCreateForm(forms.Form):
     username = forms.CharField(max_length=150, label="Username")

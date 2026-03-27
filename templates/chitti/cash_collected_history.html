@@ -1,53 +1,53 @@
-{% extends "chitti/group_admin_base.html" %}
-
-
-{% block title %}Cash Collected History{% endblock %}
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Admin Pending Payments{% endblock %}
 
 {% block content %}
-<h2>Cash Collected - {{ request.user.staffprofile.group.name }}</h2>
-<p>Total Collected: ₹{{ total_collected }}</p>
+<div class="container mt-4">
+    <h3>Pending Payments Approval</h3>
+    <hr>
 
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>Member</th>
-            <th>Amount</th>
-            <th>Paid Date</th>
-            <th>Collector</th>
-            <th>Payment Method</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for p in payments %}
-        <tr>
-            <td>
-                {% if p.member %}
-                    {{ p.member.name }}
-                {% else %}
-                    -
-                {% endif %}
-            </td>
+    {% if payments %}
+        <div class="mb-3">
+            <strong>Total Pending Amount:</strong> ₹{{ total_pending|floatformat:2 }}
+        </div>
 
-            <td>₹{{ p.amount }}</td>
-            <td>{{ p.paid_date }}</td>
-
-            <td>
-                {% if p.collected_by %}
-                    {{ p.collected_by.user.username }}
-                {% else %}
-                    Admin
-                {% endif %}
-            </td>
-
-            <td>{{ p.payment_method }}</td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="5" class="text-center">No payments yet.</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-
-<a href="{% url 'payments:group_payment_list' %}" class="btn btn-secondary">Back to Payments</a>
+        <table class="table table-bordered table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>Member Name</th>
+                    <th>Group</th>
+                    <th>Amount</th>
+                    <th>Paid Date</th>
+                    <th>Collected By</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for payment in payments %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ payment.member.name }}</td>
+                    <td>{{ payment.group.name }}</td>
+                    <td>₹{{ payment.amount|floatformat:2 }}</td>
+                    <td>{{ payment.paid_date|date:"d M Y" }}</td>
+                    <td>{{ payment.collected_by.user.username if payment.collected_by }}</td>
+                    <td>
+                        <a href="{% url 'chitti:admin_approve_payment' payment.id %}" 
+                           class="btn btn-success btn-sm"
+                           onclick="return confirm('Approve payment of ₹{{ payment.amount }} by {{ payment.member.name }}?');">
+                           Approve
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="alert alert-info">
+            No pending payments to approve.
+        </div>
+    {% endif %}
+</div>
 {% endblock %}

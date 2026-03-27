@@ -24,13 +24,12 @@ class PaymentForm(forms.ModelForm):
             'amount',
             'paid_date',
             'payment_method',
-            'payment_status',
+            # Removed 'payment_status' from fields
         ]
         widgets = {
             'amount': forms.NumberInput(attrs={'class': 'form-control'}),
             'paid_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'payment_method': forms.Select(attrs={'class': 'form-select'}),
-            'payment_status': forms.Select(attrs={'class': 'form-select'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -65,6 +64,10 @@ class PaymentForm(forms.ModelForm):
 
         payment.member = chitti_member.member
         payment.group = self.cleaned_data['group']
+
+        # Admin payments: always mark success
+        payment.payment_status = "success"
+        payment.received_by_admin = True  # mark as received by admin
 
         if commit:
             payment.save()

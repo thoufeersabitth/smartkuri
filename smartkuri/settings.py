@@ -94,18 +94,23 @@ TEMPLATES = [
 WSGI_APPLICATION = 'smartkuri.wsgi.application'
 
 # -----------------------------
-# DATABASE
-# -----------------------------
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'smartkuri',
-        'USER': 'postgres',
-        'PASSWORD': os.getenv("DB_PASSWORD", "Pulikkal@123"),
-        'HOST': 'localhost',
-        'PORT': '5432',
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if DATABASE_URL:
+    DATABASES = {
+        "default": dj_database_url.parse(DATABASE_URL, conn_max_age=600)
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql_psycopg2",
+            "NAME": "smartkuri",
+            "USER": "postgres",
+            "PASSWORD": os.getenv("DB_PASSWORD", "Pulikkal@123"),
+            "HOST": "localhost",
+            "PORT": "5432",
+        }
+    }
 
 # -----------------------------
 # PASSWORD VALIDATION
@@ -164,15 +169,6 @@ AUTHENTICATION_BACKENDS = [
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
 
-# DATABASE (Render PostgreSQL)
-# ==============================
-
-DATABASES = {
-    "default": dj_database_url.config(
-        default=os.getenv("DATABASE_URL"),
-        conn_max_age=600
-    )
-}
 
 # -----------------------------
 # DRF + JWT
