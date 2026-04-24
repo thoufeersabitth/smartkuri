@@ -1,0 +1,192 @@
+/* ===================== VARIABLES ===================== */
+:root {
+    --bg: #f4f7fe;
+    --card-bg: #ffffff;
+    --text-main: #1f2937;
+    --text-secondary: #6b7280;
+
+    --primary: #4f46e5;      /* Purple */
+    --secondary: #3b82f6;    /* Blue */
+    --accent: #10b981;       /* Green */
+
+    --success: #16a34a;
+    --warning: #f59e0b;
+    --danger: #ef4444;       /* Alert Red */
+
+    --radius: 12px;
+    --spacing: 1.2rem;
+    --shadow: 0 15px 30px rgba(0,0,0,0.06);
+}
+
+/* ===================== BASE ===================== */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text-main);
+    line-height: 1.6;
+}
+
+/* ===================== GLASS CARD ===================== */
+.glass-form-card {
+    background: var(--card-bg);
+    padding: 2.5rem;
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(79, 70, 229, 0.05);
+    max-width: 650px;
+    margin: 2rem auto;
+    animation: fadeIn 0.8s ease;
+}
+
+/* ===================== HEADINGS ===================== */
+h2 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    background: linear-gradient(120deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* ===================== PREMIUM ALERTS (TOP MESSAGES) ===================== */
+.alert {
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius);
+    font-weight: 600;
+    font-size: 0.9rem;
+    animation: slideDown 0.5s ease;
+}
+
+.alert-premium-success {
+    background-color: rgba(16, 185, 129, 0.1) !important;
+    color: #059669 !important;
+    border-left: 5px solid #10b981 !important;
+}
+
+.alert-premium-danger {
+    background-color: rgba(239, 68, 68, 0.1) !important;
+    color: #dc2626 !important;
+    border-left: 5px solid #ef4444 !important;
+}
+
+/* ===================== FORM ELEMENTS ===================== */
+.form-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-main);
+    margin-bottom: 0.4rem;
+    display: block;
+}
+
+.required-star {
+    color: var(--danger);
+    margin-left: 3px;
+    font-weight: bold;
+}
+
+/* Input/Select/Textarea Styling */
+input, select, textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius);
+    border: 1px solid #e2e8f0;
+    font-size: 0.95rem;
+    background-color: #f8fafc;
+    transition: all 0.3s ease;
+    display: block;
+}
+
+textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    background-color: #fff;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+}
+
+/* ===================== INLINE ERROR BOXES ===================== */
+.error-container {
+    margin-top: 8px;
+}
+
+.error-msg-box {
+    background-color: rgba(239, 68, 68, 0.08);
+    color: var(--danger);
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-left: 4px solid var(--danger);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+}
+
+/* ===================== BUTTONS ===================== */
+.btn-save {
+    background: linear-gradient(135deg, var(--success), #10b981);
+    color: white;
+    border: none;
+    padding: 14px;
+    border-radius: var(--radius);
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+    margin-top: 10px;
+}
+
+.btn-save:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(22, 163, 74, 0.2);
+    filter: brightness(1.1);
+}
+
+.btn-secondary-link {
+    display: block;
+    transition: color 0.2s;
+}
+
+.btn-secondary-link:hover {
+    color: var(--primary) !important;
+}
+
+/* ===================== ANIMATIONS ===================== */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.animated-shake {
+    animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes shake {
+    10%, 90% { transform: translate3d(-1px, 0, 0); }
+    20%, 80% { transform: translate3d(2px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+    40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+
+/* ===================== RESPONSIVE ===================== */
+@media (max-width: 576px) {
+    .glass-form-card {
+        padding: 1.5rem;
+        margin: 1rem;
+    }
+    h2 { font-size: 1.4rem; }
+}

@@ -12,45 +12,23 @@ class LoginSerializer(serializers.Serializer):
     identifier = serializers.CharField()
     password = serializers.CharField(write_only=True)
 
-
-# ----------------------
-# GROUP SIGNUP
-# ----------------------
 class GroupSignupSerializer(serializers.Serializer):
-    group_name = serializers.CharField(max_length=255)
+    name = serializers.CharField(max_length=100)
     phone = serializers.CharField(max_length=15)
     email = serializers.EmailField()
-    password1 = serializers.CharField(write_only=True)
-    password2 = serializers.CharField(write_only=True)
-    description = serializers.CharField(required=False, allow_blank=True)
-    plan_id = serializers.IntegerField()
-
-    def validate_plan_id(self, value):
-        if not SubscriptionPlan.objects.filter(id=value, is_active=True).exists():
-            raise serializers.ValidationError("Invalid or inactive subscription plan")
-        return value
+    # Match these to your JSON keys
+    password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
 
     def validate(self, data):
-
-        if data['password1'] != data['password2']:
-            raise serializers.ValidationError(
-                {"password": "Passwords do not match"}
-            )
-
-        validate_password(data['password1'])
-
-        if ChittiGroup.objects.filter(name=data['group_name']).exists():
-            raise serializers.ValidationError(
-                {"group_name": "Group name already exists"}
-            )
-
-        if User.objects.filter(email=data['email']).exists():
-            raise serializers.ValidationError(
-                {"email": "Email already registered"}
-            )
-
+        # Use the updated keys here
+        if data.get('password') != data.get('confirm_password'):
+            raise serializers.ValidationError({"password": "Passwords do not match"})
+        
+        if User.objects.filter(email=data.get('email')).exists():
+            raise serializers.ValidationError({"email": "Email is already registered"})
+            
         return data
-
 
 # ----------------------
 # OTP VERIFY

@@ -4,54 +4,151 @@
 {% block title %}Member Profile{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'member/css/member_profile.css' %}">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<!-- 🔗 YOUR CSS FILE -->
+<link rel="stylesheet" href="{% static 'member/css/members_profiles.css' %}">
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
 
-    <h2 class="mb-4">👤 Member Profile</h2>
+            <!-- PROFILE CARD -->
+            <div class="profile-card">
 
-    <div class="card shadow-sm border-0">
-        <div class="table-responsive">
-            <table class="table table-bordered table-striped mb-0">
-                <tr>
-                    <th>Name</th>
-                    <td>{{ member.name }}</td>
-                </tr>
-                <tr>
-                    <th>Email</th>
-                    <td>{{ member.email|default:"-" }}</td>
-                </tr>
-                <tr>
-                    <th>Phone</th>
-                    <td>{{ member.phone|default:"-" }}</td>
-                </tr>
-                <tr>
-                    <th>Address</th>
-                    <td>{{ member.address|default:"-" }}</td>
-                </tr>
-                <tr>
-                    <th>Aadhaar No</th>
-                    <td>{{ member.aadhaar_no|default:"-" }}</td>
-                </tr>
-                <tr>
-                    <th>Join Date</th>
-                    <td>{{ member.join_date|date:"d M Y" }}</td>
-                </tr>
-                <tr>
-                    <th>Group</th>
-                    <td>{{ member.assigned_chitti_group.name|default:"-" }}</td>
-                </tr>
-            </table>
+                <!-- HEADER -->
+                <div class="profile-header">
+
+                    <!-- Avatar -->
+                    <div class="profile-avatar">
+                        {{ member.name|slice:":1"|upper }}
+                    </div>
+
+                    <h3>{{ member.name }}</h3>
+
+                    <span class="status-badge">
+                        <i class="fas fa-check-circle"></i> Active Member
+                    </span>
+
+                </div>
+
+                <!-- BODY -->
+                <div class="profile-body">
+
+                    <!-- EMAIL -->
+                    <div class="info-row">
+                        <div class="info-icon">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                        <div>
+                            <div class="info-label">Email Address</div>
+                            <div class="info-value">
+                                {{ member.email|default:"Not Provided" }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PHONE -->
+                    <div class="info-row">
+                        <div class="info-icon">
+                            <i class="fas fa-phone"></i>
+                        </div>
+                        <div>
+                            <div class="info-label">Phone Number</div>
+                            <div class="info-value">
+                                {{ member.phone|default:"-" }}
+                            </div>
+                        </div>
+                        <i class="far fa-copy copy-btn"
+                           onclick="copyText('{{ member.phone }}', 'Phone number')"></i>
+                    </div>
+
+                    <!-- ADDRESS -->
+                    <div class="info-row">
+                        <div class="info-icon">
+                            <i class="fas fa-map-marker-alt"></i>
+                        </div>
+                        <div>
+                            <div class="info-label">Address</div>
+                            <div class="info-value">
+                                {{ member.address|default:"-" }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AADHAAR -->
+                    <div class="info-row">
+                        <div class="info-icon">
+                            <i class="fas fa-id-card"></i>
+                        </div>
+                        <div>
+                            <div class="info-label">Aadhaar Number</div>
+                            <div class="info-value">
+                                xxxx-xxxx-{{ member.aadhaar_no|slice:"-4:" }}
+                            </div>
+                        </div>
+                        <i class="far fa-copy copy-btn"
+                           onclick="copyText('{{ member.aadhaar_no }}', 'Aadhaar number')"></i>
+                    </div>
+
+                    <!-- GROUP + JOIN -->
+                    <div class="row g-0 text-center">
+
+                        <div class="col-6 border-end">
+                            <div class="info-row-half">
+                                <div class="info-label">Chitty Group</div>
+                                <div class="info-value text-primary">
+                                    {{ member.assigned_chitti_group.name|default:"None" }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-6">
+                            <div class="info-row-half">
+                                <div class="info-label">Joined On</div>
+                                <div class="info-value">
+                                    {{ member.join_date|date:"d M Y" }}
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- BACK BUTTON -->
+            <div class="text-center">
+                <a href="{% url 'members:member_dashboard' %}" class="btn-back">
+                    <i class="fas fa-arrow-left me-2"></i> Back to Dashboard
+                </a>
+            </div>
+
         </div>
     </div>
-
-    <div class="mt-3">
-        <a href="{% url 'members:member_dashboard' %}" class="btn btn-secondary">
-            ← Back to Dashboard
-        </a>
-    </div>
-
 </div>
+
+<!-- JS -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+function copyText(text, label) {
+    if (!text || text === 'None') return;
+
+    navigator.clipboard.writeText(text).then(() => {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: label + ' copied!',
+            showConfirmButton: false,
+            timer: 2000
+        });
+    });
+}
+</script>
+
 {% endblock %}

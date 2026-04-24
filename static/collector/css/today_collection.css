@@ -1,0 +1,708 @@
+
+:root {
+    --primary: #4361ee;
+    --primary-dark: #3a0ca3;
+    --primary-light: #e8edff;
+    --primary-gradient: linear-gradient(135deg, #4361ee, #3a0ca3);
+    
+    --success: #06d6a0;
+    --success-dark: #059669;
+    --success-light: #e6faf5;
+    
+    --warning: #f59e0b;
+    --warning-dark: #d97706;
+    --warning-light: #fff7e6;
+    
+    --danger: #ef476f;
+    --danger-dark: #dc2626;
+    --danger-light: #fee8ed;
+    
+    --info: #4895ef;
+    --info-light: #e3f2fd;
+    
+    --secondary: #6c757d;
+    --secondary-light: #f0f0f0;
+    --secondary-dark: #4a5568;
+    
+    --dark: #1e293b;
+    --dark-light: #334155;
+    --gray: #94a3b8;
+    --light: #f8fafc;
+    --white: #ffffff;
+    
+    --shadow-xs: 0 1px 2px rgba(0,0,0,0.03);
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.04);
+    --shadow-md: 0 10px 30px rgba(0,0,0,0.08);
+    --shadow-lg: 0 20px 40px rgba(0,0,0,0.12);
+    --shadow-xl: 0 25px 50px rgba(0,0,0,0.15);
+    
+    --radius-xs: 6px;
+    --radius-sm: 10px;
+    --radius-md: 16px;
+    --radius-lg: 24px;
+    --radius-xl: 32px;
+    
+    --transition-fast: 0.2s ease;
+    --transition-base: 0.3s ease;
+    --transition-slow: 0.4s ease;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* ========== 2. BASE STYLES ========== */
+body {
+    background: linear-gradient(135deg, #f0f4fc 0%, #e8edf8 100%);
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    color: var(--dark);
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px 24px;
+}
+
+/* ========== 3. HEADER & TYPOGRAPHY ========== */
+h4 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    margin-bottom: 24px;
+    display: inline-block;
+}
+
+/* Page Header Enhancement */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.page-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.page-title i {
+    font-size: 2rem;
+    color: var(--primary);
+    background: var(--primary-light);
+    padding: 12px;
+    border-radius: var(--radius-md);
+}
+
+.page-title h4 {
+    margin-bottom: 0;
+    font-size: 1.85rem;
+}
+
+/* ========== 4. CARD COMPONENTS ========== */
+.card {
+    background: var(--white);
+    border: none;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    margin-bottom: 28px;
+    overflow: hidden;
+    transition: var(--transition-base);
+}
+
+.card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+}
+
+.card-header {
+    background: linear-gradient(135deg, #ffffff, #fefefe);
+    padding: 20px 24px;
+    border-bottom: 2px solid rgba(67, 97, 238, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.card-header h5 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--dark);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.card-header h5::before {
+    content: '\f4e6';
+    font-family: 'bootstrap-icons';
+    font-size: 1.2rem;
+    color: var(--primary);
+}
+
+.card-body {
+    padding: 20px 24px;
+    background: #fafbfe;
+    border-bottom: 1px solid #edf2f7;
+}
+
+/* ========== 5. STATISTICS SECTION ========== */
+.row {
+    display: flex;
+    flex-wrap: wrap;
+    margin: -8px;
+}
+
+.col-md-3 {
+    flex: 0 0 auto;
+    width: 25%;
+    padding: 8px;
+}
+
+@media (max-width: 768px) {
+    .col-md-3 {
+        width: 50%;
+    }
+}
+
+@media (max-width: 480px) {
+    .col-md-3 {
+        width: 100%;
+    }
+}
+
+.row.text-center > [class*="col-"] {
+    background: var(--white);
+    border-radius: var(--radius-md);
+    padding: 16px 12px;
+    transition: var(--transition-base);
+    border: 1px solid rgba(67, 97, 238, 0.08);
+}
+
+.row.text-center > [class*="col-"]:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+    border-color: var(--primary-light);
+}
+
+.row.text-center strong {
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--secondary);
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.row.text-center br {
+    display: none;
+}
+
+.row.text-center > [class*="col-"]::after {
+    content: attr(data-value);
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--primary);
+    display: block;
+}
+
+/* Stats with icons */
+.stat-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--white);
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+}
+
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+}
+
+.stat-icon.total { background: var(--primary-light); color: var(--primary); }
+.stat-icon.received { background: var(--success-light); color: var(--success); }
+.stat-icon.sent { background: var(--warning-light); color: var(--warning); }
+.stat-icon.draft { background: var(--secondary-light); color: var(--secondary); }
+
+.stat-content {
+    flex: 1;
+}
+
+.stat-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--secondary);
+    display: block;
+}
+
+.stat-value {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--dark);
+}
+
+/* ========== 6. TABLE STYLES ========== */
+.table-responsive {
+    overflow-x: auto;
+    padding: 0 20px 20px 20px;
+}
+
+.table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--white);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.table thead th {
+    background: var(--primary-light);
+    color: var(--primary-dark);
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 14px 16px;
+    border-bottom: 2px solid rgba(67, 97, 238, 0.2);
+    border-top: none;
+}
+
+.table thead th:first-child {
+    border-top-left-radius: var(--radius-sm);
+}
+
+.table thead th:last-child {
+    border-top-right-radius: var(--radius-sm);
+}
+
+.table tbody td {
+    padding: 14px 16px;
+    vertical-align: middle;
+    border-bottom: 1px solid #edf2f7;
+    font-size: 0.9rem;
+    color: var(--dark-light);
+}
+
+.table tbody tr:hover {
+    background: rgba(67, 97, 238, 0.02);
+}
+
+/* Today's payment row highlight */
+tr:has(.badge:contains("Today")) {
+    background: rgba(245, 158, 11, 0.04);
+}
+
+/* Payment row with today's date styling */
+tbody tr td:first-child {
+    font-weight: 600;
+    color: var(--dark);
+}
+
+/* ========== 7. BADGES & STATUS INDICATORS ========== */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border-radius: 30px;
+    letter-spacing: 0.3px;
+}
+
+.badge.bg-success {
+    background: var(--success-light) !important;
+    color: var(--success-dark) !important;
+}
+
+.badge.bg-warning {
+    background: var(--warning-light) !important;
+    color: var(--warning-dark) !important;
+}
+
+.badge.bg-secondary {
+    background: var(--secondary-light) !important;
+    color: var(--secondary-dark) !important;
+}
+
+.badge.bg-danger {
+    background: var(--danger-light) !important;
+    color: var(--danger-dark) !important;
+}
+
+/* Status with icons */
+.badge i {
+    font-size: 0.7rem;
+}
+
+/* Today badge for date column */
+.today-indicator {
+    display: inline-block;
+    background: var(--warning);
+    color: white;
+    font-size: 0.6rem;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-left: 8px;
+    font-weight: 600;
+}
+
+/* ========== 8. BUTTONS & ACTIONS ========== */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 18px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    transition: var(--transition-base);
+    cursor: pointer;
+    border: none;
+    text-decoration: none;
+}
+
+.btn-primary {
+    background: var(--primary-gradient);
+    color: var(--white);
+    box-shadow: 0 4px 12px rgba(67, 97, 238, 0.25);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(67, 97, 238, 0.35);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, var(--success), var(--success-dark));
+    color: var(--white);
+}
+
+.btn-success:disabled,
+.btn-success.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, var(--danger), var(--danger-dark));
+    color: var(--white);
+}
+
+.btn-danger:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 71, 111, 0.3);
+}
+
+.btn-sm {
+    padding: 6px 14px;
+    font-size: 0.75rem;
+}
+
+.w-100 {
+    width: 100%;
+}
+
+/* Action column buttons */
+td:last-child .btn-danger {
+    background: var(--danger-light);
+    color: var(--danger-dark);
+    box-shadow: none;
+}
+
+td:last-child .btn-danger:hover {
+    background: var(--danger);
+    color: white;
+}
+
+/* Locked/Disabled state in action */
+.badge.w-100 {
+    display: block;
+    text-align: center;
+    width: 100%;
+    padding: 6px 12px;
+}
+
+/* ========== 9. EMPTY STATES ========== */
+.alert-info {
+    background: var(--info-light);
+    color: var(--info);
+    border: none;
+    border-radius: var(--radius-md);
+    padding: 20px;
+    text-align: center;
+    font-weight: 500;
+}
+
+.alert-info.text-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.alert-info::before {
+    content: '\f348';
+    font-family: 'bootstrap-icons';
+    font-size: 1.2rem;
+}
+
+/* Empty table row */
+td[colspan="5"] {
+    text-align: center;
+    padding: 40px !important;
+    color: var(--gray);
+}
+
+td[colspan="5"]::before {
+    content: '\f5b4';
+    font-family: 'bootstrap-icons';
+    font-size: 2rem;
+    display: block;
+    margin-bottom: 10px;
+    opacity: 0.5;
+}
+
+/* ========== 10. ANIMATIONS ========== */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-15px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.card {
+    animation: fadeInUp 0.5s ease forwards;
+}
+
+.card-header {
+    animation: slideIn 0.4s ease forwards;
+}
+
+.table tbody tr {
+    animation: fadeInUp 0.3s ease forwards;
+    animation-delay: calc(var(--index, 0) * 0.03s);
+}
+
+/* ========== 11. RESPONSIVE DESIGN ========== */
+@media (max-width: 992px) {
+    .container {
+        padding: 16px 20px;
+    }
+    
+    .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .card-header form,
+    .card-header button {
+        width: 100%;
+    }
+    
+    .btn {
+        justify-content: center;
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 12px 16px;
+    }
+    
+    h4 {
+        font-size: 1.4rem;
+    }
+    
+    .card-header {
+        padding: 16px 20px;
+    }
+    
+    .card-header h5 {
+        font-size: 1rem;
+    }
+    
+    .card-body {
+        padding: 16px;
+    }
+    
+    .table-responsive {
+        padding: 0 16px 16px 16px;
+    }
+    
+    /* Mobile table view - card style */
+    .table thead {
+        display: none;
+    }
+    
+    .table tbody tr {
+        display: block;
+        margin-bottom: 16px;
+        border: 1px solid #edf2f7;
+        border-radius: var(--radius-md);
+        background: var(--white);
+    }
+    
+    .table tbody td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px;
+        border-bottom: 1px solid #edf2f7;
+        text-align: right;
+    }
+    
+    .table tbody td:last-child {
+        border-bottom: none;
+    }
+    
+    .table tbody td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        font-size: 0.7rem;
+        color: var(--secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        text-align: left;
+    }
+    
+    /* Ensure badges and buttons look good in mobile */
+    .badge, .btn-sm {
+        width: auto;
+        display: inline-flex;
+    }
+    
+    td:last-child .btn-danger,
+    td:last-child .badge {
+        width: auto;
+        min-width: 90px;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .card-header h5 {
+        font-size: 0.9rem;
+    }
+    
+    .btn-sm {
+        padding: 6px 12px;
+        font-size: 0.7rem;
+    }
+    
+    .badge {
+        padding: 4px 10px;
+        font-size: 0.65rem;
+    }
+    
+    .table tbody td {
+        padding: 10px 12px;
+        font-size: 0.8rem;
+    }
+}
+
+/* ========== 12. UTILITY CLASSES ========== */
+.text-center {
+    text-align: center;
+}
+
+.text-muted {
+    color: var(--gray);
+}
+
+.mb-0 {
+    margin-bottom: 0;
+}
+
+.mb-3 {
+    margin-bottom: 16px;
+}
+
+.mt-4 {
+    margin-top: 24px;
+}
+
+.shadow-sm {
+    box-shadow: var(--shadow-sm);
+}
+
+/* Custom scrollbar for table */
+.table-responsive::-webkit-scrollbar {
+    height: 6px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: var(--secondary-light);
+    border-radius: 10px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: var(--primary-light);
+    border-radius: 10px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: var(--primary);
+}
+
+/* Print styles */
+@media print {
+    body {
+        background: white;
+    }
+    
+    .btn,
+    .card-header form,
+    td:last-child {
+        display: none !important;
+    }
+    
+    .card {
+        box-shadow: none;
+        break-inside: avoid;
+    }
+    
+    .table thead th {
+        background: #f0f0f0;
+    }
+}

@@ -39,6 +39,194 @@ from .serializers import (
 
 from django.db.models import Count
 
+
+from datetime import datetime, date
+from decimal import Decimal
+
+from dateutil.relativedelta import relativedelta
+from django.db import transaction
+from django.shortcuts import get_object_or_404
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
+
+class CreateGroupAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request):
+        user = request.user
+
+        # 🔒 Block if already created group
+        if hasattr(user, 'staffprofile') and user.staffprofile.group:
+            return Response(
+                {"error": "You already created a group."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            data = request.data
+
+            # =========================
+            # 🔥 PLAN
+            # =========================
+            plan_id = data.get("plan_id")
+            if not plan_id:
+                raise ValueError("Plan ID missing")
+
+            plan = get_object_or_404(
+                SubscriptionPlan,
+                id=plan_id,
+                is_active=True
+            )
+
+            # =========================
+            # 🔥 BASIC FIELDS
+            # =========================
+            name = data.get("name")
+
+            if not hasattr(user, 'staffprofile'):
+                raise ValueError("Staff profile missing")
+
+            phone = user.staffprofile.phone
+            email = user.email
+
+            monthly_amount = Decimal(str(data.get("monthly_amount", "0")))
+            duration_months = int(data.get("duration_months", 0))
+
+            auction_type = data.get("auction_type", "monthly")
+            auctions_per_month = int(data.get("auctions_per_month", 1))
+            auction_interval_months = data.get("auction_interval_months")
+
+            if auction_type == "interval":
+                auction_interval_months = int(auction_interval_months or 0)
+                if auction_interval_months <= 0:
+                    raise ValueError("Invalid interval months")
+            else:
+                auction_interval_months = None
+
+            # =========================
+            # 📅 DATES
+            # =========================
+            registration_start = data.get("registration_start_date")
+            if not registration_start:
+                raise ValueError("Registration date missing")
+
+            registration_date = datetime.strptime(
+                registration_start,
+                "%Y-%m-%d"
+            ).date()
+
+            first_date = data.get("first_auction_date") or data.get("start_date")
+
+            if not first_date:
+                raise ValueError("First auction date missing")
+
+            auction_start_date = datetime.strptime(
+                first_date,
+                "%Y-%m-%d"
+            ).date()
+
+            if auction_start_date < registration_date:
+                return Response(
+                    {"error": "Auction date must be after registration date"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if not name or monthly_amount <= 0 or duration_months <= 0:
+                raise ValueError("Invalid basic data")
+
+        except Exception as e:
+            return Response(
+                {"error": f"Invalid input data: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # =========================
+        # 🔥 CREATE GROUP
+        # =========================
+        group = ChittiGroup.objects.create(
+            name=name,
+            phone=phone,
+            email=email,
+            owner=user,
+            monthly_amount=monthly_amount,
+            duration_months=duration_months,
+            total_amount=monthly_amount * duration_months,
+            auction_type=auction_type,
+            auctions_per_month=auctions_per_month,
+            auction_interval_months=auction_interval_months,
+            registration_start_date=registration_date,
+            start_date=auction_start_date
+        )
+
+        # =========================
+        # 🔥 FIXED AUCTION CREATION (IMPORTANT)
+        # =========================
+        base_dates = []
+        current_date = auction_start_date
+
+        for month in range(1, duration_months + 1):
+            base_dates.append(current_date)
+            current_date = current_date + relativedelta(months=1)
+
+        group.create_auctions(base_dates=base_dates)
+
+        # =========================
+        # 🔥 UPDATE PROFILE
+        # =========================
+        profile = user.staffprofile
+        profile.group = group
+        profile.save()
+
+        # =========================
+        # 🔥 SUBSCRIPTION
+        # =========================
+        subscription = GroupSubscription.objects.create(
+            group=group,
+            plan=plan
+        )
+        subscription.activate(start_date=registration_date)
+
+        # =========================
+        # ✅ RESPONSE
+        # =========================
+        return Response({
+            "message": "Group created successfully ✅",
+
+            "group": {
+                "id": group.id,
+                "name": group.name,
+                "start_date": str(group.start_date),
+                "end_date": str(group.end_date)
+            },
+
+            "plan": {
+                "id": plan.id,
+                "name": plan.name,
+                "price": str(plan.price),
+                "max_members": plan.max_members,
+                "max_groups": plan.max_groups
+            },
+
+            "subscription": {
+                "is_active": subscription.is_active,
+                "start_date": subscription.start_date,
+                "end_date": subscription.end_date
+            },
+
+            "admin": {
+                "name": user.get_full_name() or user.username,
+                "email": user.email,
+                "phone": user.staffprofile.phone
+            }
+        }, status=status.HTTP_201_CREATED)
+    
+    
 class GroupAdminProfileAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -129,8 +317,14 @@ class GroupAdminDashboardAPIView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # ================= GROUPS =================
+        # ================= BASE QUERYSETS =================
         groups = ChittiGroup.objects.filter(owner=user)
+        payments = Payment.objects.filter(
+            group__owner=user,
+            payment_status="success"
+        )
+
+        # ================= GROUPS =================
         total_groups = groups.count()
         active_groups = groups.filter(is_active=True).count()
 
@@ -141,17 +335,29 @@ class GroupAdminDashboardAPIView(APIView):
 
         # ================= THIS MONTH COLLECTION =================
         month_start = today.replace(day=1)
-        this_month_collection = Payment.objects.filter(
-            group__owner=user,
-            payment_status="success",
+
+        this_month_collection = payments.filter(
+            received_by_admin=True,   # ✅ IMPORTANT FIX
             paid_date__gte=month_start
         ).aggregate(total=Sum("amount"))["total"] or 0
 
-        # ================= TOTAL COLLECTION =================
-        total_received = Payment.objects.filter(
-            group__owner=user,
-            payment_status="success"
+        # ================= TOTAL RECEIVED =================
+        total_received = payments.filter(
+            received_by_admin=True   # ✅ IMPORTANT FIX
         ).aggregate(total=Sum("amount"))["total"] or 0
+
+        # ================= EXTRA (BONUS) =================
+        pending_admin_approval = payments.filter(
+            received_by_admin=False
+        ).aggregate(total=Sum("amount"))["total"] or 0
+
+        total_expected = groups.aggregate(
+            total=Sum("total_amount")
+        )["total"] or 0
+
+        collection_percentage = 0
+        if total_expected > 0:
+            collection_percentage = round((total_received / total_expected) * 100, 2)
 
         # ================= RESPONSE =================
         data = {
@@ -159,8 +365,13 @@ class GroupAdminDashboardAPIView(APIView):
                 "total_groups": total_groups,
                 "active_groups": active_groups,
                 "total_members": total_members,
-                "this_month_collection": this_month_collection,
-                "total_received": total_received,
+                "this_month_collection": float(this_month_collection),
+                "total_received": float(total_received),
+
+                # 🔥 BONUS
+                "pending_admin_approval": float(pending_admin_approval),
+                "total_expected": float(total_expected),
+                "collection_percentage": collection_percentage,
             },
             "groups": [
                 {
@@ -169,11 +380,17 @@ class GroupAdminDashboardAPIView(APIView):
                     "code": g.code,
                     "is_active": g.is_active,
                     "total_members": g.total_members,
-                    "monthly_amount": g.monthly_amount,
+                    "monthly_amount": float(g.monthly_amount),
                     "duration_months": g.duration_months,
+                    "total_amount": float(g.total_amount),
+
                     "start_date": g.start_date.strftime("%Y-%m-%d") if g.start_date else None,
-                  
-                    "collector_name": g.collector.user.username if hasattr(g, "collector") and g.collector else "Not Assigned"
+
+                    "collector_name": (
+                        g.collector.user.username
+                        if g.collector and hasattr(g.collector, "user")
+                        else "Not Assigned"
+                    ),
                 }
                 for g in groups
             ]
@@ -184,36 +401,72 @@ class GroupAdminDashboardAPIView(APIView):
 # ==================================================
 # ADMIN GROUP LIST API
 # main group + its child groups (ONLY created by this admin)
-# ==================================================
 class AdminGroupListAPIView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, *args, **kwargs):
+    def get(self, request):
         user = request.user
 
-        # Fetch groups created by this admin
-        groups = ChittiGroup.objects.filter(owner=user).order_by('parent_group_id', 'id')
+        # 🔍 Fetch groups (same as template)
+        groups = ChittiGroup.objects.filter(
+            owner=user
+        ).prefetch_related('auctions')
 
-        # Calculate end_date_calculated and is_expired for each group
+        # ❌ No groups → same as redirect
+        if not groups.exists():
+            return Response({
+                "redirect": "create_group",
+                "message": "No groups found"
+            }, status=404)
+
+        result = []
+
         for group in groups:
-            if group.start_date and group.duration_months:
-                group.end_date_calculated = group.start_date + relativedelta(months=group.duration_months)
-            else:
-                group.end_date_calculated = None  
 
-            # Expired check
-            if group.end_date_calculated and date.today() > group.end_date_calculated:
-                group.is_expired = True
-            else:
-                group.is_expired = False
+            # ✅ BASE START (same)
+            base_start = group.registration_start_date or group.start_date
 
-        serializer = ChittiGroupSerializer(groups, many=True)
+            # ✅ END DATE (FIXED SAME AS TEMPLATE)
+            end_date = None
+            if base_start and group.duration_months:
+                end_date = base_start + relativedelta(
+                    months=group.duration_months
+                ) - relativedelta(days=1)   # 🔥 IMPORTANT FIX
+
+            # ✅ EXPIRED CHECK (same)
+            is_expired = end_date and date.today() > end_date
+
+            # ✅ FIRST AUCTION (MISSING IN YOUR API)
+            first_auction = group.auctions.all().order_by('auction_date').first()
+            first_auction_date = first_auction.auction_date if first_auction else None
+
+            # ✅ DAYS LEFT (FIXED SAME LOGIC)
+            days_until_first_auction = None
+            if group.start_date:
+                days_until_first_auction = (group.start_date - date.today()).days
+
+            # ✅ BUILD RESPONSE (DON'T MUTATE OBJECT)
+            result.append({
+                "id": group.id,
+                "name": group.name,
+                "monthly_amount": group.monthly_amount,
+                "duration_months": group.duration_months,
+                "total_amount": group.total_amount,
+
+                "start_date": group.start_date,
+                "registration_start_date": group.registration_start_date,
+
+                # 🔥 computed fields (same as template)
+                "end_date": end_date,
+                "is_expired": is_expired,
+                "first_auction_date": first_auction_date,
+                "days_until_first_auction": days_until_first_auction
+            })
 
         return Response({
-            "count": groups.count(),
-            "groups": serializer.data
-        })
+            "groups": result
+        }, status=200)
     
 class AdminGroupCreateAPIView(APIView):
     authentication_classes = [JWTAuthentication]
@@ -234,9 +487,22 @@ class AdminGroupCreateAPIView(APIView):
         # 🔎 INPUT VALIDATION
         try:
             name = request.data.get("name", "").strip()
-            monthly_amount = Decimal(str(request.data.get("monthly_amount")))
-            duration_months = int(request.data.get("duration_months"))
+            monthly_amount = Decimal(str(request.data.get("monthly_amount", 0)))
+            duration_months = int(request.data.get("duration_months", 0))
 
+            auctions_per_month = int(request.data.get("auctions_per_month", 1))
+            auction_type = request.data.get("auction_type", "monthly")
+            auction_interval_months = request.data.get("auction_interval_months")
+
+            # 🔁 Interval validation
+            if auction_type == "interval":
+                auction_interval_months = int(auction_interval_months or 0)
+                if auction_interval_months <= 0:
+                    raise ValueError("Invalid interval")
+            else:
+                auction_interval_months = None
+
+            # 📅 Date parsing
             date_input = request.data.get("start_date")
 
             try:
@@ -244,8 +510,20 @@ class AdminGroupCreateAPIView(APIView):
             except ValueError:
                 start_date = datetime.strptime(date_input, "%Y-%m-%d").date()
 
+            # ✅ Basic validation
             if not name or monthly_amount <= 0 or duration_months <= 0:
                 raise ValueError
+
+            # 🔥 Auction dates
+            base_dates = []
+            for i in range(1, auctions_per_month + 1):
+                d = request.data.get(f"auction_date_{i}")
+                if not d:
+                    raise ValueError("All auction dates required")
+
+                base_dates.append(
+                    datetime.strptime(d, "%Y-%m-%d").date()
+                )
 
         except (ValueError, TypeError, InvalidOperation):
             return Response(
@@ -261,28 +539,47 @@ class AdminGroupCreateAPIView(APIView):
             parent_group__isnull=True
         ).first()
 
-        # ==================================================
-        # CREATE MAIN GROUP
-        # ==================================================
-        if not main_group:
-
-            main_group = ChittiGroup.objects.create(
+        # 🔧 CREATE FUNCTION
+        def create_group(parent=None):
+            group = ChittiGroup.objects.create(
                 owner=user,
+                parent_group=parent,
                 name=name,
                 monthly_amount=monthly_amount,
                 duration_months=duration_months,
                 total_amount=total_amount,
+
+                auction_type=auction_type,
+                auctions_per_month=auctions_per_month,
+                auction_interval_months=auction_interval_months,
+
+                registration_start_date=start_date,
                 start_date=start_date
             )
 
+            # 🔥 IMPORTANT (missing in your code)
+            group.create_auctions(base_dates=base_dates)
+
+            return group
+
+        # =============================
+        # 🟢 MAIN GROUP
+        # =============================
+        if not main_group:
+            group = create_group()
+
+            profile = user.staffprofile
+            profile.group = group
+            profile.save()
+
             return Response({
                 "message": "Main group created successfully",
-                "group": ChittiGroupSerializer(main_group).data
+                "group": ChittiGroupSerializer(group).data
             }, status=status.HTTP_201_CREATED)
 
-        # ==================================================
-        # CREATE CHILD GROUP
-        # ==================================================
+        # =============================
+        # 🔵 SUB GROUP
+        # =============================
         subscription = get_effective_subscription(main_group)
 
         if not subscription:
@@ -293,23 +590,15 @@ class AdminGroupCreateAPIView(APIView):
 
         if not can_create_group(user):
             return Response(
-                {"error": "Group limit reached"},
+                {"error": f"Limit reached for {subscription.plan.name}"},
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        child_group = ChittiGroup.objects.create(
-            owner=user,
-            parent_group=main_group,
-            name=name,
-            monthly_amount=monthly_amount,
-            duration_months=duration_months,
-            total_amount=total_amount,
-            start_date=start_date
-        )
+        group = create_group(parent=main_group)
 
         return Response({
-            "message": "Child group created successfully",
-            "group": ChittiGroupSerializer(child_group).data
+            "message": "Sub group created successfully",
+            "group": ChittiGroupSerializer(group).data
         }, status=status.HTTP_201_CREATED)
 
 
@@ -320,34 +609,99 @@ class AdminGroupCreateAPIView(APIView):
 
 from dateutil.relativedelta import relativedelta
 
+
 class GroupDetailAPIView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request, group_id):
+
+        # 1️⃣ Fetch Group
         group = get_object_or_404(
             ChittiGroup,
             id=group_id,
             owner=request.user
         )
 
-        # 🔹 Calculate end date (start_date + duration_months)
-        if group.start_date and group.duration_months:
-            end_date_calculated = group.start_date + relativedelta(
+        # 2️⃣ Members & Auctions
+        members = group.chitti_members.select_related("member").all()
+        total_members = members.count()
+
+        auctions = group.auctions.select_related('winner').all().order_by('month_no', 'auction_no')
+
+        # 3️⃣ Financial Tracking
+        payments = Payment.objects.filter(
+            group=group,
+            payment_status='success'
+        )
+
+        total_collected = payments.filter(
+            received_by_admin=True
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        pending_total = payments.filter(
+            received_by_admin=False
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        # 4️⃣ Pot Logic
+        monthly_pot = group.monthly_amount * total_members
+
+        # 5️⃣ Progress Tracking
+        completed_auctions = auctions.filter(winner__isnull=False)
+        completed_count = completed_auctions.count()
+
+        completed_months = completed_auctions.values('month_no').distinct().count()
+
+        current_month = completed_months + 1
+        remaining_months = max(0, (group.duration_months or 0) - completed_months)
+
+        # 6️⃣ Prize Calculation
+        auction_list = []
+        for auction in auctions:
+            discount = auction.bid_amount or 0
+            prize = monthly_pot - discount
+
+            auction_list.append({
+                "id": auction.id,
+                "month_no": auction.month_no,
+                "auction_no": auction.auction_no,
+                "auction_date": auction.auction_date,
+                "winner": auction.winner.member.name if auction.winner else None,
+                "bid_amount": auction.bid_amount,
+                "prize": prize
+            })
+
+        # 7️⃣ Last Auction
+        last_auction = completed_auctions.order_by('auction_date').last()
+
+        last_winner = last_auction.winner.member.name if last_auction and last_auction.winner else None
+        last_discount = last_auction.bid_amount if last_auction else 0
+        last_prize = (monthly_pot - last_discount) if last_auction else 0
+
+        # 8️⃣ Date Logic
+        base_date = group.registration_start_date or group.start_date
+
+        end_date = None
+        is_expired = False
+
+        if base_date and group.duration_months:
+            end_date = base_date + relativedelta(
                 months=group.duration_months
-            )
-        else:
-            end_date_calculated = None 
+            ) - relativedelta(days=1)
 
-        # 🔹 Expired check
-        if end_date_calculated and date.today() > end_date_calculated:
-            is_expired = True
-        else:
-            is_expired = False
+            is_expired = date.today() > end_date
 
+        # 9️⃣ Efficiency
+        expected_total = group.monthly_amount * total_members * completed_months
+
+        efficiency = 0
+        if expected_total > 0:
+            efficiency = (total_collected / expected_total) * 100
+
+        # 🔟 FINAL RESPONSE
         return Response({
 
-            # 🔹 Group basic details
+            # 🔹 GROUP
             "group": {
                 "id": group.id,
                 "name": group.name,
@@ -355,11 +709,28 @@ class GroupDetailAPIView(APIView):
                 "duration_months": group.duration_months,
                 "total_amount": group.total_amount,
                 "start_date": group.start_date,
-                "end_date_calculated": end_date_calculated,
-                "is_expired": is_expired
+                "registration_start_date": group.registration_start_date,
+
+                "end_date": end_date,
+                "is_expired": is_expired,
+
+                # 🔥 extra
+                "total_members": total_members,
+                "monthly_pot": monthly_pot,
+                "current_month": current_month,
+                "completed_months": completed_months,
+                "remaining_months": remaining_months,
+
+                "total_collected": total_collected,
+                "pending_total": pending_total,
+                "collection_efficiency": round(efficiency, 1),
+
+                "last_winner": last_winner,
+                "last_prize": last_prize,
+                "last_discount": last_discount
             },
 
-            # 🔹 Members
+            # 🔹 MEMBERS
             "members": [
                 {
                     "id": cm.id,
@@ -368,14 +739,14 @@ class GroupDetailAPIView(APIView):
                     "token_no": cm.token_no,
                     "status": cm.member_status
                 }
-                for cm in group.chitti_members.select_related("member")
+                for cm in members
             ],
 
-            # 🔹 Auctions
-            "auctions": AuctionSerializer(
-                group.auctions.all(),
-                many=True
-            ).data
+            # 🔹 AUCTIONS (FULL DATA)
+            "auctions": auction_list,
+
+            # 🔹 TODAY (for frontend badge logic)
+            "today": date.today()
         })
 
 
@@ -561,32 +932,31 @@ class CashCollectorDeleteAPIView(APIView):
 
 
 # ==================================================
-# 5️⃣ Auction List API
+# 1️⃣ Auction List API
 # ==================================================
 class AuctionListAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Get all groups for the logged-in user
-        groups = ChittiGroup.objects.filter(owner=request.user)
+        groups = ChittiGroup.objects.filter(owner=request.user).order_by("-id")
 
-        # Serialize the data manually
-        group_data = []
-        for group in groups:
-            group_data.append({
-                "id": group.id,
-                "name": group.name,
-                "duration_months": group.duration_months,
-                "start_date": group.start_date,
-                "end_date": group.start_date + relativedelta(months=group.duration_months)
-            })
+        data = [
+            {
+                "id": g.id,
+                "name": g.name,
+                "duration_months": g.duration_months,
+                "start_date": g.start_date,
+                "end_date": g.start_date + relativedelta(months=g.duration_months)
+            }
+            for g in groups
+        ]
 
-        return Response({
-            "groups": group_data
-        })
-    
+        return Response({"groups": data})
 
 
+# ==================================================
+# 2️⃣ Auction List Group API (FIXED)
+# ==================================================
 class AuctionListGroupAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -597,35 +967,42 @@ class AuctionListGroupAPIView(APIView):
             owner=request.user
         )
 
-        # Prepare months and auctions
-        auctions_sorted = group.auctions.all().order_by('auction_date')
         months = []
+
         for i in range(1, group.duration_months + 1):
-            auction = auctions_sorted[i-1] if i-1 < len(auctions_sorted) else None
+
+            month_auctions = group.auctions.filter(
+                month_no=i
+            ).order_by("auction_no")
+
             months.append({
-                'month_no': i,
-                'auction': {
-                    'id': auction.id,
-                    'auction_date': auction.auction_date,
-                    'is_closed': auction.is_closed,
-                    'winner': auction.winner.member.name if auction and auction.winner else None
-                } if auction else None
+                "month_no": i,
+                "auctions": [
+                    {
+                        "id": a.id,
+                        "auction_date": a.auction_date,
+                        "auction_no": a.auction_no,
+                        "is_closed": a.is_closed,
+                        "winner": a.winner.member.name if a.winner else None
+                    }
+                    for a in month_auctions
+                ]
             })
 
         return Response({
-            'group': {
-                'id': group.id,
-                'name': group.name,
-                'duration_months': group.duration_months,
-                'start_date': group.start_date,
-                'end_date': group.start_date + relativedelta(months=group.duration_months)
+            "group": {
+                "id": group.id,
+                "name": group.name,
+                "duration_months": group.duration_months,
+                "start_date": group.start_date,
+                "end_date": group.start_date + relativedelta(months=group.duration_months)
             },
-            'months': months
+            "months": months
         })
 
 
 # ==================================================
-# 1️⃣ Add Auction API
+# 3️⃣ Add Auction API (FULL FIXED)
 # ==================================================
 class AddAuctionAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -636,18 +1013,17 @@ class AddAuctionAPIView(APIView):
 
         if not group_id or not auction_date_str:
             return Response(
-                {"error": "group_id and auction_date are required"},
+                {"error": "group_id and auction_date required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Convert date (DD/MM/YYYY)
         try:
             auction_date = datetime.strptime(
                 auction_date_str, "%d/%m/%Y"
             ).date()
         except ValueError:
             return Response(
-                {"error": "Invalid date format. Use DD/MM/YYYY"},
+                {"error": "Use DD/MM/YYYY format"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -657,58 +1033,62 @@ class AddAuctionAPIView(APIView):
             owner=request.user
         )
 
-        # 🔹 1️⃣ Check auction date within group duration period
-        group_end_date = group.start_date + relativedelta(
+        # 🔹 Duration check
+        end_date = group.start_date + relativedelta(
             months=group.duration_months
         )
 
-        if auction_date < group.start_date or auction_date >= group_end_date:
+        if auction_date < group.start_date or auction_date >= end_date:
             return Response(
-                {"error": "Auction date exceeds group duration period."},
+                {"error": "Date outside group duration"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 🔹 2️⃣ Same month duplicate check
-        month_exists = group.auctions.filter(
-            auction_date__year=auction_date.year,
-            auction_date__month=auction_date.month
-        ).exists()
+        # 🔥 Month calculation (same as web)
+        month_no = (
+            (auction_date.year - group.start_date.year) * 12
+            + (auction_date.month - group.start_date.month)
+            + 1
+        )
 
-        if month_exists:
+        # 🔹 Monthly limit
+        monthly_count = group.auctions.filter(
+            month_no=month_no
+        ).count()
+
+        if monthly_count >= group.auctions_per_month:
             return Response(
-                {"error": "An auction already exists for this month."},
+                {"error": f"Max {group.auctions_per_month} auctions allowed in this month"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 🔹 3️⃣ Duration auction count check
-        total_auctions = group.auctions.count()
-        if total_auctions >= group.duration_months:
+        # 🔹 Total limit
+        total = group.auctions.count()
+
+        if total >= group.total_auctions:
             return Response(
-                {"error": "Auction limit reached for this group."},
+                {"error": "Total auction limit reached"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 🔹 4️⃣ Calculate next month_no automatically
-        next_month_no = total_auctions + 1
+        auction_no = monthly_count + 1
 
-        # Create auction
         auction = Auction.objects.create(
             group=group,
             auction_date=auction_date,
-            month_no=next_month_no
+            month_no=month_no,
+            auction_no=auction_no
         )
 
-        return Response(
-            {
-                "message": "Auction created successfully",
-                "auction_number": next_month_no,
-                "auction_date": auction_date.strftime("%d/%m/%Y")
-            },
-            status=status.HTTP_201_CREATED
-        )
+        return Response({
+            "message": "Auction created",
+            "month_no": month_no,
+            "auction_no": auction_no
+        }, status=status.HTTP_201_CREATED)
+
 
 # ==================================================
-# 2️⃣ Auction Spin API (Eligible Members)
+# 4️⃣ Auction Spin API
 # ==================================================
 class AuctionSpinAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -722,44 +1102,30 @@ class AuctionSpinAPIView(APIView):
         )
 
         if auction.is_closed:
-            return Response(
-                {"error": "Auction already completed"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "Auction completed"}, status=400)
 
-        all_members = ChittiMember.objects.filter(
-            group=auction.group
-        )
+        all_members = ChittiMember.objects.filter(group=auction.group)
 
         previous_winners = auction.group.auctions.exclude(
             winner__isnull=True
         ).values_list("winner_id", flat=True)
 
-        eligible_members = all_members.exclude(
-            id__in=previous_winners
-        )
+        eligible = all_members.exclude(id__in=previous_winners)
 
-        if not eligible_members.exists():
-            return Response(
-                {"error": "No eligible members left"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        if not eligible.exists():
+            return Response({"error": "No members left"}, status=400)
 
         return Response({
             "auction_id": auction.id,
-            "group": auction.group.name,
             "eligible_members": [
-                {
-                    "id": m.id,
-                    "name": m.member.name
-                }
-                for m in eligible_members
+                {"id": m.id, "name": m.member.name}
+                for m in eligible
             ]
         })
 
 
 # ==================================================
-# 3️⃣ Assign Winner API
+# 5️⃣ Assign Winner API (FIXED)
 # ==================================================
 class AssignWinnerAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -774,37 +1140,32 @@ class AssignWinnerAPIView(APIView):
         )
 
         if auction.is_closed:
+            return Response({"error": "Already closed"}, status=400)
+
+        # 🔥 DATE VALIDATION (same as web)
+        if auction.auction_date != date.today():
             return Response(
-                {"error": "Auction already closed"},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "Spin allowed only on auction date"},
+                status=400
             )
 
-        all_members = ChittiMember.objects.filter(
-            group=auction.group
-        )
+        members = ChittiMember.objects.filter(group=auction.group)
 
-        previous_winners = auction.group.auctions.exclude(
+        previous = auction.group.auctions.exclude(
             winner__isnull=True
         ).values_list("winner_id", flat=True)
 
-        eligible_members = all_members.exclude(
-            id__in=previous_winners
-        )
+        eligible = members.exclude(id__in=previous)
 
-        if not eligible_members.exists():
-            return Response(
-                {"error": "No eligible members left"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        if not eligible.exists():
+            return Response({"error": "No eligible members"}, status=400)
 
-        # 🎯 Random winner selection
-        winner = random.choice(list(eligible_members))
+        winner = random.choice(list(eligible))
 
-        # Assign winner (your model method)
         auction.assign_winner(winner, bid_amount=0)
 
         return Response({
-            "message": "Winner assigned successfully",
+            "message": "Winner assigned",
             "winner": {
                 "id": winner.id,
                 "name": winner.member.name
@@ -813,7 +1174,7 @@ class AssignWinnerAPIView(APIView):
 
 
 # ==================================================
-# 4️⃣ Auction Detail API
+# 6️⃣ Auction Detail API
 # ==================================================
 class AuctionDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -838,3 +1199,145 @@ class AuctionDetailAPIView(APIView):
                 "name": auction.winner.member.name
             } if auction.winner else None
         })
+    
+
+class AssignAllWinnersAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, auction_id):
+
+        initial_auction = get_object_or_404(
+            Auction.objects.select_related('group'),
+            id=auction_id,
+            group__owner=request.user
+        )
+
+        group = initial_auction.group
+        winners_list = request.data.get("winners", [])
+
+        if not winners_list:
+            return Response({"error": "No winner data received"}, status=400)
+
+        try:
+            for item in winners_list:
+                month_no = int(item.get("month"))
+                member_id = item.get("id")
+
+                winner_member = ChittiMember.objects.get(
+                    id=member_id,
+                    group=group
+                )
+
+                # 🔥 find existing auctions in this month
+                monthly_auctions = group.auctions.filter(
+                    month_no=month_no
+                ).order_by("auction_no")
+
+                if monthly_auctions.exists():
+                    auction = monthly_auctions.first()
+                else:
+                    # 🔥 create proper date using relativedelta
+                    auction_date = group.start_date + relativedelta(months=month_no - 1)
+
+                    auction = Auction.objects.create(
+                        group=group,
+                        month_no=month_no,
+                        auction_no=1,
+                        auction_date=auction_date,
+                        selection_type="manual"
+                    )
+
+                if not auction.is_closed:
+                    auction.assign_winner(winner_member, bid_amount=0)
+
+            return Response({"success": True})
+
+        except ChittiMember.DoesNotExist:
+            return Response({"error": "Member not found"}, status=404)
+
+        except ValueError as e:
+            return Response({"error": str(e)}, status=400)
+
+        except Exception as e:
+            return Response({"error": f"Unexpected error: {str(e)}"}, status=500)
+        
+
+
+class EditAuctionDatesAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, group_id):
+
+        group = get_object_or_404(
+            ChittiGroup,
+            id=group_id,
+            owner=request.user
+        )
+
+        auction_id = request.data.get("auction_id")
+        month_no = request.data.get("month_no")
+        new_date_str = request.data.get("new_date")
+
+        if not new_date_str:
+            return Response({"error": "Valid date required"}, status=400)
+
+        try:
+            new_date = datetime.strptime(new_date_str, "%d/%m/%Y").date()
+        except ValueError:
+            return Response({"error": "Use DD/MM/YYYY format"}, status=400)
+
+        try:
+            # =========================
+            # UPDATE EXISTING
+            # =========================
+            if auction_id:
+                auction = get_object_or_404(
+                    Auction,
+                    id=auction_id,
+                    group=group
+                )
+
+                if auction.winner:
+                    return Response(
+                        {"error": "Cannot edit completed auction"},
+                        status=400
+                    )
+
+                auction.auction_date = new_date
+                auction.save()
+
+                return Response({
+                    "message": f"Month {auction.month_no} updated"
+                })
+
+            # =========================
+            # CREATE NEW
+            # =========================
+            elif month_no:
+
+                if group.auctions.filter(month_no=month_no).exists():
+                    return Response(
+                        {"error": f"Month {month_no} already exists"},
+                        status=400
+                    )
+
+                Auction.objects.create(
+                    group=group,
+                    month_no=month_no,
+                    auction_no=1,
+                    auction_date=new_date
+                )
+
+                return Response({
+                    "message": f"Auction created for month {month_no}"
+                })
+
+            else:
+                return Response({"error": "Invalid request"}, status=400)
+
+        except Exception as e:
+            return Response(
+                {"error": f"Unexpected error: {str(e)}"},
+                status=500
+            )

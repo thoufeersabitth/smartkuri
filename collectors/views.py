@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from decimal import Decimal
 from django.db import transaction
 
@@ -33,7 +33,7 @@ def assigned_members(request):
 # ➕ Add Collection (Payment)
 # ---------------------------------
 
-# ---------------------------------
+
 @login_required
 @collector_required
 @transaction.atomic
@@ -41,94 +41,155 @@ def add_collection(request):
     staff = request.user.staffprofile
     today = timezone.now().date()
 
-    members = Member.objects.filter(
-        assigned_chitti_group__collector=staff
+    # ---------------- SUMMARY ----------------
+    all_payments = Payment.objects.filter(
+        collected_by=staff,
+        payment_status='success'
     )
 
-    member_collections_options = {}
+    total_amount = all_payments.aggregate(Sum('amount'))['amount__sum'] or 0
+    admin_received = all_payments.filter(received_by_admin=True).aggregate(Sum('amount'))['amount__sum'] or 0
+    sent_amount = all_payments.filter(sent_to_admin=True, received_by_admin=False).aggregate(Sum('amount'))['amount__sum'] or 0
+    draft_amount = all_payments.filter(sent_to_admin=False).aggregate(Sum('amount'))['amount__sum'] or 0
+
+    # ---------------- MEMBERS ----------------
+    members = Member.objects.filter(
+        assigned_chitti_group__collector=staff
+    ).select_related('assigned_chitti_group')
+
+    member_data = []
 
     for member in members:
         group = member.assigned_chitti_group
+        if not group:
+            continue
 
-        existing_numbers = list(
-            Payment.objects.filter(
-                member=member,
-                group=group,
-                paid_date__year=today.year,
-                paid_date__month=today.month,
-                payment_status="success"
-            ).values_list("collection_number", flat=True)
-        )
+        monthly_rate = Decimal(group.monthly_amount)
+        current_month_no = int(group.current_month or 0)
 
-        max_collections = group.collections_per_month
+        total_expected_to_date = current_month_no * monthly_rate
 
-        remaining_numbers = [
-            i for i in range(1, max_collections + 1)
-            if i not in existing_numbers
-        ]
+        actual_paid = all_payments.filter(
+            member=member,
+            group=group
+        ).aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
 
-        member_collections_options[member.id] = remaining_numbers
+        months_covered = int(actual_paid // monthly_rate) if monthly_rate else 0
+        next_installment = months_covered + 1
+
+        pending = max(Decimal('0'), total_expected_to_date - actual_paid)
+        advance = max(Decimal('0'), actual_paid - total_expected_to_date)
+
+        full_total_amount = Decimal(group.total_amount)
+
+        if actual_paid >= full_total_amount:
+            status_label = "Completed ✅"
+            is_advance_mode = False
+        elif pending > 0:
+            status_label = f"Due: ₹{pending}"
+            is_advance_mode = False
+        else:
+            status_label = f"Advance: ₹{advance} (Month {next_installment})"
+            is_advance_mode = True
+
+        member_data.append({
+            "member_obj": member,
+            "monthly_target": monthly_rate,
+            "total_paid": actual_paid,
+            "pending": pending,
+            "advance": advance,
+            "status_label": status_label,
+            "is_advance_mode": is_advance_mode,
+            "group_name": group.name,
+            "is_completed": actual_paid >= full_total_amount
+        })
 
     # ---------------- POST ----------------
     if request.method == 'POST':
-        try:
-            member_id = request.POST.get('member')
-            payment_method = request.POST.get('payment_method')
-            paid_date = request.POST.get('paid_date')
+        form_type = request.POST.get('form_type')
 
-            member = get_object_or_404(
-                Member,
-                id=member_id,
-                assigned_chitti_group__collector=staff
-            )
+        if form_type == 'member_collection':
+            try:
+                member_id = request.POST.get('member')
+                amount_input = Decimal(request.POST.get('amount') or 0)
+                payment_method = request.POST.get('payment_method')
+                paid_date = request.POST.get('paid_date')
 
-            group = member.assigned_chitti_group
+                member = get_object_or_404(
+                    Member,
+                    id=member_id,
+                    assigned_chitti_group__collector=staff
+                )
 
-            amount = group.monthly_amount / group.collections_per_month
+                group = member.assigned_chitti_group
 
-            existing_numbers = list(
-                Payment.objects.filter(
+                full_total_amount = Decimal(group.monthly_amount) * group.duration_months
+
+                actual_paid = all_payments.filter(
+                    member=member,
+                    group=group
+                ).aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+
+                # ❌ duplicate protection
+                if Payment.objects.filter(
                     member=member,
                     group=group,
-                    paid_date__year=today.year,
-                    paid_date__month=today.month,
-                    payment_status="success"
-                ).values_list("collection_number", flat=True)
+                    paid_date=paid_date or today,
+                    payment_status='success'
+                ).exists():
+                    messages.error(request, "Already payment exists for this date")
+                    return redirect('collector:add')
+
+                # ❌ limit check
+                if actual_paid + amount_input > full_total_amount:
+                    remaining = full_total_amount - actual_paid
+                    messages.error(request, f"Only ₹{remaining} allowed")
+                    return redirect('collector:add')
+
+                # ✅ SAVE
+                Payment.objects.create(
+                    member=member,
+                    collected_by=staff,
+                    group=group,
+                    amount=amount_input,
+                    paid_date=paid_date or today,
+                    payment_method=payment_method.lower(),
+                    payment_status='success',
+                    sent_to_admin=False,
+                    received_by_admin=False,
+                    admin_status='pending'
+                )
+
+                messages.success(request, f"₹{amount_input} collected from {member.name}")
+                return redirect('collector:add')
+
+            except Exception as e:
+                messages.error(request, str(e))
+
+        # SEND TO ADMIN
+        elif form_type == 'send_to_admin':
+            draft_payments = Payment.objects.filter(
+                collected_by=staff,
+                sent_to_admin=False
             )
 
-            if len(existing_numbers) >= group.collections_per_month:
-                raise ValueError("All collections completed!")
+            total_sending = draft_payments.aggregate(Sum('amount'))['amount__sum'] or 0
 
-            collection_number = int(request.POST.get('collection_number'))
+            if total_sending > 0:
+                draft_payments.update(sent_to_admin=True)
+                messages.success(request, f"₹{total_sending} sent to admin")
+            else:
+                messages.warning(request, "No draft payments")
 
-            if collection_number in existing_numbers:
-                raise ValueError("This collection already paid!")
-
-        except Exception as e:
-            messages.error(request, str(e))
             return redirect('collector:add')
 
-        # ✅ CREATE PAYMENT (NOT SENT)
-        Payment.objects.create(
-            member=member,
-            collected_by=staff,
-            group=group,
-            amount=amount,
-            collection_number=collection_number,
-            paid_date=paid_date,
-            payment_method=payment_method.lower(),
-            payment_status='success',
-
-            sent_to_admin=False,       
-            received_by_admin=False
-        )
-
-        messages.success(request, f"₹{amount} collected successfully ✅")
-        return redirect('collector:add')
-
     return render(request, 'collector/add.html', {
-        'members': members,
-        'member_collections_options': member_collections_options
+        'members_data': member_data,
+        'today': today,
+        'total_amount': total_amount,
+        'admin_received': admin_received,
+        'sent_amount': sent_amount,
+        'draft_amount': draft_amount,
     })
 # ---------------------------------
 # -----------------------------
@@ -138,6 +199,10 @@ from datetime import date
 from datetime import date
 from collections import defaultdict
 from collections import defaultdict
+from datetime import date
+from collections import defaultdict
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
 from datetime import date
 
 @login_required
@@ -164,17 +229,29 @@ def all_collections(request):
         total_collector = sum(p.amount for p in group_payments)
 
         total_admin = sum(
-            p.amount for p in group_payments if p.received_by_admin
-        )
-
-        pending = sum(
             p.amount for p in group_payments
-            if p.sent_to_admin and not p.received_by_admin
+            if p.received_by_admin
         )
 
-        not_sent = sum(
+        sent = sum(
+            p.amount for p in group_payments
+            if p.sent_to_admin
+        )
+
+        draft = sum(
             p.amount for p in group_payments
             if not p.sent_to_admin
+        )
+
+        # ✅ FIXED pending logic
+        pending = sent - total_admin
+        if pending < 0:
+            pending = 0
+
+        # 🔥 IMPORTANT: detect rejected payments (for resend button)
+        has_rejected = any(
+            p.admin_status == "rejected"
+            for p in group_payments
         )
 
         group_list.append({
@@ -183,19 +260,17 @@ def all_collections(request):
             'total_collector': total_collector,
             'total_admin': total_admin,
             'pending': pending,
-            'not_sent': not_sent,   # 🔥 NEW
+            'not_sent': draft,
+            'has_rejected': has_rejected,   # 🔥 ADD THIS
         })
 
     return render(request, 'collector/today.html', {
         'group_list': group_list
     })
-
-
-from django.db.models import Sum
-
 @login_required
 @collector_required
 def request_admin_approval(request, group_id):
+    """Send pending payments to admin for approval"""
     staff = request.user.staffprofile
 
     payments = Payment.objects.filter(
@@ -203,18 +278,14 @@ def request_admin_approval(request, group_id):
         group_id=group_id,
         payment_status='success',
         sent_to_admin=False,
-        received_by_admin=False   
+        received_by_admin=False
     )
 
     total_amount = payments.aggregate(total=Sum('amount'))['total'] or 0
 
     if total_amount > 0:
         payments.update(sent_to_admin=True)
-
-        messages.success(
-            request,
-            f"₹{total_amount} sent to admin for approval ✅"
-        )
+        messages.success(request, f"₹{total_amount} sent to admin for approval ✅")
     else:
         messages.info(request, "No pending payments to send.")
 
@@ -393,46 +464,138 @@ def profile(request):
         'assigned_groups': assigned_groups
     })
 
+
+
 @login_required
-@collector_required
+@collector_required 
 def member_history(request, member_id):
     staff = request.user.staffprofile
+    current_date = timezone.now().date()
 
+    # Fetch member and ensure they belong to the collector's assigned group
     member = get_object_or_404(
         Member,
         id=member_id,
         assigned_chitti_group__collector=staff
     )
 
+    # Get successful payments only
     payments = Payment.objects.filter(
         member=member,
         payment_status='success'
     ).order_by('-paid_date')
 
-    total_paid = payments.aggregate(total=Sum('amount'))['total'] or 0
-
-    # 🔥 NEW ADDITIONS (Minimal Change)
+    # Financial Calculations
+    total_paid = payments.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
     group = member.assigned_chitti_group
-
+    
+    # Logic to handle the starting date of the Chitti
+    start_date = group.start_date if hasattr(group, 'start_date') and group.start_date else current_date
+    
     total_months = group.duration_months
-    monthly_amount = group.monthly_amount
-    total_kuri_amount = group.total_amount
+    monthly_amount = float(group.monthly_amount)
+    total_kuri_amount = float(group.total_amount) if hasattr(group, 'total_amount') and group.total_amount else (monthly_amount * total_months)
+    
+    temp_total_paid = float(total_paid)
+    pending_amount = max(float(total_kuri_amount) - temp_total_paid, 0)
 
-    pending_amount = max(total_kuri_amount - total_paid, 0)
+    month_status = []
+    
+    for i in range(1, total_months + 1):
+        target = monthly_amount
+        received = 0
+        remaining = target
+        
+        # Calculate the approximate due date for this specific month
+        month_due_date = start_date + timedelta(days=30 * (i - 1))
+        is_future_month = month_due_date > current_date
+
+        if temp_total_paid >= target:
+            received = target
+            remaining = 0
+            # If paid for a month in the future, status is "Advance"
+            status = "Advance" if is_future_month else "Full Paid"
+            temp_total_paid -= target
+        elif temp_total_paid > 0:
+            received = temp_total_paid
+            remaining = target - received
+            status = "Partial"
+            temp_total_paid = 0
+        else:
+            received = 0
+            remaining = target
+            status = "Pending"
+
+        month_status.append({
+            'month_num': i,
+            'target': target,
+            'received': received,
+            'remaining': remaining,
+            'status': status
+        })
 
     context = {
         'member': member,
         'payments': payments,
         'total_paid': total_paid,
-
-        # 🔥 Added values
         'total_months': total_months,
         'monthly_amount': monthly_amount,
         'total_kuri_amount': total_kuri_amount,
         'pending_amount': pending_amount,
+        'month_status': month_status,
     }
 
-    return render(request, 'collector/history.html', context)
+    return render(request, 'collector/his.html', context)
+@login_required
+@collector_required
+def resend_payment(request, payment_id):
+    staff = request.user.staffprofile
+
+    payment = get_object_or_404(
+        Payment,
+        id=payment_id,
+        collected_by=staff
+    )
+
+    # only rejected payments
+    if payment.admin_status != 'rejected':
+        messages.error(request, "Only rejected payments can be resent ❌")
+        return redirect('collector:all_collections')
+
+    # 🔥 reset + resend
+    payment.admin_status = 'pending'
+    payment.sent_to_admin = True
+    payment.received_by_admin = False
+    payment.save()
+
+    messages.success(request, "Payment resubmitted to admin ✅")
+    return redirect('collector:all_collections')
+
+
+@login_required
+@collector_required
+def resend_group_payments(request, group_id):
+    staff = request.user.staffprofile
+
+    payments = Payment.objects.filter(
+        collected_by=staff,
+        group_id=group_id,
+        admin_status='rejected'
+    )
+
+    if not payments.exists():
+        messages.info(request, "No rejected payments to resend")
+        return redirect('collector:all_collections')
+
+    for p in payments:
+        p.admin_status = 'pending'
+        p.sent_to_admin = True
+        p.received_by_admin = False
+        p.save()
+
+    messages.success(request, "All rejected payments resent to admin ✅")
+    return redirect('collector:all_collections')
+
 
 @login_required
 @collector_required

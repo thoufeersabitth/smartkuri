@@ -1,0 +1,172 @@
+
+    :root {
+        --bg: #f8fafc;
+        --card-bg: #ffffff;
+        --text-main: #1e293b;
+        --text-secondary: #64748b;
+        --primary: #2b59a2;      
+        --primary-dark: #1e3a8a;    
+        --secondary: #3b82f6;    
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --winner-bg: #fffbeb;
+        --winner-text: #92400e;
+        --radius: 16px;
+        --shadow: 0 10px 30px rgba(0,0,0,0.04);
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        background: var(--bg);
+        color: var(--text-main);
+    }
+
+    .dashboard-container {
+        padding: 2.5rem;
+        max-width: 1150px;
+        margin: auto;
+        animation: fadeIn 0.8s ease;
+    }
+
+    .page-header h2 {
+        font-size: 2rem;
+        font-weight: 800;
+        background: linear-gradient(120deg, var(--primary), var(--secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: -1px;
+    }
+
+    .group-list-wrapper {
+        background: var(--card-bg);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        border: 1px solid rgba(43, 89, 162, 0.08);
+        overflow: hidden;
+    }
+
+    /* Row Layout - Grid for better alignment */
+    .group-row-card {
+        display: grid;
+        grid-template-columns: 1fr 3fr 1fr 1.5fr;
+        align-items: center;
+        padding: 1.5rem 2rem;
+        border-bottom: 1px solid #f1f5f9;
+        transition: var(--transition);
+    }
+
+    .group-row-card:hover { background: #fcfdfe; }
+
+    .month-title {
+        font-weight: 800;
+        font-size: 1.1rem;
+        color: var(--primary-dark);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .status-dot { height: 10px; width: 10px; border-radius: 50%; }
+
+    /* Winner Styling - Premium Look */
+    .winner-box {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--winner-bg);
+        color: var(--winner-text);
+        padding: 6px 14px;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 0.85rem;
+        border: 1px solid #fde68a;
+    }
+
+    .no-winner {
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        font-style: italic;
+        opacity: 0.7;
+    }
+
+    /* Date and Edit Form */
+    .date-display {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 600;
+        color: var(--text-main);
+    }
+
+    .edit-trigger {
+        cursor: pointer;
+        color: var(--primary);
+        padding: 4px;
+        border-radius: 6px;
+        transition: 0.2s;
+    }
+    .edit-trigger:hover { background: rgba(43, 89, 162, 0.1); transform: scale(1.1); }
+
+    .inline-edit-form {
+        display: none;
+        align-items: center;
+        gap: 10px;
+        background: #ffffff;
+        padding: 6px 12px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        border: 2px solid var(--primary);
+        z-index: 10;
+    }
+
+    .form-date-input {
+        border: none;
+        outline: none;
+        font-weight: 700;
+        color: var(--primary);
+        font-family: inherit;
+    }
+
+    /* Badges */
+    .badge-pill {
+        padding: 6px 14px;
+        border-radius: 30px;
+        font-size: 0.7rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .badge-success { background: rgba(22, 163, 74, 0.1); color: var(--success); }
+    .badge-upcoming { background: rgba(59, 130, 246, 0.1); color: var(--secondary); }
+
+    /* Actions */
+    .btn-premium {
+        background: #f1f5f9;
+        color: var(--text-main);
+        padding: 10px 18px;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 0.8rem;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: var(--transition);
+        border: 1px solid #e2e8f0;
+    }
+
+    .btn-premium:hover {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+        transform: translateY(-2px);
+    }
+
+    .btn-confirm { background: var(--success); color: white; border: none; }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(15px); }
+        to { opacity: 1; transform: translateY(0); }
+    }

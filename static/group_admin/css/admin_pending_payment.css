@@ -1,0 +1,710 @@
+/* admin_pending_payments.css - Super Modern Professional Design */
+
+/* ========================================
+   TABLE OF CONTENTS
+   1. CSS Variables & Theme
+   2. Base Styles & Typography
+   3. Page Header
+   4. Cards Grid Layout
+   5. Payment Card Components
+   6. Badges & Amount Styling
+   7. Buttons & Interactions
+   8. Card Footer
+   9. Empty State
+   10. Animations & Effects
+   11. Responsive Design
+   ======================================== */
+
+/* ========== 1. CSS VARIABLES & THEME ========== */
+:root {
+    /* Primary Colors */
+    --primary: #4f46e5;
+    --primary-dark: #4338ca;
+    --primary-light: #eef2ff;
+    --primary-gradient: linear-gradient(135deg, #4f46e5, #6366f1);
+    
+    /* Secondary Colors */
+    --secondary: #3b82f6;
+    --secondary-dark: #2563eb;
+    --secondary-light: #dbeafe;
+    
+    /* Accent / Success */
+    --accent: #10b981;
+    --accent-dark: #059669;
+    --accent-light: #d1fae5;
+    
+    /* Warning / Pending */
+    --warning: #f59e0b;
+    --warning-dark: #d97706;
+    --warning-light: #fef3c7;
+    
+    /* Danger */
+    --danger: #ef4444;
+    --danger-light: #fee2e2;
+    
+    /* Gray Scale */
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+    
+    /* Background & Surface */
+    --bg-primary: #f5f7fa;
+    --bg-secondary: #ffffff;
+    --bg-card: #ffffff;
+    --bg-footer: #f9fafb;
+    
+    /* Shadows */
+    --shadow-xs: 0 1px 2px rgba(0,0,0,0.03);
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.04);
+    --shadow-md: 0 10px 25px -5px rgba(0,0,0,0.08);
+    --shadow-lg: 0 20px 40px -12px rgba(0,0,0,0.15);
+    --shadow-xl: 0 25px 50px -12px rgba(0,0,0,0.25);
+    --shadow-primary: 0 10px 25px -5px rgba(79, 70, 229, 0.3);
+    --shadow-success: 0 10px 25px -5px rgba(16, 185, 129, 0.3);
+    
+    /* Border Radius */
+    --radius-xs: 6px;
+    --radius-sm: 10px;
+    --radius-md: 16px;
+    --radius-lg: 20px;
+    --radius-xl: 28px;
+    --radius-full: 9999px;
+    
+    /* Transitions */
+    --transition-fast: 0.2s ease;
+    --transition-base: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 0.5s ease;
+    
+    /* Spacing */
+    --spacing-xs: 0.5rem;
+    --spacing-sm: 0.75rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+    --spacing-2xl: 3rem;
+}
+
+/* ========== 2. BASE STYLES & TYPOGRAPHY ========== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Poppins', sans-serif;
+    background: linear-gradient(135deg, var(--bg-primary) 0%, #eef2ff 100%);
+    color: var(--gray-800);
+    min-height: 100vh;
+    line-height: 1.5;
+}
+
+.container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: var(--spacing-xl) var(--spacing-lg);
+}
+
+/* ========== 3. PAGE HEADER ========== */
+.page-title {
+    font-size: 2.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    margin-bottom: var(--spacing-xs);
+    letter-spacing: -0.02em;
+    position: relative;
+    display: inline-block;
+}
+
+.page-title::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 0;
+    width: 60px;
+    height: 4px;
+    background: var(--primary-gradient);
+    border-radius: var(--radius-full);
+}
+
+.page-subtitle {
+    color: var(--gray-500);
+    font-size: 1rem;
+    font-weight: 500;
+    margin-bottom: var(--spacing-md);
+}
+
+.divider {
+    border: none;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gray-300), transparent);
+    margin-bottom: var(--spacing-xl);
+}
+
+/* ========== 4. CARDS GRID LAYOUT ========== */
+.cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--spacing-xl);
+    animation: fadeInUp 0.6s ease-out;
+}
+
+/* ========== 5. PAYMENT CARD COMPONENTS ========== */
+.payment-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-md);
+    display: flex;
+    flex-direction: column;
+    transition: all var(--transition-base);
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(0px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Card Glow Effect on Hover */
+.payment-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at top right, rgba(79, 70, 229, 0.05), transparent);
+    opacity: 0;
+    transition: opacity var(--transition-base);
+    pointer-events: none;
+    border-radius: inherit;
+}
+
+.payment-card:hover {
+    transform: translateY(-8px);
+    box-shadow: var(--shadow-xl);
+}
+
+.payment-card:hover::before {
+    opacity: 1;
+}
+
+/* Card Header - Gradient Premium */
+.payment-card .card-header {
+    padding: var(--spacing-lg) var(--spacing-lg);
+    text-align: center;
+    font-weight: 700;
+    font-size: 1.25rem;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: #fff;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.payment-card .card-header::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity var(--transition-base);
+}
+
+.payment-card:hover .card-header::after {
+    opacity: 0.5;
+}
+
+.payment-card .card-header h4 {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.payment-card .card-header h4::before {
+    content: '\f4e6';
+    font-family: 'bootstrap-icons';
+    font-size: 1.2rem;
+}
+
+/* Card Body */
+.payment-card .card-body {
+    padding: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    flex: 1;
+}
+
+/* ========== 6. BADGES & AMOUNT STYLING ========== */
+.amount-row {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+}
+
+.amount-row > div {
+    flex: 1;
+    text-align: center;
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+}
+
+.amount-row > div:hover {
+    transform: translateY(-2px);
+}
+
+.amount-row small {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--gray-500);
+    margin-bottom: var(--spacing-xs);
+}
+
+.badge {
+    font-weight: 700;
+    border-radius: var(--radius-full);
+    padding: 0.6rem 1rem;
+    display: block;
+    text-align: center;
+    transition: all var(--transition-base);
+    font-size: 1.1rem;
+    letter-spacing: -0.2px;
+}
+
+/* Pending Badge */
+.badge-pending {
+    background: linear-gradient(135deg, #fef3c7, #fffbeb);
+    color: var(--warning-dark);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    box-shadow: var(--shadow-xs);
+}
+
+.badge-pending::before {
+    content: '\f336';
+    font-family: 'bootstrap-icons';
+    margin-right: 6px;
+    font-size: 0.9rem;
+}
+
+/* Approved Badge */
+.badge-approved {
+    background: linear-gradient(135deg, var(--accent-light), #ecfdf5);
+    color: var(--accent-dark);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    box-shadow: var(--shadow-xs);
+}
+
+.badge-approved::before {
+    content: '\f26a';
+    font-family: 'bootstrap-icons';
+    margin-right: 6px;
+    font-size: 0.9rem;
+}
+
+.badge-pending:hover, .badge-approved:hover {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-sm);
+}
+
+/* ========== 7. BUTTONS & INTERACTIONS ========== */
+.btn-block {
+    width: 100%;
+    text-align: center;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all var(--transition-base);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: none;
+    text-decoration: none;
+}
+
+/* Outline Button */
+.btn-outline-primary {
+    border: 2px solid var(--secondary);
+    color: var(--secondary);
+    background: transparent;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-outline-primary::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: var(--secondary);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.5s, height 0.5s;
+    z-index: 0;
+}
+
+.btn-outline-primary:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+.btn-outline-primary:hover {
+    color: #fff;
+    border-color: var(--secondary);
+}
+
+.btn-outline-primary span,
+.btn-outline-primary i {
+    position: relative;
+    z-index: 1;
+}
+
+.btn-outline-primary:hover i,
+.btn-outline-primary:hover span {
+    color: #fff;
+}
+
+/* Success Button */
+.btn-success {
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    color: #fff;
+    box-shadow: var(--shadow-success);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-success::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.5s ease;
+}
+
+.btn-success:hover::after {
+    left: 100%;
+}
+
+.btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 30px -8px rgba(16, 185, 129, 0.4);
+}
+
+.btn-success:active {
+    transform: translateY(0);
+}
+
+/* Secondary Disabled Button */
+.btn-secondary {
+    background: linear-gradient(135deg, var(--gray-400), var(--gray-500));
+    color: #fff;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.btn-secondary:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+/* Button Icons */
+.btn-outline-primary i,
+.btn-success i,
+.btn-secondary i {
+    font-size: 1rem;
+}
+
+/* ========== 8. CARD FOOTER ========== */
+.payment-card .card-footer {
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--gray-500);
+    padding: var(--spacing-md);
+    background: var(--bg-footer);
+    border-top: 1px solid var(--gray-200);
+    border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+    transition: all var(--transition-fast);
+}
+
+.payment-card:hover .card-footer {
+    background: linear-gradient(135deg, var(--gray-50), #fff);
+    color: var(--gray-600);
+}
+
+/* ========== 9. EMPTY STATE ========== */
+.empty-state {
+    text-align: center;
+    padding: var(--spacing-2xl) var(--spacing-xl);
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-md);
+    animation: fadeInUp 0.5s ease-out;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.empty-state i {
+    font-size: 4rem;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    margin-bottom: var(--spacing-lg);
+    display: inline-block;
+}
+
+.empty-state h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--gray-800);
+    margin-bottom: var(--spacing-sm);
+}
+
+.empty-state p {
+    font-size: 0.9rem;
+    color: var(--gray-500);
+}
+
+/* ========== 10. ANIMATIONS & EFFECTS ========== */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Stagger animation for cards */
+.payment-card {
+    animation: fadeInUp 0.5s ease-out backwards;
+}
+
+.payment-card:nth-child(1) { animation-delay: 0.05s; }
+.payment-card:nth-child(2) { animation-delay: 0.1s; }
+.payment-card:nth-child(3) { animation-delay: 0.15s; }
+.payment-card:nth-child(4) { animation-delay: 0.2s; }
+.payment-card:nth-child(5) { animation-delay: 0.25s; }
+.payment-card:nth-child(6) { animation-delay: 0.3s; }
+
+/* ========== 11. RESPONSIVE DESIGN ========== */
+@media (max-width: 1024px) {
+    .cards-grid {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: var(--spacing-lg);
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: var(--spacing-lg);
+    }
+    
+    .page-title {
+        font-size: 1.75rem;
+    }
+    
+    .cards-grid {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-lg);
+    }
+    
+    .payment-card .card-header {
+        padding: var(--spacing-md);
+    }
+    
+    .payment-card .card-header h4 {
+        font-size: 1.1rem;
+    }
+    
+    .card-body {
+        padding: var(--spacing-md) !important;
+    }
+    
+    .amount-row {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+    
+    .badge {
+        font-size: 0.95rem;
+        padding: 0.5rem 0.75rem;
+    }
+    
+    .btn-block {
+        padding: 0.6rem 0.8rem;
+        font-size: 0.85rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: var(--spacing-md);
+    }
+    
+    .page-title {
+        font-size: 1.5rem;
+    }
+    
+    .page-subtitle {
+        font-size: 0.85rem;
+    }
+    
+    .payment-card .card-header {
+        padding: var(--spacing-sm) var(--spacing-md);
+    }
+    
+    .payment-card .card-header h4 {
+        font-size: 1rem;
+    }
+    
+    .card-body {
+        padding: var(--spacing-md) !important;
+    }
+    
+    .badge {
+        font-size: 0.85rem;
+        padding: 0.4rem 0.6rem;
+    }
+    
+    .btn-block {
+        padding: 0.5rem 0.7rem;
+        font-size: 0.8rem;
+    }
+    
+    .empty-state {
+        padding: var(--spacing-xl) var(--spacing-md);
+    }
+    
+    .empty-state i {
+        font-size: 3rem;
+    }
+    
+    .empty-state h3 {
+        font-size: 1.2rem;
+    }
+}
+
+/* Dark Mode Support (Optional) */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-primary: #111827;
+        --bg-card: #1f2937;
+        --bg-footer: #1a1f2e;
+        --gray-50: #1f2937;
+        --gray-100: #374151;
+        --gray-200: #4b5563;
+        --gray-300: #6b7280;
+        --gray-800: #f3f4f6;
+        --gray-900: #f9fafb;
+    }
+    
+    body {
+        background: linear-gradient(135deg, #0f172a, #1e1b4b);
+    }
+    
+    .payment-card {
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .amount-row small {
+        color: var(--gray-400);
+    }
+}
+
+/* Print Styles */
+@media print {
+    .btn-block,
+    .btn-outline-primary,
+    .btn-success,
+    .btn-secondary {
+        display: none;
+    }
+    
+    .payment-card {
+        break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #ddd;
+    }
+    
+    .payment-card .card-header {
+        background: #f0f0f0;
+        color: #000;
+    }
+    
+    body {
+        background: white;
+    }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--gray-200);
+    border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-dark);
+}

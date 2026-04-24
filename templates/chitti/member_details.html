@@ -1,117 +1,140 @@
 {% extends "chitti/group_admin_base.html" %}
-{% block title %}Member Details{% endblock %}
+{% block title %}Member Details - {{ member.member.name }}{% endblock %}
 {% load static %}
 
 {% block extra_head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 <link rel="stylesheet" href="{% static 'group_admin/css/member_details.css' %}">
+<style>
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
+    .stat-card { background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-top: 4px solid #0d6efd; }
+    .stat-card h3 { margin: 10px 0 0 0; color: #333; }
+    
+    .table-container { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.08); margin-top: 20px; }
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th { background: #343a40; color: #fff; padding: 15px; text-align: left; }
+    .data-table td { padding: 15px; border-bottom: 1px solid #eee; }
+
+    .row-paid { background-color: #f1f8e9; }
+    .row-partial { background-color: #fffde7; }
+    .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; }
+    .bg-paid { background: #c8e6c9; color: #2e7d32; }
+    .bg-partial { background: #fff9c4; color: #f57f17; }
+    .bg-pending { background: #f5f5f5; color: #757575; border: 1px solid #ddd; }
+    .badge-advance { background: #e3f2fd; color: #0d47a1; font-size: 0.7rem; padding: 2px 6px; margin-left: 5px; border: 1px solid #0d47a1; }
+
+    .history-section { margin-top: 40px; }
+    .history-item { display: flex; justify-content: space-between; padding: 12px; background: #fff; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid #6c757d; }
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="container">
-    <h2>👤 Member Details</h2>
-
-    <!-- ================= Member Info ================= -->
-    <div class="table-container">
-        <table class="details-table">
-            <tbody>
-                <tr>
-                    <th>Name</th>
-                    <td>{{ member.member.name }}</td>
-                </tr>
-                <tr>
-                    <th>Email</th>
-                    <td>{{ member.member.email|default:"-" }}</td>
-                </tr>
-                <tr>
-                    <th>Phone</th>
-                    <td>{{ member.member.phone }}</td>
-                </tr>
-                <tr>
-                    <th>Address</th>
-                    <td>{{ member.member.address|default:"-" }}</td>
-                </tr>
-                <tr>
-                    <th>Aadhaar No</th>
-                    <td>{{ member.member.aadhaar_no|default:"-" }}</td>
-                </tr>
-                <tr>
-                    <th>Chitti Group</th>
-                    <td>{{ member.group.name }}</td>
-                </tr>
-                <tr>
-                    <th>Monthly Amount</th>
-                    <td>₹{{ member.group.monthly_amount }}</td>
-                </tr>
-                <tr>
-                    <th>Total Paid</th> <!-- ✅ fixed naming -->
-                    <td>₹{{ total_paid }}</td>
-                </tr>
-                <tr>
-                    <th>Pending Amount</th>
-                    <td>₹{{ total_due }}</td>
-                </tr>
-                <tr>
-                    <th>Status</th>
-                    <td>{{ member.member_status }}</td>
-                </tr>
-                <tr>
-                    <th>Collections Paid</th>
-                    <td>{{ collections_paid }} / {{ total_collections }}</td> <!-- ✅ fixed -->
-                </tr>
-            </tbody>
-        </table>
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">👤 Member Profile</h2>
+        <a href="{% url 'chitti:view_group' member.group.id %}" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-arrow-left"></i> Back to Group
+        </a>
     </div>
 
-    <!-- ================= Month-wise Payment ================= -->
-    <h3>💰 Month-wise Payment Status</h3>
+    <div class="summary-grid">
+        <div class="stat-card">
+            <small class="text-muted">TOTAL PAID</small>
+            <h3 class="text-success">₹{{ total_paid|floatformat:2 }}</h3>
+        </div>
+        <div class="stat-card" style="border-top-color: #dc3545;">
+            <small class="text-muted">TOTAL DUES</small>
+            <h3 class="text-danger">₹{{ total_due|floatformat:2 }}</h3>
+        </div>
+        <div class="stat-card" style="border-top-color: #6c757d;">
+            <small class="text-muted">GROUP SLOTS</small>
+            <h3>{{ collections_paid }} / {{ total_collections }}</h3>
+        </div>
+    </div>
+
+    <div class="table-container p-3">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Name:</strong> {{ member.member.name }}</p>
+                <p><strong>Phone:</strong> {{ member.member.phone }}</p>
+                <p><strong>Address:</strong> {{ member.member.address|default:"Not Provided" }}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Group:</strong> {{ member.group.name }} ({{ member.group.code }})</p>
+                <p><strong>Monthly Target:</strong> ₹{{ member.group.monthly_amount }}</p>
+                <p><strong>Aadhaar:</strong> {{ member.member.aadhaar_no|default:"-" }}</p>
+            </div>
+        </div>
+    </div>
+
+    <h3 class="mt-5"><i class="fas fa-file-invoice-dollar text-primary"></i> Month-wise Payment Status</h3>
     <div class="table-container">
         <table class="data-table">
             <thead>
                 <tr>
                     <th>Month</th>
-                    <th>Collection #</th>
-                    <th>Amount (₹)</th>
-                    <th>Paid Date</th>
-                    <th>Collector</th>
+                    <th>Target (₹)</th>
+                    <th>Received (₹)</th>
+                    <th>Remaining (₹)</th>
                     <th>Status</th>
                 </tr>
             </thead>
             <tbody>
                 {% for p in payment_rows %}
-                <tr>
-                    <td>Month {{ p.month }}</td>
-                    <td>{{ p.collection_no }}</td>
+                <tr class="{% if p.status == 'Paid' %}row-paid{% elif p.status == 'Partial' %}row-partial{% endif %}">
                     <td>
-                        {% if p.amount %}
-                            ₹{{ p.amount }}
+                        <strong>Month {{ p.month }}</strong>
+                        {% if p.is_advance %}
+                            <span class="badge-advance">Advance</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted">₹{{ p.target|floatformat:0 }}</td>
+                    <td class="fw-bold text-primary">₹{{ p.paid|floatformat:0 }}</td>
+                    <td>
+                        {% if p.status == 'Paid' %}
+                            <span class="text-success"><i class="fas fa-check"></i> 0</span>
                         {% else %}
-                            -
+                            <span class="text-danger">₹{{ p.balance|floatformat:0 }}</span>
                         {% endif %}
                     </td>
                     <td>
-                        {% if p.paid_date %}
-                            {{ p.paid_date|date:"d M, Y" }}
+                        {% if p.status == 'Paid' %}
+                            <span class="status-badge bg-paid">Full Paid</span>
+                        {% elif p.status == 'Partial' %}
+                            <span class="status-badge bg-partial">Partial</span>
                         {% else %}
-                            -
+                            <span class="status-badge bg-pending">Pending</span>
                         {% endif %}
-                    </td>
-                    <td>{{ p.collector|default:"-" }}</td>
-                    <td class="{% if p.status == 'Paid' %}status-paid{% else %}status-pending{% endif %}">
-                        {{ p.status }}
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" class="text-center">No payment records found</td>
+                    <td colspan="5" class="text-center py-4 text-muted">No monthly records generated yet.</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 
-    <!-- ================= Back Button ================= -->
-    <a href="{% url 'chitti:view_group' member.group.id %}" class="btn btn-secondary mt-3">
-        ← Back to Group Members
-    </a>
+    <div class="history-section">
+        <h4 class="mb-3 text-secondary"><i class="fas fa-history"></i> Real Transaction History</h4>
+        {% for t in recent_transactions %}
+        <div class="history-item shadow-sm">
+            <div>
+                <strong>₹{{ t.amount }}</strong> 
+                <span class="text-muted mx-2">|</span> 
+                <small>{{ t.paid_date|date:"d M, Y" }}</small>
+            </div>
+            <div>
+                <span class="badge bg-light text-dark border">{{ t.payment_method|upper }}</span>
+                {% if t.collector %}
+                    <small class="ms-2 text-muted">by {{ t.collector }}</small>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="alert alert-light border text-center">No physical receipts found.</div>
+        {% endfor %}
+    </div>
 </div>
 {% endblock %}

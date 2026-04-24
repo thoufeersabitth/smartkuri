@@ -3,9 +3,9 @@ import string
 
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
-from django.db.models import Q
+from django.db.models import Q, Max
 from django.db.models import Sum
-
+from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -49,12 +49,16 @@ class MemberListAPIView(APIView):
         })
 
 
+
+
 # MEMBER CREATE (Group Admin)
 class MemberCreateAPIView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request):
+
         serializer = MemberCreateSerializer(
             data=request.data,
             context={"request": request}
@@ -62,7 +66,6 @@ class MemberCreateAPIView(APIView):
         serializer.is_valid(raise_exception=True)
 
         data = serializer.validated_data
-
         group = data.get("assigned_chitti_group")
 
         # 🔒 Check group limit
@@ -72,7 +75,9 @@ class MemberCreateAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 👤 Create Django User
+        # =============================
+        # 👤 CREATE USER
+        # =============================
         username = data.get("phone") or data.get("email")
         password = data["password"]
 
@@ -82,7 +87,9 @@ class MemberCreateAPIView(APIView):
             email=data.get("email")
         )
 
-        # 👤 Create Member
+        # =============================
+        # 👤 CREATE MEMBER
+        # =============================
         member = Member.objects.create(
             user=user,
             name=data.get("name"),
@@ -94,27 +101,38 @@ class MemberCreateAPIView(APIView):
             is_first_login=True
         )
 
-        # 🎟️ Token create
+        # =============================
+        # 🎟️ SAFE TOKEN CREATION
+        # =============================
         if group:
-            last_token = (
-                ChittiMember.objects
-                .filter(group=group)
-                .values_list("token_no", flat=True)
-            )
-            next_token = max(last_token, default=0) + 1
+            for _ in range(3):  # retry max 3 times
+                try:
+                    last_token = ChittiMember.objects.filter(group=group).aggregate(
+                        max_token=Max("token_no")
+                    )["max_token"] or 0
 
-            ChittiMember.objects.create(
-                group=group,
-                member=member,
-                token_no=next_token
-            )
+                    next_token = last_token + 1
 
+                    ChittiMember.objects.create(
+                        group=group,
+                        member=member,
+                        token_no=next_token
+                    )
+                    break
+
+                except Exception:
+                    # retry if duplicate token issue
+                    continue
+
+        # =============================
+        # ✅ RESPONSE
+        # =============================
         return Response({
             "message": "Member created successfully",
             "username": username,
-            "password": password
+            "password": password,
+            "group_id": group.id if group else None
         }, status=status.HTTP_201_CREATED)
-
 
 # MEMBER UPDATE (Group Admin)
 class MemberUpdateAPIView(APIView):
@@ -158,7 +176,7 @@ class MemberDeleteAPIView(APIView):
         return Response({"message": "Member deleted"})
     
 
-# members_read (Group Admin)
+
 class MemberDetailAPIView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -172,44 +190,54 @@ class MemberDetailAPIView(APIView):
 
         member = member_record.member
         group = member_record.group
-        duration_months = group.duration_months
+
+        monthly_amount = float(group.monthly_amount)
+        duration = int(group.duration_months)
+        current_grp_month = int(group.current_month)
 
         payments = list(
             Payment.objects.filter(
                 member=member,
                 group=group,
                 payment_status="success"
-            ).order_by("paid_date")
+            ).order_by("paid_date", "created_at")
         )
 
+        # -----------------------------
+        # CALCULATION (ADVANCED)
+        # -----------------------------
+        total_paid = float(sum(p.amount for p in payments))
+        temp_balance = total_paid
+
         month_wise = []
-        index = 0
 
-        for month in range(1, duration_months + 1):
-            if index < len(payments):
-                p = payments[index]
+        for month in range(1, duration + 1):
+            target = monthly_amount
+            allocated = 0
 
-                month_wise.append({
-                    "month": month,
-                    "amount": p.amount,
-                    "paid_date": p.paid_date,
-                    "collector": (
-                        p.collected_by.user.get_full_name()
-                        if p.collected_by else "Admin"
-                    ),
-                    "status": "Paid"
-                })
-
-                index += 1
+            if temp_balance >= target:
+                allocated = target
+                temp_balance -= target
+                status = "Paid"
+            elif temp_balance > 0:
+                allocated = temp_balance
+                temp_balance = 0
+                status = "Partial"
             else:
-                month_wise.append({
-                    "month": month,
-                    "amount": None,
-                    "paid_date": None,
-                    "collector": None,
-                    "status": "Pending"
-                })
+                status = "Pending"
 
+            month_wise.append({
+                "month": month,
+                "target": target,
+                "paid": allocated,
+                "balance": target - allocated,
+                "status": status,
+                "is_advance": month > current_grp_month and allocated > 0
+            })
+
+        # -----------------------------
+        # RESPONSE
+        # -----------------------------
         return Response({
             "member_details": {
                 "name": member.name,
@@ -218,18 +246,30 @@ class MemberDetailAPIView(APIView):
                 "address": member.address,
                 "aadhaar_no": member.aadhaar_no,
                 "chitti_group": group.name,
-                "monthly_amount": group.monthly_amount,
+                "monthly_amount": monthly_amount,
                 "status": member.member_status
             },
 
             "financial_summary": {
-                "total_collected": sum(p.amount for p in payments),
-                "pending_amount": member.pending_amount,
-                "months_paid": index,
-                "duration_months": duration_months
+                "total_paid": total_paid,
+                "total_due": max(0, (current_grp_month * monthly_amount) - total_paid),
+                "months_paid": sum(1 for m in month_wise if m["status"] == "Paid"),
+                "duration_months": duration
             },
 
-            "month_wise_payments": month_wise
+            "month_wise_payments": month_wise,
+
+            "recent_transactions": [
+                {
+                    "amount": p.amount,
+                    "paid_date": p.paid_date,
+                    "collector": (
+                        p.collected_by.user.get_full_name()
+                        if p.collected_by else "Admin"
+                    )
+                }
+                for p in payments
+            ]
         })
 
 

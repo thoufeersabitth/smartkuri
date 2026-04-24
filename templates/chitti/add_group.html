@@ -1,188 +1,174 @@
 {% extends "chitti/group_admin_base.html" %}
 {% load static %}
 
+{% block title %}Create New Chitti Group{% endblock %}
+
 {% block extra_head %}
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <link rel="stylesheet" href="{% static 'group_admin/css/add_group.css' %}">
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container pb-5 mt-4">
+    <h2>Create New Chitti Group</h2>
+    
+    <div class="form-container">
+        <form method="POST" id="groupForm" class="row g-4">
+            {% csrf_token %}
 
-<h2>Create New Chitti Group</h2>
+            <div class="col-12 form-group">
+                <label class="form-label">Chitti Group Name</label>
+                <input type="text" name="name" class="form-control" placeholder="e.g. Premium Gold Chitti 2026" required>
+            </div>
 
-<p class="text-muted">
-Fill the details below. The system will handle everything automatically.
-</p>
+            <div class="col-md-6 form-group">
+                <label class="form-label">Monthly Installment (₹)</label>
+                <input type="number" name="monthly_amount" class="form-control" placeholder="Amount per member" required>
+            </div>
 
-{% if messages %}
-<div class="mt-3">
-{% for message in messages %}
-<div class="alert alert-{{ message.tags }}">
-{{ message }}
-</div>
-{% endfor %}
-</div>
-{% endif %}
+            <div class="col-md-6 form-group">
+                <label class="form-label">Total Duration (Months)</label>
+                <input type="number" name="duration_months" class="form-control" placeholder="e.g. 20" required>
+            </div>
 
-<form method="post" class="form-container mt-3">
-{% csrf_token %}
+            <div class="col-md-6 form-group">
+                <label class="form-label">Auction Frequency</label>
+                <select name="auction_type" id="id_auction_type" class="form-control">
+                    <option value="monthly">Monthly Recurring</option>
+                    <option value="interval">Custom Interval (Gaps)</option>
+                </select>
+            </div>
 
-<!-- Group Name -->
-<div class="form-group mb-3">
-<label>Group Name</label>
-<input type="text" name="name" class="form-control"
-placeholder="Example: Friends Group" required>
-<small class="text-muted">Enter a name for your group</small>
-</div>
+            <div class="col-md-6 form-group">
+                <label class="form-label">Auctions per Month</label>
+                <select name="auctions_per_month" id="id_auc_count" class="form-control">
+                    <option value="1">1 Auction</option>
+                    <option value="2">2 Auctions</option>
+                    <option value="3">3 Auctions</option>
+                    <option value="4">4 Auctions</option>
+                </select>
+            </div>
 
-<!-- Monthly Amount -->
-<div class="form-group mb-3">
-<label>Monthly Payment (per person)</label>
-<input type="number" step="0.01" name="monthly_amount"
-class="form-control" required>
-<small class="text-muted">How much each person pays every month</small>
+            <div class="col-12 form-group" id="div_interval" style="display:none;">
+                <label class="form-label">Gap between Auctions (Months)</label>
+                <input type="number" name="auction_interval_months" class="form-control" placeholder="e.g. 2">
+            </div>
 
-</div>
+            <hr class="my-2" style="opacity: 0.1;">
 
-<!-- Duration -->
-<div class="form-group mb-3">
-<label>Total Duration (months)</label>
-<input type="number" name="duration_months"
-class="form-control" required>
-<small class="text-muted">How many months this group will run</small>
-</div>
+            <div class="col-md-12 form-group">
+                <label class="form-label text-primary">Chitti Starting Date (Registration Start)</label>
+                <input type="date" name="start_date" id="start_date" class="form-control" required>
+                <small class="text-muted">This is the date the Chitti officially opens.</small>
+            </div>
 
-<!-- Collections -->
-<div class="form-group mb-3">
-<label>Payments per Month</label>
-<select name="collections_per_month" class="form-control">
-<option value="1">1 time</option>
-<option value="2">2 times</option>
-<option value="3">3 times</option>
-<option value="4">4 times</option>
-</select>
-<small class="text-muted">How many times members pay in a month</small>
-</div>
+            <div class="col-md-6 form-group">
+                <label class="form-label">Auction 1 Date</label>
+                <input type="date" name="auction_date_1" id="date1" class="form-control" required>
+            </div>
 
-<!-- AUCTION TYPE -->
-<div class="form-group mb-3">
-<label>Prize Frequency</label>
-<select id="simple_type" name="auction_type" class="form-control">
-<option value="monthly">Every Month</option>
-<option value="interval">After Few Months</option>
-</select>
-<small class="text-muted">Choose how often the prize is given</small>
-</div>
+            <div class="col-md-6 form-group" id="div_date2" style="display:none;">
+                <label class="form-label">Auction 2 Date</label>
+                <input type="date" name="auction_date_2" id="date2" class="form-control">
+            </div>
 
-<!-- AUCTIONS PER MONTH -->
-<div class="form-group mb-3">
-<label>Number of Winners</label>
-<select id="auction_count" name="auctions_per_month" class="form-control">
-<option value="1">1 winner</option>
-<option value="2">2 winners</option>
-<option value="3">3 winners</option>
-<option value="4">4 winners</option>
-</select>
-<small class="text-muted">How many people get the prize each time</small>
-</div>
+            <div class="col-md-6 form-group" id="div_date3" style="display:none;">
+                <label class="form-label">Auction 3 Date</label>
+                <input type="date" name="auction_date_3" id="date3" class="form-control">
+            </div>
 
-<!-- INTERVAL -->
-<div class="form-group mb-3" id="interval_field" style="display:none;">
-<label>Gap Between Prizes (months)</label>
-<input type="number" name="auction_interval_months"
-class="form-control" placeholder="Example: 2">
-<small class="text-muted">Example: 2 means prize every 2 months</small>
+            <div class="col-md-6 form-group" id="div_date4" style="display:none;">
+                <label class="form-label">Auction 4 Date</label>
+                <input type="date" name="auction_date_4" id="date4" class="form-control">
+            </div>
+
+            <div class="col-12 form-actions mt-4">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-check2-circle me-2"></i> CREATE GROUP
+                </button>
+                <a href="/chitti/groups/" class="btn btn-secondary">CANCEL</a>
+            </div>
+        </form>
+    </div>
 </div>
 
-<!-- START DATE -->
-<div class="form-group mb-3">
-<label>Start Date</label>
-<input type="date" name="start_date"
-class="form-control" required>
-<small class="text-muted">Select when the group starts</small>
-</div>
-
-<!-- AUCTION DATES -->
-<div class="form-group mb-4">
-<label>Auction Dates (First Month Only)</label>
-
-<div id="auction_dates_container"></div>
-
-<small class="text-muted">
-Enter dates only for the first month. The system will repeat automatically.
-</small>
-</div>
-
-<!-- HELP BOX -->
-<div class="alert alert-success">
-
-<b>Simple Examples:</b><br><br>
-
-• Every month + 1 winner  
-→ 12 months = 12 winners<br><br>
-
-• Every 2 months + 1 winner  
-→ 12 months = 6 winners<br><br>
-
-• Every month + 2 winners  
-→ 12 months = 24 winners<br><br>
-
-<hr>
-
-<b>Dates Example:</b><br><br>
-
-• If you select 2 winners → enter 2 dates  
-• If you select 4 winners → enter 4 dates<br><br>
-
-The system will automatically repeat these dates every month.
-
-</div>
-
-<!-- BUTTON -->
-<button type="submit" class="btn btn-success">
-Create Group
-</button>
-
-</form>
-</div>
-
-<!-- JS -->
 <script>
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", function() {
+    const typeSelect = document.getElementById('id_auction_type');
+    const countSelect = document.getElementById('id_auc_count');
+    const intervalDiv = document.getElementById('div_interval');
+    const startDateInput = document.getElementById('start_date');
 
-    const simpleType = document.getElementById("simple_type");
-    const intervalField = document.getElementById("interval_field");
-    const auctionCount = document.getElementById("auction_count");
-    const container = document.getElementById("auction_dates_container");
+    // 1. Frequency Toggle (FIX: required handling)
+    typeSelect.addEventListener('change', function() {
+        const input = intervalDiv.querySelector('input');
 
-    function toggleInterval() {
-        intervalField.style.display = simpleType.value === "interval" ? "block" : "none";
-    }
+        if (this.value === 'interval') {
+            intervalDiv.style.display = 'block';
+            input.setAttribute('required', 'required');
+        } else {
+            intervalDiv.style.display = 'none';
+            input.removeAttribute('required');
+            input.value = "";
+        }
+    });
 
-    function generateDateInputs() {
-        container.innerHTML = "";
+    // 2. Show Auction Date fields (same logic, no change)
+    countSelect.addEventListener('change', function() {
+        const count = parseInt(this.value);
+        
+        for (let i = 2; i <= 4; i++) {
+            const dateDiv = document.getElementById('div_date' + i);
+            const dateInput = document.getElementById('date' + i);
+            
+            if (i <= count) {
+                dateDiv.style.display = 'block';
+                dateInput.setAttribute('required', 'required');
+            } else {
+                dateDiv.style.display = 'none';
+                dateInput.removeAttribute('required');
+                dateInput.value = "";
+            }
+        }
+    });
 
-        let count = parseInt(auctionCount.value);
+    // 3. FIX: Start date → control auction dates
+    startDateInput.addEventListener('change', function() {
+        const startDate = this.value;
+
+        for (let i = 1; i <= 4; i++) {
+            const input = document.getElementById('date' + i);
+            if (input) {
+                input.setAttribute('min', startDate);
+            }
+        }
+    });
+
+    // 4. REMOVE old "today min" logic ❌ (important fix)
+
+    // 5. VALIDATION before submit (NEW FIX)
+    document.getElementById('groupForm').addEventListener('submit', function(e) {
+        const startDate = new Date(startDateInput.value);
+        const count = parseInt(countSelect.value);
 
         for (let i = 1; i <= count; i++) {
-            let div = document.createElement("div");
-            div.classList.add("mb-2");
+            const input = document.getElementById('date' + i);
+            const auctionDate = new Date(input.value);
 
-            div.innerHTML = `
-                <label>Auction ${i} Date</label>
-                <input type="date" name="auction_date_${i}" class="form-control" required>
-            `;
-
-            container.appendChild(div);
+            if (auctionDate < startDate) {
+                alert("Auction date cannot be before start date!");
+                input.focus();
+                e.preventDefault();
+                return;
+            }
         }
-    }
 
-    simpleType.addEventListener("change", toggleInterval);
-    auctionCount.addEventListener("change", generateDateInputs);
-
-    toggleInterval();
-    generateDateInputs();
+        // Loading button (your original)
+        const btn = this.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Creating...';
+    });
 });
 </script>
-
 {% endblock %}

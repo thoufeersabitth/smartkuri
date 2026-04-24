@@ -1,65 +1,88 @@
 {% extends "chitti/group_admin_base.html" %}
 {% load static %}
 
-{% block title %}Group Details{% endblock %}
+{% block title %}Group Details - {{ group.name }}{% endblock %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'group_admin/css/group_details.css' %}">
+<style>
+    .inline-date-edit {
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 2px 5px;
+        font-size: 0.9rem;
+        color: #333;
+    }
+    .update-btn-container {
+        margin-top: 15px;
+        text-align: right;
+    }
+    .btn-save-dates {
+        background-color: #28a745;
+        color: white;
+        border: none;
+        padding: 8px 20px;
+        border-radius: 5px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .btn-save-dates:hover {
+        background-color: #218838;
+    }
+    .text-premium { color: #1a2a6c; font-weight: bold; }
+</style>
 {% endblock %}
 
 {% block content %}
 <div class="container">
 
-    <h2 class="page-title">Group: {{ group.name }}</h2>
+    <h2 class="page-title">Group: {{ group.name }} <small style="font-size: 0.6em; color: gray;">#{{ group.code }}</small></h2>
 
-    <!-- GROUP INFO -->
     <div class="info-grid">
-
         <div class="info-card">
             <span>Monthly Payment</span>
             <strong>₹ {{ group.monthly_amount }} <small>(per person)</small></strong>
         </div>
-
         <div class="info-card">
             <span>Total Members</span>
-            <strong>{{ total_members }}</strong>
+            <strong>{{ total_members }} / {{ group.max_members|default:"--" }}</strong>
         </div>
-
         <div class="info-card">
-            <span>Total Months</span>
-            <strong>{{ group.duration_months }}</strong>
+            <span>Duration</span>
+            <strong>{{ group.duration_months }} Months</strong>
         </div>
-
         <div class="info-card">
             <span>Monthly Pot</span>
-            <strong>₹ {{ monthly_pot }}</strong>
+            <strong class="text-premium">₹ {{ monthly_pot }}</strong>
         </div>
-
         <div class="info-card">
-            <span>Current Month</span>
-            <strong>{{ current_month }}</strong>
+            <span>Current Progress</span>
+            <strong>Month {{ current_month }}</strong>
         </div>
-
         <div class="info-card">
-            <span>Completed Months</span>
-            <strong>{{ completed_months }}</strong>
+            <span>Completed</span>
+            <strong>{{ completed_months }} Months</strong>
         </div>
-
         <div class="info-card">
-            <span>Remaining Months</span>
-            <strong>{{ remaining_months }}</strong>
+            <span>Remaining</span>
+            <strong>{{ remaining_months }} Months</strong>
         </div>
-
         <div class="info-card">
             <span>Total Collected</span>
-            <strong>₹ {{ total_collected }}</strong>
+            <strong style="color: green;">₹ {{ total_collected }}</strong>
+        </div>
+        
+        <div class="info-card">
+            <span>Reg. Start Date</span>
+            <strong>{% if group.registration_start_date %}{{ group.registration_start_date|date:"d M Y" }}{% else %}—{% endif %}</strong>
         </div>
 
+        <!-- ✅ FIXED HERE -->
         <div class="info-card">
-            <span>Start Date</span>
+            <span>1st Auction Date</span>
             <strong>
-                {% if group.start_date %}
-                    {{ group.start_date|date:"d M Y" }}
+                {% if auctions %}
+                    {{ auctions.0.auction_date|date:"d M Y" }}
                 {% else %}
                     —
                 {% endif %}
@@ -67,14 +90,8 @@
         </div>
 
         <div class="info-card">
-            <span>End Date</span>
-            <strong>
-                {% if end_date %}
-                    {{ end_date|date:"d M Y" }}
-                {% else %}
-                    —
-                {% endif %}
-            </strong>
+            <span>Expected End Date</span>
+            <strong>{% if end_date %}{{ end_date|date:"d M Y" }}{% else %}—{% endif %}</strong>
         </div>
 
         <div class="info-card">
@@ -85,32 +102,9 @@
                 <span class="status active">Running</span>
             {% endif %}
         </div>
-
     </div>
 
-    <!-- LAST WINNER -->
-    {% if last_winner %}
-    <div class="info-grid">
-        <div class="info-card">
-            <span>Last Winner</span>
-            <strong>{{ last_winner.member.name }}</strong>
-        </div>
-
-        <div class="info-card">
-            <span>Prize Given</span>
-            <strong>₹ {{ last_prize }}</strong>
-        </div>
-
-        <div class="info-card">
-            <span>Discount</span>
-            <strong>₹ {{ last_discount }}</strong>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- MEMBERS -->
-    <h3 class="section-title">Members</h3>
-
+    <h3 class="section-title">Members List</h3>
     <div class="table-container">
         <table class="data-table">
             <thead>
@@ -125,7 +119,7 @@
                 {% for cm in members %}
                 <tr>
                     <td>{{ cm.token_no }}</td>
-                    <td>{{ cm.member.name }}</td>
+                    <td><b>{{ cm.member.name }}</b></td>
                     <td>{{ cm.member.phone }}</td>
                     <td>
                         {% if cm.member_status == "Active" %}
@@ -140,81 +134,78 @@
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="4" class="empty">No members added</td></tr>
+                <tr><td colspan="4" class="empty">No members added yet</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 
-    <!-- PRIZE HISTORY -->
-    <h3 class="section-title">Prize History</h3>
+    <h3 class="section-title">Prize & Auction Schedule</h3>
 
-    <div class="table-container">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Month</th>
-                    <th>Auction</th>
-                    <th>Date</th>
-                    <th>Winner</th>
-                    <th>Prize</th>
-                    <th>Discount</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for auction in auctions %}
-                <tr>
-                    <td>Month {{ auction.month_no }}</td>
-                    <td>#{{ auction.auction_no }}</td>
-                    <td>{{ auction.auction_date|date:"d M Y" }}</td>
-                    <td>
-                        {% if auction.winner %}
-                            {{ auction.winner.member.name }}
-                        {% else %}
-                            —
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if auction.winner %}
-                            ₹ {{ auction.prize }}
-                        {% else %}
-                            —
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if auction.winner %}
-                            ₹ {{ auction.bid_amount }}
-                        {% else %}
-                            —
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if auction.winner %}
-                            <span class="badge done">Completed</span>
-                        {% elif auction.auction_date == today %}
-                            <span class="badge warning">Today</span>
-                        {% else %}
-                            <span class="badge">Upcoming</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if not auction.winner %}
-                            <a href="{% url 'chitti:auction_spin' auction.id %}" class="btn primary">Start</a>
-                        {% else %}
-                            <a href="{% url 'chitti:auction_detail' auction.id %}" class="btn outline">View</a>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="8" class="empty">No prize rounds yet</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+    <form method="POST" action="{% url 'chitti:edit_auction_dates' group.id %}">
+        {% csrf_token %}
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Month</th>
+                        <th>Auction</th>
+                        <th>Date (Editable)</th>
+                        <th>Winner</th>
+                        <th>Prize</th>
+                        <th>Discount</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for auction in auctions %}
+                    <tr>
+                        <td>Month {{ auction.month_no }}</td>
+                        <td>#{{ auction.auction_no }}</td>
+                        <td>
+                            <input type="date" name="date_{{ auction.id }}" 
+                                   value="{{ auction.auction_date|date:'Y-m-d' }}" 
+                                   class="inline-date-edit">
+                        </td>
+                        <td>{% if auction.winner %}{{ auction.winner.member.name }}{% else %}—{% endif %}</td>
+                        <td>{% if auction.winner %}<span class="text-premium">₹ {{ auction.calculated_prize }}</span>{% else %}—{% endif %}</td>
+                        <td>{% if auction.winner %}₹ {{ auction.bid_amount }}{% else %}—{% endif %}</td>
+                        <td>
+                            {% if auction.winner %}
+                                <span class="badge done">Completed</span>
+                            {% elif auction.auction_date == today %}
+                                <span class="badge warning">Today</span>
+                            {% else %}
+                                <span class="badge">Upcoming</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if not auction.winner %}
+                                <a href="{% url 'chitti:auction_spin' auction.id %}" class="btn primary">Start Spin</a>
+                            {% else %}
+                                <a href="{% url 'chitti:auction_detail' auction.id %}" class="btn outline">View</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" class="empty">No auction records found</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
 
-    <a href="{% url 'chitti:group_management' %}" class="btn back">← Back to Groups</a>
+        {% if auctions %}
+        <div class="update-btn-container">
+            <button type="submit" class="btn-save-dates">
+                <i class="bi bi-calendar-check"></i> Update Auction Schedule
+            </button>
+        </div>
+        {% endif %}
+    </form>
+
+    <br>
+    <a href="{% url 'chitti:group_management' %}" class="btn back">← Back to Dashboard</a>
 
 </div>
 {% endblock %}

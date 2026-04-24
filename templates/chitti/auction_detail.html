@@ -3,34 +3,135 @@
 
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'group_admin/css/auction_detail.css' %}">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+
 <style>
-/* Simple message styling */
-.alert {
-    padding: 10px 15px;
-    margin-bottom: 15px;
-    border-radius: 5px;
-    font-weight: bold;
-}
-.alert-error {
-    background-color: #fee2e2;
-    color: #b91c1c;
-}
-.alert-success {
-    background-color: #d1fae5;
-    color: #065f46;
-}
-.alert-warning {
-    background-color: #fef3c7;
-    color: #78350f;
-}
+    :root {
+        --primary-blue: #2563eb;
+        --dark-navy: #0f172a;
+        --glass-bg: rgba(255, 255, 255, 0.9);
+        --text-muted: #64748b;
+    }
+
+    body {
+        background-color: #f1f5f9;
+        font-family: 'Outfit', sans-serif;
+    }
+
+    /* ==================================================
+       BASE SIDEBAR OVERRIDE (നിന്റെ base.html-ലെ സൈഡ് ബാർ സ്റ്റൈൽ ചെയ്യാൻ)
+       ================================================== */
+    
+    /* സൈഡ് ബാർ മൊത്തത്തിൽ */
+    .sidebar, #sidebar-wrapper {
+        background: linear-gradient(180deg, #1e3a8a 0%, #0f172a 100%) !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+        box-shadow: 10px 0 30px rgba(0, 0, 0, 0.1);
+    }
+
+    /* സൈഡ് ബാറിലെ ഓരോ ലിങ്കും */
+    .sidebar .nav-link, #sidebar-wrapper .list-group-item {
+        color: rgba(255, 255, 255, 0.7) !important;
+        font-weight: 600;
+        margin: 8px 15px;
+        padding: 14px 20px;
+        border-radius: 12px !important;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        border: none !important;
+        background: transparent !important;
+    }
+
+    /* മൗസ് കൊണ്ട് പോകുമ്പോൾ (Hover) */
+    .sidebar .nav-link:hover, #sidebar-wrapper .list-group-item:hover {
+        background: rgba(255, 255, 255, 0.08) !important;
+        color: #ffffff !important;
+        transform: translateX(5px);
+    }
+
+    /* ഇപ്പോൾ നിൽക്കുന്ന പേജ് (Active) */
+    .sidebar .nav-link.active, #sidebar-wrapper .list-group-item.active {
+        background: var(--primary-blue) !important;
+        color: #ffffff !important;
+        box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3);
+    }
+
+    /* ==================================================
+       AUCTION CARD STYLING (TITAN STYLE)
+       ================================================== */
+    
+    .auction-detail-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(10px);
+        padding: 40px;
+        border-radius: 32px;
+        box-shadow: 0 20px 50px rgba(15, 23, 42, 0.06);
+        max-width: 600px;
+        margin: 50px auto;
+        border: 1px solid rgba(255, 255, 255, 0.7);
+        text-align: center;
+    }
+
+    .page-title {
+        font-weight: 800;
+        font-size: 2rem;
+        background: linear-gradient(90deg, #1e3a8a, #2563eb);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 30px;
+    }
+
+    .detail-info-box {
+        background: #f8fafc;
+        border-radius: 20px;
+        padding: 10px;
+        margin-bottom: 30px;
+    }
+
+    .detail-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 18px 15px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .detail-row:last-child { border-bottom: none; }
+    .detail-row span { color: var(--text-muted); font-weight: 500; }
+    .detail-row strong { color: var(--dark-navy); font-weight: 700; }
+
+    .spin-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+        color: white;
+        padding: 18px;
+        border-radius: 18px;
+        text-decoration: none;
+        font-weight: 700;
+        box-shadow: 0 10px 25px rgba(37, 99, 235, 0.3);
+        transition: 0.4s;
+    }
+
+    .spin-btn:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px rgba(37, 99, 235, 0.4);
+        color: white;
+    }
+
+    /* 🔥 Messages Styling */
+    .alert {
+        padding: 16px; border-radius: 14px; font-weight: 600;
+        max-width: 600px; margin: 0 auto 20px auto; border: none;
+    }
+    .alert-error { background-color: #fee2e2; color: #b91c1c; }
+    .alert-success { background-color: #d1fae5; color: #065f46; }
 </style>
 {% endblock %}
 
 {% block content %}
-
 <div class="container mt-4">
 
-    <!-- 🔥 Messages -->
     {% if messages %}
         {% for message in messages %}
             <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
@@ -40,40 +141,40 @@
     {% endif %}
 
     <div class="auction-detail-card">
-
         <h2 class="page-title">Auction Details</h2>
 
-        <div class="detail-row">
-            <span>Group</span>
-            <strong>{{ auction.group.name }}</strong>
-        </div>
+        <div class="detail-info-box">
+            <div class="detail-row">
+                <span>🏠 Group Name</span>
+                <strong>{{ auction.group.name }}</strong>
+            </div>
 
-        <div class="detail-row">
-            <span>Date</span>
-            <strong>{{ auction.auction_date|date:"d M Y" }}</strong>
-        </div>
+            <div class="detail-row">
+                <span>📅 Date</span>
+                <strong>{{ auction.auction_date|date:"d M Y" }}</strong>
+            </div>
 
-        <div class="detail-row">
-            <span>Winner</span>
-            <strong>
-                {% if auction.winner %}
-                    {{ auction.winner.member.name }}
-                {% else %}
-                    Not yet spun
-                {% endif %}
-            </strong>
+            <div class="detail-row">
+                <span>🏆 Winner</span>
+                <strong>
+                    {% if auction.winner %}
+                        <span style="color: var(--primary-blue)">{{ auction.winner.member.name }}</span>
+                    {% else %}
+                        <span style="color: #94a3b8;">Not yet spun</span>
+                    {% endif %}
+                </strong>
+            </div>
         </div>
 
         {% if not auction.is_closed %}
             <a href="{% url 'chitti:auction_spin' auction.id %}" class="spin-btn">
-                🎯 Spin Auction
+                🎯 START AUCTION SPIN
             </a>
         {% else %}
-            <span class="closed-badge">Auction Closed</span>
+            <div style="padding: 12px; background: #f1f5f9; border-radius: 12px; color: #94a3b8; font-weight: 600;">
+                ✅ Auction Closed
+            </div>
         {% endif %}
-
     </div>
-
 </div>
-
 {% endblock %}

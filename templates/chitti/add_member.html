@@ -4,38 +4,74 @@
 {% block title %}{% if form.instance.pk %}Edit{% else %}Add{% endif %} Member{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'group_admin/css/add_member.css' %}">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="{% static 'group_admin/css/add_members.css' %}">
 {% endblock %}
 
 {% block content %}
 <div class="container mt-4">
-    <h3>{% if form.instance.pk %}Edit{% else %}Add{% endif %} Member</h3>
+    <div class="glass-form-card">
+        <h2 class="text-center mb-4">
+            {% if form.instance.pk %}Edit Member Details{% else %}Register New Member{% endif %}
+        </h2>
 
-    {% if form.instance.pk %}
-    <p class="text-warning">
-        ⚠️ You can edit only Name, Email, Phone, Address, Aadhaar no, and Assigned Chitti Group.
-    </p>
-    {% endif %}
-
-    <form method="POST">
-        {% csrf_token %}
-        {% for field in form %}
-        <div class="mb-3">
-            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-            {{ field }}
-            {% if field.help_text %}
-                <small class="form-text text-muted">{{ field.help_text }}</small>
-            {% endif %}
-            {% for error in field.errors %}
-                <div class="text-danger">{{ error }}</div>
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert {% if message.tags == 'success' %}alert-premium-success{% else %}alert-premium-danger{% endif %} border-0 shadow-sm mb-4">
+                    <div class="d-flex align-items-center">
+                        {% if message.tags == 'success' %}
+                            <i class="bi bi-check-circle-fill me-2"></i>
+                        {% else %}
+                            <i class="bi bi-exclamation-octagon-fill me-2"></i>
+                        {% endif %}
+                        {{ message }}
+                    </div>
+                </div>
             {% endfor %}
-        </div>
-        {% endfor %}
+        {% endif %}
 
-        <button type="submit" class="btn btn-success">
-            {% if form.instance.pk %}Update{% else %}Add{% endif %} Member
-        </button>
-        <a href="{% url 'members:member_list' %}" class="btn btn-secondary">Cancel</a>
-    </form>
+        <form method="POST" novalidate>
+            {% csrf_token %}
+            
+            <div class="row">
+                {% for field in form %}
+                <div class="col-12 mb-3">
+                    <label class="form-label" for="{{ field.id_for_label }}">
+                        {{ field.label }}
+                        {% if field.field.required %}<span class="required-star">*</span>{% endif %}
+                    </label>
+
+                    {{ field }}
+
+                    {% if field.help_text %}
+                        <small class="form-text text-muted d-block mt-1">{{ field.help_text }}</small>
+                    {% endif %}
+
+                    {% if field.errors %}
+                        <div class="error-container animated-shake">
+                            {% for error in field.errors %}
+                                <div class="error-msg-box">
+                                    <i class="bi bi-exclamation-circle-fill"></i>
+                                    <span>{{ error }}</span>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="d-grid gap-2 mt-4">
+                <button type="submit" class="btn-save shadow-sm">
+                    {% if form.instance.pk %}Update Profile{% else %}Save & Add Member{% endif %}
+                </button>
+                
+                <a href="{% url 'members:member_list' %}" class="btn-secondary-link text-center mt-2 text-decoration-none small text-muted">
+                    <i class="bi bi-arrow-left"></i> Cancel and Go Back
+                </a>
+            </div>
+        </form>
+    </div>
 </div>
 {% endblock %}

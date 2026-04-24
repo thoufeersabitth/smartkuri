@@ -1,0 +1,701 @@
+/* admin_payment_details.css - Super Modern Professional Design */
+
+/* ========================================
+   TABLE OF CONTENTS
+   1. CSS Variables & Theme
+   2. Base Styles & Typography
+   3. Page Header
+   4. Table Container & Wrapper
+   5. Data Table Styling
+   6. Status Badges
+   7. Empty State
+   8. Animations & Effects
+   9. Responsive Design
+   10. Print Styles
+   ======================================== */
+
+/* ========== 1. CSS VARIABLES & THEME ========== */
+:root {
+    /* Primary Colors */
+    --primary: #4f46e5;
+    --primary-dark: #4338ca;
+    --primary-light: #eef2ff;
+    --primary-gradient: linear-gradient(135deg, #4f46e5, #6366f1);
+    
+    /* Secondary Colors */
+    --secondary: #3b82f6;
+    --secondary-dark: #2563eb;
+    --secondary-light: #dbeafe;
+    
+    /* Success / Received */
+    --success: #10b981;
+    --success-dark: #059669;
+    --success-light: #d1fae5;
+    
+    /* Warning / Pending */
+    --warning: #f59e0b;
+    --warning-dark: #d97706;
+    --warning-light: #fef3c7;
+    
+    /* Gray Scale */
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+    
+    /* Background & Surface */
+    --bg-primary: #f5f7fa;
+    --bg-secondary: #ffffff;
+    --bg-table-header: #f8fafc;
+    --bg-table-stripe: #fafbfc;
+    
+    /* Shadows */
+    --shadow-xs: 0 1px 2px rgba(0,0,0,0.03);
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.04);
+    --shadow-md: 0 10px 25px -5px rgba(0,0,0,0.08);
+    --shadow-lg: 0 20px 40px -12px rgba(0,0,0,0.15);
+    --shadow-primary: 0 10px 25px -5px rgba(79, 70, 229, 0.2);
+    
+    /* Border Radius */
+    --radius-xs: 6px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --radius-full: 9999px;
+    
+    /* Transitions */
+    --transition-fast: 0.15s ease;
+    --transition-base: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 0.4s ease;
+    
+    /* Spacing */
+    --spacing-xs: 0.5rem;
+    --spacing-sm: 0.75rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+    --spacing-2xl: 3rem;
+}
+
+/* ========== 2. BASE STYLES & TYPOGRAPHY ========== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Poppins', sans-serif;
+    background: linear-gradient(135deg, var(--bg-primary) 0%, #eef2ff 100%);
+    color: var(--gray-800);
+    min-height: 100vh;
+    line-height: 1.5;
+}
+
+.container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: var(--spacing-xl) var(--spacing-lg);
+}
+
+/* ========== 3. PAGE HEADER ========== */
+.page-title {
+    font-size: 2rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    margin-bottom: var(--spacing-xs);
+    letter-spacing: -0.02em;
+    position: relative;
+    display: inline-block;
+}
+
+.page-title::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 0;
+    width: 60px;
+    height: 4px;
+    background: var(--primary-gradient);
+    border-radius: var(--radius-full);
+}
+
+.page-subtitle {
+    color: var(--gray-500);
+    font-size: 0.95rem;
+    font-weight: 500;
+    margin-bottom: var(--spacing-md);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.page-subtitle::before {
+    content: '\f4e6';
+    font-family: 'bootstrap-icons';
+    font-size: 1rem;
+    color: var(--primary);
+}
+
+.divider {
+    border: none;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gray-300), transparent);
+    margin-bottom: var(--spacing-xl);
+}
+
+/* ========== 4. TABLE CONTAINER & WRAPPER ========== */
+.table-container {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+    animation: fadeInUp 0.5s ease-out;
+    transition: all var(--transition-base);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.table-container:hover {
+    box-shadow: var(--shadow-lg);
+}
+
+/* Table Wrapper for Responsive Scroll */
+.table-responsive {
+    overflow-x: auto;
+    width: 100%;
+}
+
+/* ========== 5. DATA TABLE STYLING ========== */
+.data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.9rem;
+}
+
+/* Table Header */
+.data-table thead tr {
+    background: linear-gradient(135deg, var(--gray-50), var(--bg-table-header));
+}
+
+.data-table th {
+    padding: var(--spacing-md) var(--spacing-lg);
+    text-align: left;
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--gray-600);
+    border-bottom: 2px solid var(--gray-200);
+    position: relative;
+    transition: background var(--transition-fast);
+}
+
+.data-table th:first-child {
+    border-top-left-radius: var(--radius-lg);
+    padding-left: var(--spacing-xl);
+}
+
+.data-table th:last-child {
+    border-top-right-radius: var(--radius-lg);
+    padding-right: var(--spacing-xl);
+}
+
+/* Table Header Icons */
+.data-table th::before {
+    font-family: 'bootstrap-icons';
+    margin-right: 6px;
+    font-size: 0.7rem;
+    opacity: 0.7;
+}
+
+.data-table th:nth-child(1)::before { content: '\f3d9'; } /* Hash */
+.data-table th:nth-child(2)::before { content: '\f4e8'; } /* Person */
+.data-table th:nth-child(3)::before { content: '\f26b'; } /* Currency */
+.data-table th:nth-child(4)::before { content: '\f4b0'; } /* Calendar */
+.data-table th:nth-child(5)::before { content: '\f4d8'; } /* Person Badge */
+.data-table th:nth-child(6)::before { content: '\f237'; } /* Info Circle */
+
+/* Table Body */
+.data-table tbody tr {
+    transition: all var(--transition-fast);
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.data-table tbody tr:hover {
+    background: linear-gradient(90deg, var(--primary-light), transparent);
+    transform: scale(1.01);
+    box-shadow: var(--shadow-xs);
+}
+
+.data-table td {
+    padding: var(--spacing-md) var(--spacing-lg);
+    color: var(--gray-700);
+    border-bottom: 1px solid var(--gray-100);
+    vertical-align: middle;
+}
+
+.data-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.data-table td:first-child {
+    padding-left: var(--spacing-xl);
+    font-weight: 600;
+    color: var(--primary);
+}
+
+.data-table td:last-child {
+    padding-right: var(--spacing-xl);
+}
+
+/* Zebra Striping */
+.data-table tbody tr:nth-child(even) {
+    background-color: var(--bg-table-stripe);
+}
+
+.data-table tbody tr:nth-child(even):hover {
+    background: linear-gradient(90deg, var(--primary-light), var(--bg-table-stripe));
+}
+
+/* Amount Column Styling */
+.data-table td:nth-child(3) {
+    font-weight: 700;
+    color: var(--primary-dark);
+    font-size: 1rem;
+}
+
+/* Member Name Styling */
+.data-table td:nth-child(2) {
+    font-weight: 600;
+    color: var(--gray-800);
+}
+
+/* Collector Name Styling */
+.data-table td:nth-child(5) {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.data-table td:nth-child(5)::before {
+    content: '\f4fc';
+    font-family: 'bootstrap-icons';
+    font-size: 0.75rem;
+    opacity: 0.6;
+}
+
+/* ========== 6. STATUS BADGES ========== */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    border-radius: var(--radius-full);
+    letter-spacing: 0.3px;
+    transition: all var(--transition-fast);
+    text-transform: uppercase;
+}
+
+.status-badge::before {
+    font-family: 'bootstrap-icons';
+    font-size: 0.7rem;
+}
+
+/* Received Status */
+.status-received {
+    background: linear-gradient(135deg, var(--success-light), #ecfdf5);
+    color: var(--success-dark);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.status-received::before {
+    content: '\f26a';
+}
+
+.status-received:hover {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-xs);
+}
+
+/* Pending Status */
+.status-pending {
+    background: linear-gradient(135deg, var(--warning-light), #fffbeb);
+    color: var(--warning-dark);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    animation: pulse 2s infinite;
+}
+
+.status-pending::before {
+    content: '\f336';
+}
+
+.status-pending:hover {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-xs);
+}
+
+/* ========== 7. EMPTY STATE ========== */
+.empty-state {
+    text-align: center;
+    padding: var(--spacing-2xl) var(--spacing-xl);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-md);
+    animation: fadeInUp 0.5s ease-out;
+    max-width: 500px;
+    margin: 0 auto;
+    transition: all var(--transition-base);
+}
+
+.empty-state:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+.empty-state i {
+    font-size: 4rem;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    margin-bottom: var(--spacing-lg);
+    display: inline-block;
+    animation: float 3s ease-in-out infinite;
+}
+
+.empty-state h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--gray-800);
+    margin-bottom: var(--spacing-sm);
+}
+
+.empty-state p {
+    font-size: 0.9rem;
+    color: var(--gray-500);
+}
+
+/* ========== 8. ANIMATIONS & EFFECTS ========== */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Stagger animation for table rows */
+.data-table tbody tr {
+    animation: fadeIn 0.3s ease-out backwards;
+}
+
+.data-table tbody tr:nth-child(1) { animation-delay: 0.05s; }
+.data-table tbody tr:nth-child(2) { animation-delay: 0.1s; }
+.data-table tbody tr:nth-child(3) { animation-delay: 0.15s; }
+.data-table tbody tr:nth-child(4) { animation-delay: 0.2s; }
+.data-table tbody tr:nth-child(5) { animation-delay: 0.25s; }
+.data-table tbody tr:nth-child(6) { animation-delay: 0.3s; }
+.data-table tbody tr:nth-child(7) { animation-delay: 0.35s; }
+.data-table tbody tr:nth-child(8) { animation-delay: 0.4s; }
+.data-table tbody tr:nth-child(9) { animation-delay: 0.45s; }
+.data-table tbody tr:nth-child(10) { animation-delay: 0.5s; }
+
+/* ========== 9. RESPONSIVE DESIGN ========== */
+@media (max-width: 1024px) {
+    .container {
+        padding: var(--spacing-lg);
+    }
+    
+    .page-title {
+        font-size: 1.75rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: var(--spacing-md);
+    }
+    
+    .page-title {
+        font-size: 1.5rem;
+    }
+    
+    .page-subtitle {
+        font-size: 0.85rem;
+    }
+    
+    /* Mobile Table View - Card Style */
+    .table-container {
+        border-radius: var(--radius-lg);
+        overflow: visible;
+    }
+    
+    .data-table thead {
+        display: none;
+    }
+    
+    .data-table tbody tr {
+        display: block;
+        margin-bottom: var(--spacing-md);
+        border: 1px solid var(--gray-200);
+        border-radius: var(--radius-md);
+        background: var(--bg-secondary);
+        box-shadow: var(--shadow-sm);
+        transition: all var(--transition-base);
+    }
+    
+    .data-table tbody tr:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+    
+    .data-table tbody td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: var(--spacing-sm) var(--spacing-md);
+        border-bottom: 1px solid var(--gray-100);
+        text-align: right;
+        gap: var(--spacing-md);
+    }
+    
+    .data-table tbody td:last-child {
+        border-bottom: none;
+    }
+    
+    .data-table tbody td::before {
+        content: attr(data-label);
+        font-weight: 700;
+        font-size: 0.7rem;
+        color: var(--gray-600);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        text-align: left;
+        min-width: 100px;
+    }
+    
+    /* First column special styling */
+    .data-table tbody td:first-child {
+        background: var(--gray-50);
+        font-weight: 700;
+        border-radius: var(--radius-md) var(--radius-md) 0 0;
+    }
+    
+    .data-table tbody td:first-child::before {
+        content: '#';
+    }
+    
+    .data-table tbody td:nth-child(2)::before {
+        content: 'Member';
+    }
+    
+    .data-table tbody td:nth-child(3)::before {
+        content: 'Amount';
+    }
+    
+    .data-table tbody td:nth-child(4)::before {
+        content: 'Date';
+    }
+    
+    .data-table tbody td:nth-child(5)::before {
+        content: 'Collector';
+    }
+    
+    .data-table tbody td:nth-child(6)::before {
+        content: 'Status';
+    }
+    
+    /* Remove pseudo-element for collector column in mobile */
+    .data-table td:nth-child(5)::before {
+        display: none;
+    }
+    
+    .data-table td:nth-child(5) {
+        display: flex;
+        justify-content: space-between;
+    }
+    
+    /* Badge adjustments in mobile */
+    .status-badge {
+        padding: 4px 12px;
+        font-size: 0.65rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: var(--spacing-sm);
+    }
+    
+    .page-title {
+        font-size: 1.25rem;
+    }
+    
+    .data-table tbody td {
+        padding: var(--spacing-xs) var(--spacing-sm);
+        font-size: 0.8rem;
+    }
+    
+    .data-table tbody td::before {
+        min-width: 80px;
+        font-size: 0.65rem;
+    }
+    
+    .status-badge {
+        padding: 3px 10px;
+        font-size: 0.6rem;
+    }
+    
+    .empty-state {
+        padding: var(--spacing-xl) var(--spacing-md);
+    }
+    
+    .empty-state i {
+        font-size: 3rem;
+    }
+    
+    .empty-state h3 {
+        font-size: 1.2rem;
+    }
+}
+
+/* ========== 10. PRINT STYLES ========== */
+@media print {
+    body {
+        background: white;
+        padding: 0;
+    }
+    
+    .container {
+        padding: 0;
+        margin: 0;
+        max-width: 100%;
+    }
+    
+    .page-title {
+        color: black;
+        background: none;
+        -webkit-background-clip: unset;
+    }
+    
+    .page-title::after {
+        display: none;
+    }
+    
+    .divider {
+        background: #ddd;
+    }
+    
+    .table-container {
+        box-shadow: none;
+        border: 1px solid #ddd;
+    }
+    
+    .data-table th {
+        background: #f0f0f0;
+        color: black;
+    }
+    
+    .status-badge {
+        border: 1px solid #ddd;
+        background: none;
+        animation: none;
+    }
+    
+    .status-pending {
+        animation: none;
+    }
+    
+    .empty-state {
+        box-shadow: none;
+        border: 1px solid #ddd;
+    }
+}
+
+/* Custom Scrollbar for Table */
+.table-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+    background: var(--gray-200);
+    border-radius: var(--radius-full);
+}
+
+.table-container::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    border-radius: var(--radius-full);
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-dark);
+}
+
+/* Selection Styling */
+::selection {
+    background: var(--primary-light);
+    color: var(--primary-dark);
+}
+
+/* Focus States for Accessibility */
+.data-table tr:focus-within {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
+}

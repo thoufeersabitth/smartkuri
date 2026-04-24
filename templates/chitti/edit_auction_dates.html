@@ -1,0 +1,71 @@
+{% extends "chitti/group_admin_base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3>Edit Schedule: <strong>{{ group.name }}</strong></h3>
+        <a href="{% url 'chitti:view_group' group.id %}" class="btn btn-outline-secondary btn-sm">Back to Group Details</a>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <p class="text-muted mb-4">Update specific dates for each installment below. <br>
+            <small class="text-danger">* Dates for months with a declared winner cannot be modified.</small></p>
+            
+            <form method="POST">
+                {% csrf_token %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="20%">Installment No.</th>
+                                <th>Auction Date</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for auction in auctions %}
+                            <tr>
+                                <td>
+                                    <span class="badge bg-light text-dark border">
+                                        Month {{ auction.auction_no }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if auction.winner %}
+                                        <input type="date" 
+                                               value="{{ auction.auction_date|date:'Y-m-d' }}" 
+                                               class="form-control" 
+                                               style="max-width: 300px; background-color: #e9ecef; cursor: not-allowed;" 
+                                               readonly>
+                                        {% else %}
+                                        <input type="date" name="date_{{ auction.id }}" 
+                                               value="{{ auction.auction_date|date:'Y-m-d' }}" 
+                                               class="form-control" style="max-width: 300px;"
+                                               required>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if auction.winner %}
+                                        <span class="text-success"><i class="bi bi-check-circle-fill"></i> Completed</span>
+                                    {% else %}
+                                        <span class="text-primary"><i class="bi bi-clock-history"></i> Editable</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-4 pt-3 border-top">
+                    <button type="submit" class="btn btn-primary px-4 py-2">
+                        <i class="bi bi-save me-2"></i> SAVE ALL CHANGES
+                    </button>
+                    <a href="{% url 'chitti:view_group' group.id %}" class="btn btn-link text-secondary">Discard Changes</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

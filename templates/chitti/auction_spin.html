@@ -2,187 +2,342 @@
 {% load static %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'group_admin/css/auction_spin.css' %}">
+<link rel="stylesheet" href="{% static 'group_admin/css/auction_royale.css' %}">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
 <style>
-.alert-error {
-    color: #ef4444;
-    font-weight: bold;
-    margin-top: 10px;
-}
-.alert-info {
-    color: #1f2937;
-    font-weight: bold;
-    margin-top: 10px;
-}
+    /* Pro UI Enhancements */
+    .progress-bar-container { 
+        width: 100%; max-width: 600px; margin: 15px auto; 
+        display: none; gap: 5px; flex-wrap: wrap; justify-content: center;
+    }
+    .progress-dot { 
+        width: 25px; height: 8px; background: #e2e8f0; 
+        border-radius: 10px; transition: 0.3s; position: relative;
+    }
+    .progress-dot.active { background: #4f46e5; box-shadow: 0 0 10px rgba(79, 70, 229, 0.4); transform: scaleY(1.3); }
+    .progress-dot.done { background: #10b981; }
+    
+    .progress-dot::after {
+        content: attr(data-month);
+        position: absolute; top: -15px; left: 50%; transform: translateX(-50%);
+        font-size: 8px; font-weight: 800; color: #94a3b8;
+    }
+
+    .manual-controls { 
+        display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 20px;
+    }
+
+    .chk-container {
+        display: flex; align-items: center; gap: 12px; background: #ffffff;
+        padding: 12px 24px; border-radius: 15px; cursor: pointer; 
+        border: 2px solid #e2e8f0; transition: 0.3s;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    .chk-container:hover { border-color: #4f46e5; }
+    .chk-container input { width: 18px; height: 18px; cursor: pointer; }
+
+    .member-item { transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; border: 1px solid #e2e8f0; padding: 10px; border-radius: 10px; text-align: center; }
+    .member-item.selected { border: 2px solid #4f46e5 !important; background: #eef2ff !important; transform: scale(1.05); font-weight: 800; }
+    .member-item.disabled { opacity: 0.3; pointer-events: none; filter: grayscale(1); border: 1px dashed #cbd5e1 !important; }
+
+    #winnerScreen {
+        display:none; position: fixed; top:0; left:0; width:100%; height:100%; 
+        background: rgba(255, 255, 255, 0.98); z-index: 9999; flex-direction: column; 
+        align-items: center; justify-content: center; padding: 40px 20px; text-align: center;
+        overflow-y: auto;
+    }
+
+    .summary-table { width: 100%; max-width: 450px; margin: 20px auto; border-collapse: separate; border-spacing: 0 8px; }
+    .summary-table td { padding: 12px 20px; background: #f8fafc; font-family: 'Outfit'; border-radius: 8px; }
+    .summary-table tr td:first-child { font-weight: 600; color: #64748b; width: 100px; }
+    .summary-table tr td:last-child { font-weight: 800; color: #1e293b; text-align: right; }
+
+    /* Ensure pointer is perfectly centered */
+    .wheel-outer { position: relative; width: 326px; height: 326px; margin: 0 auto; }
+    .wheel-arrow { 
+        position: absolute; top: -20px; left: 50%; transform: translateX(-50%); 
+        z-index: 20; width: 30px; height: 40px; background: #1e293b; 
+        clip-path: polygon(50% 100%, 0 0, 100% 0); 
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-
 <div class="spin-card">
+    <h2 class="spin-title">Auction Royale</h2>
+    <p id="subTitle" style="color: #64748b; font-weight: 600; letter-spacing: 1px;">PROTOCOL: SINGLE SELECTION</p>
 
-    <h2 class="spin-title">🎯 Spin the Wheel</h2>
-
-    <!-- Auction Date -->
-    <p class="spin-help">
-        Auction Date: <b>{{ auction.auction_date }}</b>
-    </p>
-
-    <!-- ❌ Wrong Date -->
-    {% if not auction.is_today %}
-        <div class="alert-error">
-            Spin available only on {{ auction.auction_date }}
-        </div>
-    {% endif %}
-
-    <!-- ❌ No Members -->
-    {% if no_members %}
-        <div class="alert-error">
-            No eligible members left to spin!
-        </div>
-    {% endif %}
-
-    <div class="wheel-wrapper">
-
-        <canvas id="wheelCanvas" width="320" height="320"></canvas>
-
-        <!-- center button -->
-        <button id="spinButton"
-                class="spin-center"
-                {% if no_members or not auction.is_today %}disabled{% endif %}>
-            SPIN
-        </button>
-
-        <!-- arrow -->
-        <div class="wheel-arrow"></div>
-
+    <div class="mode-selector">
+        <button class="mode-btn active" id="btnAuto" onclick="toggleMode('auto')">Auto Draw</button>
+        <button class="mode-btn" id="btnManual" onclick="toggleMode('manual')">Manual Pick</button>
     </div>
 
-    <p class="spin-help">Click Spin Button to Start!</p>
+    <div class="progress-bar-container" id="progBar">
+        {% with ""|center:group_duration|default:"20" as range %}
+        {% for _ in range %}
+            <div class="progress-dot" id="dot-{{ forloop.counter }}" data-month="{{ forloop.counter }}"></div>
+        {% endfor %}
+        {% endwith %}
+    </div>
 
-    <div id="winnerResult"></div>
+    <div id="wheelContainer">
+        <div class="wheel-outer">
+            <div id="pointer" class="wheel-arrow"></div>
+            <canvas id="wheelCanvas" width="326" height="326"></canvas>
+        </div>
+    </div>
 
+    <div id="manualGrid" class="member-grid" style="display: none; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; padding: 20px;">
+        <div class="manual-controls" style="grid-column: 1 / -1;">
+            <label class="chk-container">
+                <input type="checkbox" id="allMonthsCheck" onchange="toggleAllMonths()">
+                <span style="font-weight: 700; color: #1e293b; font-size: 0.95rem;">SEQUENTIAL ASSIGNMENT (FULL ROSTER)</span>
+            </label>
+            <p id="manualInstruction" style="font-size: 0.85rem; color: #4f46e5; font-weight: 800;">Click a member to assign for current month</p>
+        </div>
+        {% for m in members %}
+        <div class="member-item" id="card-{{ m.id }}" onclick="pickMember(this, {{ m.id }}, '{{ m.member.name }}')">
+            {{ m.member.name }}
+        </div>
+        {% endfor %}
+    </div>
+
+    <button id="spinBtn" class="btn-pro" {% if no_members %}disabled{% endif %}>
+        EXECUTE SELECTION
+    </button>
+</div>
+
+<div id="winnerScreen">
+    <div id="singleWinnerBox">
+        <h4 style="color: #6366f1; font-weight: 800; letter-spacing: 4px; margin-bottom: 10px;">CONGRATULATIONS</h4>
+        <h1 id="winnerName" style="font-size: 3.5rem; font-weight: 800; color: #1e293b; margin: 10px 0; text-transform: uppercase;"></h1>
+        <div style="width: 100px; height: 8px; background: linear-gradient(90deg, #4f46e5, #ec4899); border-radius: 10px; margin: 0 auto;"></div>
+    </div>
+
+    <div id="multiWinnerBox" style="display: none; width: 100%; max-width: 500px;">
+        <h2 style="font-weight: 800; color: #1e293b; margin-bottom: 20px;">ASSIGNMENT SUMMARY</h2>
+        <div style="max-height: 400px; overflow-y: auto; padding-right: 10px;">
+            <table class="summary-table" id="summaryTable" style="display: table;">
+                <tbody id="summaryBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="syncStatus" style="margin-top: 30px;">
+        <div class="spinner" id="loader" style="display: inline-block; margin-bottom: 10px;"></div>
+        <p id="syncText" style="color: #64748b; font-weight: 600;">Synchronizing results with server...</p>
+    </div>
 </div>
 
 <script>
-// CSRF helper
-function getCSRFToken() {
-    return document.cookie.split('; ')
-        .find(row => row.startsWith('csrftoken='))
-        ?.split('=')[1];
-}
+    const totalMonths = parseInt("{{ group_duration|default:20 }}");
+    const startFromMonth = parseInt("{{ current_auction_month|default:1 }}"); 
+    
+    let membersList = [{% for m in members %}{id: {{ m.id }}, name: "{{ m.member.name }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
+    
+    let finalRoster = [];
+    let currentMonth = startFromMonth;
+    let rotation = 0;
+    let selectedId = null;
+    let isAllMonthsMode = false;
 
-// Members from Django
-let members = [
-{% for m in members %}
-{id: {{ m.id }}, name: "{{ m.member.name }}"}{% if not forloop.last %},{% endif %}
-{% endfor %}
-];
+    const canvas = document.getElementById("wheelCanvas");
+    const ctx = canvas.getContext("2d");
+    const spinBtn = document.getElementById("spinBtn");
 
-const canvas = document.getElementById("wheelCanvas");
-const ctx = canvas.getContext("2d");
-const size = canvas.width;
-const center = size/2;
-const radius = center-10;
-const spinButton = document.getElementById("spinButton");
-const winnerResult = document.getElementById("winnerResult");
+    function draw() {
+        ctx.clearRect(0, 0, 326, 326);
+        const segs = membersList.length;
+        if(segs === 0) return;
+        const arc = (2 * Math.PI) / segs;
+        const palette = ["#4f46e5", "#6366f1", "#7c3aed", "#a855f7", "#ec4899"];
 
-// Draw wheel
-function drawWheel() {
-    ctx.clearRect(0, 0, size, size);
-    if (!members.length) return;
-
-    const slice = 2 * Math.PI / members.length;
-
-    members.forEach((m, i) => {
-        ctx.beginPath();
-        ctx.moveTo(center, center);
-        ctx.arc(center, center, radius, i * slice, (i + 1) * slice);
-        ctx.fillStyle = ["#8e24aa","#ec4899","#4fb3d8","#1f473a","#4ade80","#a39a21"][i % 6];
-        ctx.fill();
-
-        ctx.save();
-        ctx.translate(center, center);
-        ctx.rotate(i * slice + slice/2);
-        ctx.textAlign = "center";
-        ctx.fillStyle = "#fff";
-        ctx.font = "13px Arial";
-        ctx.fillText(m.name, radius / 2, 0);
-        ctx.restore();
-    });
-}
-
-drawWheel();
-
-// Spin logic
-spinButton.onclick = () => {
-
-    if (spinButton.disabled) return;
-
-    if (!members.length) {
-        winnerResult.innerHTML = `<span class="alert-error">No eligible members left!</span>`;
-        return;
+        membersList.forEach((m, i) => {
+            ctx.beginPath();
+            ctx.fillStyle = palette[i % palette.length];
+            ctx.moveTo(163, 163);
+            ctx.arc(163, 163, 163, i * arc, (i + 1) * arc);
+            ctx.fill();
+            ctx.save();
+            ctx.translate(163, 163);
+            ctx.rotate(i * arc + arc/2);
+            ctx.fillStyle = "white";
+            ctx.textAlign = "right";
+            ctx.font = "800 12px Outfit";
+            ctx.fillText(m.name.toUpperCase().substring(0, 14), 150, 5);
+            ctx.restore();
+        });
     }
+    draw();
 
-    spinButton.disabled = true;
-
-    const spins = 6;
-    const stop = Math.random() * 2 * Math.PI;
-    const total = spins * 2 * Math.PI + stop;
-    const start = performance.now();
-
-    function anim(t) {
-        let p = Math.min((t - start) / 4000, 1);
-        let a = total * (1 - Math.pow(1 - p, 3));
-
-        ctx.clearRect(0, 0, size, size);
-        ctx.save();
-        ctx.translate(center, center);
-        ctx.rotate(a);
-        ctx.translate(-center, -center);
-        drawWheel();
-        ctx.restore();
-
-        if (p < 1) {
-            requestAnimationFrame(anim);
-        } else {
-
-            // 🎯 Call backend
-            fetch("{% url 'chitti:assign_winner_ajax' auction.id %}", {
-                method: "POST",
-                headers: {
-                    "X-CSRFToken": getCSRFToken()
-                }
-            })
-            .then(r => r.json())
-            .then(d => {
-
-                if (d.success) {
-                    winnerResult.innerHTML = `🏆 Winner: <b>${d.winner_name}</b>`;
-
-                    // Remove winner from wheel
-                    members = members.filter(m => m.id !== d.winner_id);
-                    drawWheel();
-
-                    // 🔥 Redirect after 3 sec
-                    setTimeout(() => {
-                        window.location.href = "{% url 'chitti:auction_detail' auction.id %}";
-                    }, 3000);
-
-                } else {
-                    winnerResult.innerHTML = `<span class="alert-error">${d.error}</span>`;
-                    spinButton.disabled = false;
-                }
-            })
-            .catch(() => {
-                winnerResult.innerHTML = `<span class="alert-error">Something went wrong!</span>`;
-                spinButton.disabled = false;
-            });
+    function toggleMode(mode) {
+        const isAuto = mode === 'auto';
+        document.getElementById('btnAuto').classList.toggle('active', isAuto);
+        document.getElementById('btnManual').classList.toggle('active', !isAuto);
+        document.getElementById('wheelContainer').style.display = isAuto ? 'block' : 'none';
+        document.getElementById('manualGrid').style.display = isAuto ? 'none' : 'grid';
+        
+        if(isAuto) {
+            isAllMonthsMode = false;
+            document.getElementById('allMonthsCheck').checked = false;
+            document.getElementById('progBar').style.display = 'none';
+            document.getElementById('subTitle').innerText = "PROTOCOL: SINGLE SELECTION";
+            spinBtn.innerText = "EXECUTE SELECTION";
+            spinBtn.style.opacity = "1";
+            spinBtn.style.pointerEvents = "all";
         }
     }
 
-    requestAnimationFrame(anim);
-}
-</script>
+    function toggleAllMonths() {
+        isAllMonthsMode = document.getElementById('allMonthsCheck').checked;
+        document.getElementById('progBar').style.display = isAllMonthsMode ? 'flex' : 'none';
+        document.getElementById('subTitle').innerText = isAllMonthsMode ? "PROTOCOL: FULL SEQUENCE DRAW" : "PROTOCOL: SINGLE SELECTION";
+        
+        if(isAllMonthsMode) {
+            finalRoster = [];
+            currentMonth = startFromMonth;
+            document.querySelectorAll('.member-item').forEach(el => el.classList.remove('disabled', 'selected'));
+            document.querySelectorAll('.progress-dot').forEach(el => {
+                el.classList.remove('done', 'active');
+                if (parseInt(el.getAttribute('data-month')) < startFromMonth) el.classList.add('done');
+            });
+            updateProgress();
+        } else {
+            spinBtn.innerText = "EXECUTE SELECTION";
+            spinBtn.style.opacity = "1";
+            spinBtn.style.pointerEvents = "all";
+        }
+    }
 
+    function pickMember(el, id, name) {
+        if(isAllMonthsMode) {
+            if(el.classList.contains('disabled')) return;
+            
+            finalRoster.push({ month: currentMonth, id: id, name: name });
+            document.getElementById(`dot-${currentMonth}`).classList.add('done');
+            el.classList.add('disabled');
+            
+            if(currentMonth < totalMonths) {
+                currentMonth++;
+                updateProgress();
+            } else {
+                document.getElementById('manualInstruction').innerText = "All months assigned!";
+                document.getElementById('manualInstruction').style.color = "#10b981";
+                updateProgress();
+            }
+        } else {
+            document.querySelectorAll('.member-item').forEach(i => i.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedId = id;
+        }
+    }
+
+    function updateProgress() {
+        document.querySelectorAll('.progress-dot').forEach(d => d.classList.remove('active'));
+        const activeDot = document.getElementById(`dot-${currentMonth}`);
+        if(activeDot) activeDot.classList.add('active');
+        
+        if(isAllMonthsMode) {
+            document.getElementById('manualInstruction').innerText = currentMonth <= totalMonths ? `Select winner for Month ${currentMonth}` : "Ready to save!";
+            
+            if(finalRoster.length > 0) {
+                spinBtn.innerText = "SAVE FULL ROSTER";
+                spinBtn.style.opacity = "1";
+                spinBtn.style.pointerEvents = "all";
+            } else {
+                spinBtn.innerText = `SELECT MONTH ${currentMonth}...`;
+                spinBtn.style.opacity = "0.5";
+                spinBtn.style.pointerEvents = "none";
+            }
+        }
+    }
+
+    spinBtn.onclick = function() {
+        if(isAllMonthsMode) {
+            if(finalRoster.length === 0) return alert("Please pick at least one winner!");
+            finishAll();
+            return;
+        }
+
+        if(document.getElementById('btnManual').classList.contains('active')) {
+            if(!selectedId) return alert("Please select a member from the grid!");
+            const winner = membersList.find(m => m.id === selectedId);
+            finalRoster = [{ month: startFromMonth, id: winner.id, name: winner.name }];
+            finishSingle(winner);
+        } else {
+            this.disabled = true; this.innerText = "SPINNING...";
+            
+            // --- CORRECTED SPIN LOGIC ---
+            const idx = Math.floor(Math.random() * membersList.length);
+            const winner = membersList[idx];
+            
+            const segmentDegree = 360 / membersList.length;
+            
+            // 1. Base rotation (10 full turns for speed)
+            // 2. (360 - (idx * segmentDegree)) aligns the start of the winner's slice to 0deg
+            // 3. (segmentDegree / 2) centers the pointer in the slice
+            // 4. - 90 offset because canvas 0deg is 3 o'clock, but pointer is 12 o'clock
+            const landingRotation = 3600 + (360 - (idx * segmentDegree)) - (segmentDegree / 2) - 90;
+            
+            rotation += landingRotation; 
+            
+            canvas.style.transform = `rotate(${rotation}deg)`;
+            canvas.style.transition = "4s cubic-bezier(0.1, 0, 0.2, 1)";
+            
+            setTimeout(() => {
+                finalRoster = [{ month: startFromMonth, id: winner.id, name: winner.name }];
+                finishSingle(winner);
+            }, 4200);
+        }
+    };
+
+    function finishSingle(winner) {
+        confetti({ particleCount: 200, spread: 70, origin: { y: 0.6 } });
+        document.getElementById('winnerName').innerText = winner.name;
+        document.getElementById('winnerScreen').style.display = 'flex';
+        syncData();
+    }
+
+    function finishAll() {
+        confetti({ particleCount: 400, spread: 100, origin: { y: 0.6 }, colors: ['#4f46e5', '#10b981', '#f59e0b'] });
+        document.getElementById('singleWinnerBox').style.display = 'none';
+        document.getElementById('multiWinnerBox').style.display = 'block';
+        
+        const body = document.getElementById('summaryBody');
+        body.innerHTML = '';
+        finalRoster.forEach(r => {
+            body.innerHTML += `<tr><td>Month ${r.month}</td><td>${r.name}</td></tr>`;
+        });
+        
+        document.getElementById('winnerScreen').style.display = 'flex';
+        syncData();
+    }
+
+    function syncData() {
+        const syncText = document.getElementById('syncText');
+        fetch("{% url 'chitti:assign_all_winners_ajax' auction.id %}", {
+            method: "POST",
+            headers: { 
+                "X-CSRFToken": "{{ csrf_token }}", 
+                "Content-Type": "application/json" 
+            },
+            body: JSON.stringify({ winners: finalRoster })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.success) {
+                syncText.innerText = "Results saved! Redirecting...";
+                setTimeout(() => { window.location.href = "{% url 'chitti:auction_detail' auction.id %}"; }, 2500);
+            } else {
+                syncText.innerText = "Error: " + data.error;
+                syncText.style.color = "red";
+            }
+        })
+        .catch(err => {
+            syncText.innerText = "Server sync failed. Please check connection.";
+        });
+    }
+</script>
 {% endblock %}

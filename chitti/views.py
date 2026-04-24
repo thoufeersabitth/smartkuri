@@ -1,6 +1,7 @@
 from builtins import ValueError
 from collections import defaultdict
 from decimal import Decimal
+import json
 from typing import Collection
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
@@ -25,6 +26,7 @@ from subscriptions.utils import can_create_group, get_effective_subscription
 from datetime import date
 from payments.models import Payment 
 from django.db.models import Sum
+from datetime import timedelta
 
 
 
@@ -47,31 +49,44 @@ def currency(amount):
 
 # -----------------------------
 # Group  List
+
+
+
+
 @login_required
 def group_management(request):
-    groups = ChittiGroup.objects.filter(owner=request.user)
+
+    groups = ChittiGroup.objects.filter(owner=request.user).prefetch_related('auctions')
 
     if not groups.exists():
-        return redirect('chitti:add_group')
+        return redirect('chitti:create_group')
 
     updated_groups = []
 
     for group in groups:
 
-        # ✅ CALCULATE END DATE
-        if group.start_date and group.duration_months:
-            end_date = group.start_date + relativedelta(months=group.duration_months)
-        else:
-            end_date = None
+        # ✅ BASE START
+        base_start = group.registration_start_date or group.start_date
 
-        # ✅ CHECK EXPIRED
-        is_expired = False
-        if end_date and date.today() > end_date:
-            is_expired = True
+        # ✅ FIX END DATE
+        end_date = None
+        if base_start and group.duration_months:
+            end_date = base_start + relativedelta(months=group.duration_months) - relativedelta(days=1)
 
-        # ✅ TEMP VALUES (no DB save)
+        # ✅ EXPIRED CHECK
+        is_expired = end_date and date.today() > end_date
+
+        # ✅ GET FIRST AUCTION (CORRECT)
+        first_auction = group.auctions.all().order_by('auction_date').first()
+
+        # ✅ ATTACH VALUES
         group.end_date_calculated = end_date
         group.is_expired = is_expired
+        group.first_auction_date = first_auction.auction_date if first_auction else None
+
+        # ✅ DAYS LEFT
+        if group.start_date:
+            group.days_until_first_auction = (group.start_date - date.today()).days
 
         updated_groups.append(group)
 
@@ -80,108 +95,161 @@ def group_management(request):
     })
 
 
+
 @login_required
 @transaction.atomic
 def add_group(request):
     user = request.user
 
-    # Only group_admin allowed
+    # 🔒 Only group_admin allowed
     if not hasattr(user, 'staffprofile') or user.staffprofile.role != 'group_admin':
         messages.error(request, "Only group admins can create groups.")
         return redirect('chitti:group_management')
 
     if request.method == "POST":
         try:
+            # =============================
+            # 📥 BASIC INPUTS
+            # =============================
             name = request.POST.get('name', '').strip()
             monthly_amount = Decimal(request.POST.get('monthly_amount', '0'))
             duration_months = int(request.POST.get('duration_months', '0'))
 
-            collections_per_month = int(request.POST.get('collections_per_month', '1'))
             auctions_per_month = int(request.POST.get('auctions_per_month', '1'))
-
             auction_type = request.POST.get('auction_type', 'monthly')
             auction_interval_months = request.POST.get('auction_interval_months')
 
+            # =============================
+            # 🔁 INTERVAL VALIDATION
+            # =============================
             if auction_type == "interval":
                 auction_interval_months = int(auction_interval_months or 0)
                 if auction_interval_months <= 0:
-                    raise ValueError
+                    raise ValueError("Invalid interval")
             else:
                 auction_interval_months = None
 
+            # =============================
+            # 📅 DATE PARSING
+            # =============================
             date_input = request.POST.get('start_date')
+
             try:
                 start_date = datetime.strptime(date_input, "%d-%m-%Y").date()
             except ValueError:
                 start_date = datetime.strptime(date_input, "%Y-%m-%d").date()
 
+            # =============================
+            # ✅ BASIC VALIDATION
+            # =============================
             if not name or monthly_amount <= 0 or duration_months <= 0:
-                raise ValueError
+                raise ValueError("Invalid basic input")
+
+            # =============================
+            # 🔥 STRICT AUCTION DATES
+            # =============================
+            base_dates = []
+
+            for i in range(1, auctions_per_month + 1):
+                d = request.POST.get(f"auction_date_{i}")
+
+                if not d:
+                    raise ValueError("All auction dates required")
+
+                base_dates.append(
+                    datetime.strptime(d, "%Y-%m-%d").date()
+                )
+
         except Exception:
             messages.error(request, "Invalid input data.")
             return redirect('chitti:add_group')
 
-        total_amount = monthly_amount * duration_months
+        # =============================
+        # 🔍 MAIN GROUP CHECK
+        # =============================
+        main_group = ChittiGroup.objects.filter(
+            owner=user,
+            parent_group__isnull=True
+        ).first()
 
-        # Main group
-        main_group = ChittiGroup.objects.filter(owner=user, parent_group__isnull=True).first()
-
-        # -----------------------------
-        # CREATE GROUP FUNCTION
-        # -----------------------------
+        # =============================
+        # 🔥 CREATE GROUP FUNCTION
+        # =============================
         def create_group(parent=None):
+
             group = ChittiGroup.objects.create(
                 owner=user,
                 parent_group=parent,
                 name=name,
                 monthly_amount=monthly_amount,
                 duration_months=duration_months,
-                total_amount=total_amount,
-                collections_per_month=collections_per_month,
-                auctions_per_month=auctions_per_month,
+                total_amount=monthly_amount * duration_months,
+
                 auction_type=auction_type,
+                auctions_per_month=auctions_per_month,   # ✅ FIXED
                 auction_interval_months=auction_interval_months,
+
+                registration_start_date=start_date,
                 start_date=start_date
             )
 
-            # 🔥 CREATE AUCTIONS (DB SAVE)
-            base_dates = []
-            for i in range(1, auctions_per_month + 1):
-                d = request.POST.get(f"auction_date_{i}")
-                if d:
-                    base_dates.append(datetime.strptime(d, "%Y-%m-%d").date())
-
+            # ✅ CREATE AUCTIONS (ONLY HERE)
             group.create_auctions(base_dates=base_dates)
+
             return group
 
-        # -----------------------------
-        # MAIN GROUP CREATION
-        # -----------------------------
+        # =============================
+        # 🟢 MAIN GROUP
+        # =============================
         if not main_group:
             group = create_group()
+
+            profile = user.staffprofile
+            profile.group = group
+            profile.save()
+
             messages.success(request, "Main group created successfully ✅")
             return redirect('chitti:group_management')
 
-        # -----------------------------
-        # SUB GROUP CREATION
-        # -----------------------------
+        # =============================
+        # 🔵 SUB GROUP
+        # =============================
         subscription = get_effective_subscription(main_group)
+
         if not subscription:
             messages.error(request, "Your subscription is expired or inactive.")
             return redirect('chitti:group_management')
 
         if not can_create_group(user):
-            messages.error(request, f"You reached limit for {subscription.plan.name}")
+            messages.error(
+                request,
+                f"You have reached the limit for the {subscription.plan.name} plan."
+            )
             return redirect('chitti:group_management')
 
-        group = create_group(parent=main_group)
+        create_group(parent=main_group)
+
         messages.success(request, f"Sub-group '{name}' created successfully ✅")
         return redirect('chitti:group_management')
 
-    # GET request
-    main_group = ChittiGroup.objects.filter(owner=user, parent_group__isnull=True).first()
+    # =============================
+    # 📊 GET REQUEST
+    # =============================
+    main_group = ChittiGroup.objects.filter(
+        owner=user,
+        parent_group__isnull=True
+    ).first()
+
     subscription = get_effective_subscription(main_group) if main_group else None
-    remaining_groups = max(subscription.plan.max_groups - ChittiGroup.objects.filter(owner=user).count(), 0) if subscription else 0
+
+    existing_count = ChittiGroup.objects.filter(owner=user).count()
+
+    remaining_groups = 0
+    if subscription:
+        remaining_groups = max(
+            subscription.plan.max_groups - existing_count,
+            0
+        )
 
     return render(request, "chitti/add_group.html", {
         "subscription": subscription,
@@ -189,75 +257,74 @@ def add_group(request):
         "remaining_groups": remaining_groups,
     })
 
-@login_required
+
+
 def view_group(request, group_id):
+
+    # 1. Fetch Group
     group = get_object_or_404(
-        ChittiGroup,
-        id=group_id,
+        ChittiGroup, 
+        id=group_id, 
         owner=request.user
     )
 
-    # ================= MEMBERS =================
+    # 2. Members & Auctions
     members = group.chitti_members.all()
     total_members = members.count()
 
-    # ================= AUCTIONS (ORDER FIXED) =================
-    auctions = group.auctions.all().order_by('month_no', 'auction_no')
+    auctions = group.auctions.select_related('winner').all().order_by('month_no', 'auction_no')
 
-    # ================= PAYMENTS =================
-    # Only admin received payments affect total_collected
-    payments = Payment.objects.filter(
-        group=group,
-        payment_status='success'
-    )
+    # 3. Financial Tracking
+    payments = Payment.objects.filter(group=group, payment_status='success')
+    
+    total_collected = payments.filter(received_by_admin=True).aggregate(
+        total=Sum('amount'))['total'] or 0
+        
+    pending_total = payments.filter(received_by_admin=False).aggregate(
+        total=Sum('amount'))['total'] or 0
 
-    total_collected = payments.filter(
-        received_by_admin=True
-    ).aggregate(total=Sum('amount'))['total'] or 0
-
-    pending_total = payments.filter(
-        received_by_admin=False
-    ).aggregate(total=Sum('amount'))['total'] or 0
-
-    # ================= MONTHLY POT =================
+    # 4. Pot Logic
     monthly_pot = group.monthly_amount * total_members
 
-    # ================= COMPLETED MONTHS =================
-    completed_months = auctions.filter(
-        winner__isnull=False
-    ).values('month_no').distinct().count()
+    # 5. Progress Tracking
+    completed_auctions = auctions.filter(winner__isnull=False)
+    completed_count = completed_auctions.count()
 
-    # ================= CURRENT & REMAINING MONTHS =================
+    completed_months = completed_auctions.values('month_no').distinct().count()
+    
     current_month = completed_months + 1
-    remaining_months = (group.duration_months or 0) - completed_months
+    remaining_months = max(0, (group.duration_months or 0) - completed_months)
 
-    # ================= ADD PRIZE TO EACH AUCTION =================
+    # 6. Prize Calculation
     for auction in auctions:
         discount = auction.bid_amount or 0
-        auction.prize = monthly_pot - discount
+        auction.calculated_prize = monthly_pot - discount
 
-    # ================= LAST COMPLETED AUCTION =================
-    last_auction = auctions.filter(
-        winner__isnull=False
-    ).order_by('month_no', 'auction_no').last()
+    # ✅ FIXED LAST AUCTION (SAFE)
+    last_auction = completed_auctions.order_by('auction_date').last()
 
-    last_winner = None
-    last_prize = None
-    last_discount = None
-    if last_auction:
-        last_winner = last_auction.winner
-        last_discount = last_auction.bid_amount or 0
-        last_prize = monthly_pot - last_discount
+    last_winner = last_auction.winner if last_auction else None
+    last_discount = last_auction.bid_amount if last_auction else 0
+    last_prize = (monthly_pot - last_discount) if last_auction else 0
 
-    # ================= END DATE & EXPIRED CHECK =================
+    # 8. Date Logic
+    base_date = group.registration_start_date or group.start_date
+    
     end_date = None
     is_expired = False
-    if group.start_date and group.duration_months:
-        end_date = group.start_date + relativedelta(months=group.duration_months)
-        if date.today() > end_date:
-            is_expired = True
+    
+    if base_date and group.duration_months:
+        # ✅ FIXED END DATE
+        end_date = base_date + relativedelta(months=group.duration_months) - relativedelta(days=1)
+        is_expired = date.today() > end_date
 
-    # ================= CONTEXT =================
+    # 9. Efficiency
+    expected_total = group.monthly_amount * total_members * completed_months
+    efficiency = 0
+    if expected_total > 0:
+        efficiency = (total_collected / expected_total) * 100
+
+    # 10. Context
     context = {
         'group': group,
         'members': members,
@@ -275,15 +342,14 @@ def view_group(request, group_id):
 
         'total_collected': total_collected,
         'pending_total': pending_total,  
+        'collection_efficiency': round(efficiency, 1),
 
         'end_date': end_date,
         'is_expired': is_expired,
-
         'today': date.today(),
     }
 
     return render(request, 'chitti/view_group.html', context)
-
 @login_required
 def subscribe_group(request, group_id):
     group = get_object_or_404(ChittiGroup, id=group_id, parent_group__isnull=True, owner=request.user)
@@ -767,59 +833,85 @@ def add_auction(request):
 # ==================================================
 # Spin page (GET)
 # ==================================================
+
 @login_required
 def auction_spin_view(request, auction_id):
+
+    # =========================
+    # 🔍 GET AUCTION
+    # =========================
     auction = get_object_or_404(
         Auction,
         id=auction_id,
         group__owner=request.user
     )
 
-    # 🔹 Already completed check
+    # =========================
+    # 🚫 BLOCK IF CLOSED
+    # =========================
     if auction.is_closed:
-        messages.warning(request, "Auction already completed")
+        messages.warning(request, "⚠️ This auction is already completed.")
         return redirect('chitti:auction_detail', auction_id=auction.id)
 
-    # 🔥 DATE VALIDATION (IMPORTANT)
-    today = timezone.now().date()
+    # =========================
+    # 📅 DATE CHECK (STRICT)
+    # =========================
+    today = date.today()
 
-    if auction.auction_date > today:
-        messages.error(
-            request,
-            f"Auction not started yet. Spin allowed on {auction.auction_date}"
-        )
+    if auction.auction_date != today:
+        if auction.auction_date < today:
+            messages.error(
+                request,
+                f"⛔ This auction date ({auction.auction_date}) has already passed."
+            )
+        else:
+            messages.error(
+                request,
+                f"⏳ You can only spin this auction on {auction.auction_date}."
+            )
+
         return redirect('chitti:auction_detail', auction_id=auction.id)
 
-    if auction.auction_date < today:
-        messages.error(
-            request,
-            "Auction date already passed. You cannot spin now."
-        )
-        return redirect('chitti:auction_detail', auction_id=auction.id)
-
-    # 🔹 All members
+    # =========================
+    # 👥 ALL MEMBERS
+    # =========================
     all_members = ChittiMember.objects.filter(group=auction.group)
 
-    # 🔹 Already won members
-    previous_winners = auction.group.auctions.exclude(
-        winner__isnull=True
-    ).values_list('winner_id', flat=True)
+    # =========================
+    # 🏆 PREVIOUS WINNERS
+    # =========================
+    previous_winners = Auction.objects.filter(
+        group=auction.group,
+        winner__isnull=False
+    ).exclude(id=auction.id).values_list('winner_id', flat=True)
 
-    # 🔹 Eligible members only
+    # =========================
+    # ✅ ELIGIBLE MEMBERS
+    # =========================
     eligible_members = all_members.exclude(id__in=previous_winners)
 
-    # 🔹 No members flag
-    no_members = not eligible_members.exists()
+    # =========================
+    # 🚫 NO MEMBERS CHECK
+    # =========================
+    if not eligible_members.exists():
+        messages.warning(
+            request,
+            "⚠️ No eligible members available for this auction."
+        )
+        return redirect('chitti:auction_detail', auction_id=auction.id)
 
-    return render(
-        request,
-        'chitti/auction_spin.html',
-        {
-            'auction': auction,
-            'members': eligible_members,
-            'no_members': no_members  
-        }
-    )
+    # =========================
+    # 📦 CONTEXT
+    # =========================
+    context = {
+        'auction': auction,
+        'members': eligible_members,
+        'no_members': False,
+        'current_auction_month': auction.month_no or 1,
+        'group_duration': auction.group.duration_months,
+    }
+
+    return render(request, 'chitti/auction_spin.html', context)
 
 
 
@@ -831,46 +923,48 @@ def assign_winner_ajax(request, auction_id):
     auction = get_object_or_404(
         Auction,
         id=auction_id,
-        group__owner=request.user      
+        group__owner=request.user
     )
 
     if auction.is_closed:
-        return JsonResponse(
-            {'success': False, 'error': 'Auction already closed'},
-            status=400
-        )
+        return JsonResponse({'success': False, 'error': 'Auction already closed'}, status=400)
 
-    all_members = ChittiMember.objects.filter(
-        group=auction.group
-    )
-
-    previous_winners = auction.group.auctions.exclude(
-        winner__isnull=True
+    member_id = request.POST.get('member_id')
+    
+    # 🔹 Get currently eligible members
+    all_members = ChittiMember.objects.filter(group=auction.group)
+    previous_winners = Auction.objects.filter(
+        group=auction.group, 
+        winner__isnull=False
     ).values_list('winner_id', flat=True)
-
-    eligible_members = all_members.exclude(
-        id__in=previous_winners
-    )
+    
+    eligible_members = all_members.exclude(id__in=previous_winners)
 
     if not eligible_members.exists():
-        return JsonResponse(
-            {'success': False, 'error': 'No eligible members left'},
-            status=400
-        )
+        return JsonResponse({'success': False, 'error': 'No eligible members left'}, status=400)
 
-    # 🎯 Pick random winner
-    winner = random.choice(list(eligible_members))
+    # 🔹 Winner Selection
+    if member_id:
+        try:
+            # Ensure the selected member is actually eligible
+            winner = eligible_members.get(id=member_id)
+        except ChittiMember.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Member is already a winner or invalid'}, status=400)
+    else:
+        # Fallback to random if JS fails to send ID
+        import random
+        winner = random.choice(list(eligible_members))
 
-    # ✅ Assign winner safely
+    # ✅ Assign and Save
     auction.assign_winner(winner, bid_amount=0)
+    auction.is_closed = True
+    auction.save()
 
     return JsonResponse({
         'success': True,
         'winner_id': winner.id,
         'winner_name': winner.member.name,
     })
-
-
 
 # ==================================================
 # Auction Detail
@@ -885,23 +979,126 @@ def auction_detail_view(request, auction_id):
         group__owner=request.user
     )
 
-    return render(
-        request,
-        'chitti/auction_detail.html',
-        {'auction': auction}
-    )
+    # total_chitti_amount maatti total_amount aakki
+    context = {
+        'auction': auction,
+        'group': auction.group,
+        'total_pool': auction.group.total_amount, 
+    }
 
+    return render(request, 'chitti/auction_detail.html', context)
+
+
+@login_required
+@require_POST
+def assign_all_winners_ajax(request, auction_id):
+    # 1. Get the initial auction to identify the group and owner
+    initial_auction = get_object_or_404(
+        Auction.objects.select_related('group'), 
+        id=auction_id, 
+        group__owner=request.user
+    )
+    group = initial_auction.group
+
+    try:
+        data = json.loads(request.body)
+        winners_list = data.get('winners', [])
+
+        if not winners_list:
+            return JsonResponse({'success': False, 'error': 'No winner data received'}, status=400)
+
+        with transaction.atomic():
+            for item in winners_list:
+                month_num = int(item.get('month'))
+                member_id = item.get('id')
+                
+                # Get the member object
+                winner_member = ChittiMember.objects.get(id=member_id, group=group)
+
+                # 2. Get or Create the auction record for that specific month
+                # Note: We use 'month_no' as per your model
+                auction, created = Auction.objects.get_or_create(
+                    group=group, 
+                    month_no=month_num,
+                    auction_no=1, # Defaulting to 1 as per your model
+                    defaults={
+                        # Calculate a future date if creating a new month record
+                        'auction_date': initial_auction.auction_date + timedelta(days=30 * (month_num - initial_auction.month_no)),
+                        'selection_type': 'manual', 
+                    }
+                )
+
+                # 3. Assign the winner using your model's method
+                # This method handles self.winner assignment and self.save()
+                if not auction.is_closed:
+                    auction.assign_winner(winner_member, bid_amount=0)
+
+        return JsonResponse({'success': True})
+
+    except ChittiMember.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Member not found'}, status=404)
+    except ValueError as e:
+        # This catches "Member already won!" or "Auction already closed!" from your model
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': "Unexpected error: " + str(e)}, status=500)
+
+
+def edit_auction_dates(request, group_id):
+    group = get_object_or_404(ChittiGroup, id=group_id)
+
+    if request.method == "POST":
+        auction_id = request.POST.get('auction_id')
+        month_no = request.POST.get('month_no')
+        new_date = request.POST.get('new_date')
+
+        if not new_date:
+            messages.error(request, "Please select a valid date.")
+            return redirect('chitti:view_group', group_id=group.id)
+
+        # CASE 1: Updating an existing Auction
+        if auction_id:
+            auction = get_object_or_404(Auction, id=auction_id, group=group)
+            if not auction.winner:
+                auction.auction_date = new_date
+                auction.save()
+                messages.success(request, f"Month {auction.month_no} date updated to {new_date}.")
+            else:
+                messages.error(request, "Cannot edit a completed auction.")
+
+        # CASE 2: Creating a new entry (if it doesn't exist yet)
+        elif month_no:
+            # Prevent creating duplicate months for the same group
+            if Auction.objects.filter(group=group, month_no=month_no).exists():
+                messages.error(request, f"Month {month_no} already exists. Please edit the existing date.")
+            else:
+                Auction.objects.create(
+                    group=group,
+                    auction_date=new_date,
+                    month_no=month_no
+                )
+                messages.success(request, f"Auction scheduled for Month {month_no}.")
+
+    return redirect('chitti:view_group', group_id=group.id)
 # -----------------------------
- 
+
+
+from django.db.models import Sum, Count
+from collections import defaultdict
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+
+from chitti.models import ChittiGroup
+from payments.models import Payment
+
+
+# --------- ADMIN PAYMENT LIST ----------
 @login_required
 def admin_pending_payments(request):
-    """
-    Show ONLY REQUESTED CASH COLLECTOR payments
-    """
 
     staff = request.user.staffprofile
 
-    # 🔹 Get allowed groups
     if staff.role == 'admin':
         groups = ChittiGroup.objects.all()
 
@@ -911,42 +1108,44 @@ def admin_pending_payments(request):
         groups = (main_groups | sub_groups).distinct()
 
     else:
-        messages.error(request, "You are not authorized to view this page.")
+        messages.error(request, "You are not authorized")
         return redirect('home')
 
-    # 🔥 FINAL FIX (VERY IMPORTANT)
     payments = Payment.objects.filter(
         payment_status='success',
         group__in=groups,
         collected_by__isnull=False,
         collected_by__role='collector',
-        sent_to_admin=True   # ✅ ONLY REQUESTED PAYMENTS
-    ).select_related(
-        'member', 'group', 'collected_by'
-    ).order_by('-paid_date', '-id')
+        sent_to_admin=True
+    ).select_related('member', 'group', 'collected_by') \
+     .order_by('-paid_date', '-id')
 
-    # 🔹 Group payments
     payments_by_group = defaultdict(list)
 
     for payment in payments:
         payments_by_group[payment.group].append(payment)
 
-    # 🔹 Prepare data
     group_list = []
 
     for group, group_payments in payments_by_group.items():
-        pending = [p for p in group_payments if not p.received_by_admin]
-        approved = [p for p in group_payments if p.received_by_admin]
+
+        pending = [p for p in group_payments if p.admin_status == 'pending']
+        approved = [p for p in group_payments if p.admin_status == 'approved']
+        rejected = [p for p in group_payments if p.admin_status == 'rejected']
 
         group_list.append({
             'group': group,
-            'payments': group_payments,
             'pending_payments': pending,
             'approved_payments': approved,
+            'rejected_payments': rejected,   # 🔥 ADDED
+
             'total_pending': sum(p.amount for p in pending),
             'total_approved': sum(p.amount for p in approved),
+            'total_rejected': sum(p.amount for p in rejected),  # 🔥 ADDED
+
             'count_pending': len(pending),
             'count_approved': len(approved),
+            'count_rejected': len(rejected),  # 🔥 ADDED
         })
 
     return render(request, 'chitti/admin_pending_payments.html', {
@@ -954,77 +1153,168 @@ def admin_pending_payments(request):
     })
 
 
+# --------- GROUP DETAILS ----------
 @login_required
 def group_payment_details(request, group_id):
+
     staff = request.user.staffprofile
 
-    # 🔐 Permission check
     if staff.role == 'admin':
         group = get_object_or_404(ChittiGroup, id=group_id)
 
     elif staff.role == 'group_admin':
-        group = get_object_or_404(
-            ChittiGroup,
-            id=group_id,
-            owner=staff.user
-        )
+        group = get_object_or_404(ChittiGroup, id=group_id, owner=staff.user)
+
     else:
         messages.error(request, "Not allowed")
         return redirect('home')
 
-    # 🔥 ONLY COLLECTOR PAYMENTS
     payments = Payment.objects.filter(
         group=group,
         payment_status='success',
         collected_by__isnull=False,
-        collected_by__role='collector'
-    ).select_related(
-        'member',
-        'collected_by__user'
-    ).order_by('-paid_date')
+        collected_by__role='collector',
+        sent_to_admin=True
+    ).select_related('member', 'collected_by__user') \
+     .order_by('-paid_date')
 
-    context = {
+    return render(request, 'chitti/group_payment_details.html', {
         'group': group,
         'payments': payments
-    }
+    })
 
-    return render(request, 'chitti/group_payment_details.html', context)
-# -----------------------------
+
+# --------- APPROVE ----------
 @login_required
 def admin_approve_payment(request, payment_id):
-    """
-    Approve a single payment individually.
-    """
-    payment = get_object_or_404(Payment, id=payment_id)
 
-    if payment.received_by_admin:
-        messages.info(request, f"Payment of ₹{payment.amount} by {payment.member.name} is already approved.")
-    else:
-        payment.received_by_admin = True
+    if request.method != "POST":
+        return redirect('chitti:admin_pending_payments')
+
+    payment = get_object_or_404(
+        Payment,
+        id=payment_id,
+        sent_to_admin=True
+    )
+
+    if payment.admin_status != 'approved':
+        payment.admin_status = 'approved'
         payment.save()
-        messages.success(request, f"Payment of ₹{payment.amount} by {payment.member.name} approved successfully.")
+        payment.allocate_payment()
+
+        messages.success(request, f"₹{payment.amount} approved & added")
 
     return redirect('chitti:admin_pending_payments')
 
 
-# -----------------------------
+# --------- REJECT ----------
+@login_required
+def admin_reject_payment(request, payment_id):
+
+    if request.method != "POST":
+        return redirect('chitti:admin_pending_payments')
+
+    payment = get_object_or_404(
+        Payment,
+        id=payment_id,
+        sent_to_admin=True
+    )
+
+    if payment.admin_status != 'rejected':
+        payment.admin_status = 'rejected'
+
+        # 🔥 IMPORTANT ADD (collector notification support)
+        payment.collector_request_status = 'rejected' if hasattr(payment, 'collector_request_status') else None
+
+        payment.save()
+
+        messages.warning(request, f"₹{payment.amount} rejected")
+
+    return redirect('chitti:admin_pending_payments')
+
+
+# --------- GROUP APPROVE ----------
 @login_required
 def admin_approve_payment_group(request, group_id):
-    """
-    Approve all payments for a specific group at once.
-    """
+
+    if request.method != "POST":
+        return redirect('chitti:admin_pending_payments')
+
     payments = Payment.objects.filter(
         group_id=group_id,
         payment_status='success',
-        received_by_admin=False
+        admin_status='pending',
+        sent_to_admin=True
     )
 
-    total_amount = payments.aggregate(total=Sum('amount'))['total'] or 0
+    total = payments.aggregate(total=Sum('amount'))['total'] or 0
 
-    if total_amount > 0:
-        payments.update(received_by_admin=True)
-        messages.success(request, f"All payments (₹{total_amount}) for this group approved successfully.")
-    else:
-        messages.info(request, "No pending payments to approve for this group.")
+    if total > 0:
+
+        for p in payments:
+            p.admin_status = 'approved'
+            p.save()
+            p.allocate_payment()
+
+        messages.success(request, f"All ₹{total} approved & added")
 
     return redirect('chitti:admin_pending_payments')
+
+
+# --------- GROUP REJECT ----------
+@login_required
+def admin_reject_payment_group(request, group_id):
+
+    if request.method != "POST":
+        return redirect('chitti:admin_pending_payments')
+
+    payments = Payment.objects.filter(
+        group_id=group_id,
+        payment_status='success',
+        admin_status='pending',
+        sent_to_admin=True
+    )
+
+    total = payments.aggregate(total=Sum('amount'))['total'] or 0
+
+    if total > 0:
+        payments.update(admin_status='rejected')
+
+    return redirect('chitti:admin_pending_payments')
+
+
+# --------- NOTIFICATIONS ----------
+def group_admin_notifications(request):
+
+    if request.user.is_authenticated and request.user.is_staff:
+
+        pending = Payment.objects.filter(
+            sent_to_admin=True,
+            admin_status='pending'
+        )
+
+        rejected = Payment.objects.filter(
+            admin_status='rejected'
+        )
+
+        return {
+            'pending_groups': pending,
+            'rejected_count': rejected.count(),
+            'total_pending_count': pending.count()
+        }
+
+    return {
+        'pending_groups': [],
+        'rejected_count': 0,
+        'total_pending_count': 0
+    }
+
+def clear_all_notifications(request):
+    # Admin ippo kandu kondirikkunna ella pending notifications-um 'seen' aayi mark cheyyunnu
+    Payment.objects.filter(
+        sent_to_admin=True,
+        admin_status='pending',
+        is_seen=False
+    ).update(is_seen=True)
+    
+    return redirect(request.META.get('HTTP_REFERER', '/'))

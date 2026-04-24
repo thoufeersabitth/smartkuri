@@ -4,7 +4,7 @@
 {% block title %}All Collections{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'collector/css/today_collections.css' %}">
+<link rel="stylesheet" href="{% static 'collector/css/today_collection.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -15,25 +15,40 @@
         {% for item in group_list %}
         <div class="card mb-3 shadow-sm">
 
-            <!-- 🔹 Header -->
+            <!-- HEADER -->
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">{{ item.group.name }}</h5>
 
-                {% if item.not_sent > 0 %}
-                <form action="{% url 'collector:request_admin_approval' item.group.id %}" method="post">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-primary btn-sm">
-                        Send to Admin (₹{{ item.not_sent|floatformat:2 }})
+                <div class="d-flex gap-2">
+
+                    <!-- SEND TO ADMIN -->
+                    {% if item.not_sent > 0 %}
+                    <form action="{% url 'collector:request_admin_approval' item.group.id %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            Send to Admin (₹{{ item.not_sent|floatformat:2 }})
+                        </button>
+                    </form>
+                    {% else %}
+                    <button class="btn btn-success btn-sm" disabled>
+                        All Sent
                     </button>
-                </form>
-                {% else %}
-                <button class="btn btn-success btn-sm" disabled>
-                    All Payments Sent / Received
-                </button>
-                {% endif %}
+                    {% endif %}
+
+                    <!-- 🔥 RESEND ALL REJECTED (FIXED) -->
+                    {% if item.has_rejected %}
+                    <form action="{% url 'collector:resend_group_payments' item.group.id %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-warning btn-sm">
+                            Resend All Rejected
+                        </button>
+                    </form>
+                    {% endif %}
+
+                </div>
             </div>
 
-            <!-- 🔹 Totals -->
+            <!-- TOTALS -->
             <div class="card-body">
                 <div class="row text-center">
                     <div class="col-md-3">
@@ -41,7 +56,7 @@
                         ₹{{ item.total_collector|floatformat:2 }}
                     </div>
                     <div class="col-md-3">
-                        <strong>Received</strong><br>
+                        <strong>Admin Received</strong><br>
                         ₹{{ item.total_admin|floatformat:2 }}
                     </div>
                     <div class="col-md-3">
@@ -55,7 +70,7 @@
                 </div>
             </div>
 
-            <!-- 🔹 Table -->
+            <!-- TABLE -->
             <div class="table-responsive px-3 pb-3">
                 <table class="table table-bordered table-sm align-middle">
                     <thead class="table-light">
@@ -64,7 +79,7 @@
                             <th>Amount</th>
                             <th>Date</th>
                             <th>Status</th>
-                            <th style="width:130px;">Action</th>
+                            <th style="width:160px;">Action</th>
                         </tr>
                     </thead>
 
@@ -75,36 +90,51 @@
                             <td>₹{{ p.amount|floatformat:2 }}</td>
                             <td>{{ p.paid_date|date:"d M Y" }}</td>
 
-                            <!-- 🔹 STATUS -->
+                            <!-- STATUS -->
                             <td>
                                 {% if p.received_by_admin %}
                                     <span class="badge bg-success">Received</span>
+
+                                {% elif p.admin_status == "rejected" %}
+                                    <span class="badge bg-danger">Rejected</span>
+
                                 {% elif p.sent_to_admin %}
                                     <span class="badge bg-warning text-dark">Sent</span>
+
                                 {% else %}
                                     <span class="badge bg-secondary">Draft</span>
                                 {% endif %}
                             </td>
 
-                            <!-- 🔹 ACTION -->
+                            <!-- ACTION -->
                             <td>
+
                                 {% if not p.sent_to_admin %}
+
                                     {% if p.is_today %}
                                         <a href="{% url 'collector:delete_payment' p.id %}" 
-                                           class="btn btn-danger btn-sm w-100"
-                                           onclick="return confirm('Delete this payment?')">
+                                           class="btn btn-danger btn-sm w-100">
                                            Delete
                                         </a>
                                     {% else %}
                                         <span class="badge bg-secondary w-100">Locked</span>
                                     {% endif %}
 
+                                {% elif p.admin_status == "rejected" %}
+
+                                    <a href="{% url 'collector:resend_payment' p.id %}" 
+                                       class="btn btn-warning btn-sm w-100">
+                                        Resend
+                                    </a>
+
                                 {% elif p.sent_to_admin and not p.received_by_admin %}
+
                                     <span class="badge bg-warning w-100">Sent</span>
 
-                                {% elif p.received_by_admin %}
+                                {% else %}
                                     <span class="badge bg-success w-100">Received</span>
                                 {% endif %}
+
                             </td>
 
                         </tr>

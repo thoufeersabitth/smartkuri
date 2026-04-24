@@ -5,127 +5,224 @@
 
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'group_admin/css/grup_dashboard.css' %}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<style>
+    /* 🔔 Pro Notification Banner (Gradient Style) */
+    .notif-banner {
+        background: linear-gradient(90deg, #FF512F 0%, #DD2476 100%);
+        border: none;
+        border-radius: 15px;
+        color: white;
+        padding: 18px 25px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 10px 25px rgba(221, 36, 118, 0.3);
+    }
+
+    .btn-approve-now {
+        background: white;
+        color: #DD2476;
+        font-weight: 800;
+        border-radius: 50px;
+        padding: 10px 24px;
+        text-decoration: none;
+        transition: 0.3s;
+        border: none;
+        font-size: 0.9rem;
+    }
+
+    .btn-approve-now:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        background: #f8f9fa;
+        color: #DD2476;
+    }
+
+    /* Search Box */
+    .search-wrapper {
+        position: relative;
+        max-width: 400px;
+        width: 100%;
+    }
+
+    .search-box {
+        width: 100%;
+        padding: 12px 15px 12px 45px;
+        border-radius: 15px;
+        border: 1px solid #e2e8f0;
+        transition: 0.3s;
+        background: white;
+    }
+
+    .search-box:focus {
+        border-color: #DD2476;
+        box-shadow: 0 0 0 4px rgba(221, 36, 118, 0.1);
+        outline: none;
+    }
+
+    .search-icon {
+        position: absolute;
+        left: 18px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #a0aec0;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="container mx-auto p-6">
+<div class="container mx-auto p-6 animate__animated animate__fadeIn">
 
-    <h1 class="text-3xl font-bold mb-6">Group Admin Dashboard</h1>
-
-    <!-- ================= Stats Cards ================= -->
-    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
-
-        <div class="stats-card card-1">
-            <div class="stats-icon">📦</div>
-            <div class="stats-content">
-                <div class="stats-label">Total Groups</div>
-                <div class="stats-value">{{ total_groups }}</div>
+    {% if total_pending_count > 0 %}
+    <div id="notif-bar" class="notif-banner mb-8 animate__animated animate__pulse animate__infinite animate__slower">
+        <div class="d-flex align-items-center">
+            <div class="bg-white text-danger rounded-circle d-flex align-items-center justify-content-center me-4 shadow" style="width: 50px; height: 50px;">
+                <i class="bi bi-cash-stack fs-4"></i>
+            </div>
+            <div>
+                <h5 class="mb-1 fw-extrabold" style="color: white; letter-spacing: 0.5px;">Pending Approval Found!</h5>
+                <p class="mb-0 opacity-90">
+                    Collector has submitted <strong>{{ total_pending_count }}</strong> payments totaling 
+                    <span class="badge bg-white text-dark px-2 py-1 ml-1">₹{{ pending_total_amount }}</span>
+                </p>
             </div>
         </div>
-
-        <div class="stats-card card-2">
-            <div class="stats-icon">✅</div>
-            <div class="stats-content">
-                <div class="stats-label">Active Groups</div>
-                <div class="stats-value">{{ active_groups }}</div>
-            </div>
+        <div class="d-flex align-items-center gap-3">
+            <a href="{% url 'chitti:admin_pending_payments' %}" class="btn-approve-now shadow-sm">
+                <i class="bi bi-check2-circle me-1"></i> REVIEW & APPROVE
+            </a>
+            <button type="button" class="btn-close btn-close-white" onclick="document.getElementById('notif-bar').remove()"></button>
         </div>
+    </div>
+    {% endif %}
 
-        <div class="stats-card card-3">
-            <div class="stats-icon">👥</div>
-            <div class="stats-content">
-                <div class="stats-label">Total Members</div>
-                <div class="stats-value">{{ total_members }}</div>
-            </div>
+    <div class="flex flex-col md:flex-row justify-between items-end mb-10">
+        <div>
+            <h1 class="text-4xl font-black text-gray-800 tracking-tight">Admin Dashboard</h1>
+            <p class="text-gray-500 font-medium mt-1">Real-time overview of your Chitti collection activity.</p>
         </div>
-
-        <div class="stats-card card-4">
-            <div class="stats-icon">💵</div>
-            <div class="stats-content">
-                <div class="stats-label">This Month Collection</div>
-                <div class="stats-value">₹ {{ this_month_collection }}</div>
-            </div>
+        <div class="search-wrapper mt-4 md:mt-0">
+            <i class="bi bi-search search-icon"></i>
+            <input type="text" id="groupSearch" class="search-box shadow-sm" placeholder="Search by Group Name or Collector...">
         </div>
-
-        <div class="stats-card card-5">
-            <div class="stats-icon">🏦</div>
-            <div class="stats-content">
-                <div class="stats-label">Total Collected</div>
-                <div class="stats-value">₹ {{ total_received }}</div>
-            </div>
-        </div>
-
     </div>
 
-    <!-- ================= Groups Table ================= -->
-    <div class="table-container">
-        <h2 class="section-title">Your Groups</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-12">
+        <div class="stats-card card-1 p-6 bg-white rounded-2xl shadow-sm border-0 flex items-center">
+            <div class="stats-icon text-3xl mr-4 bg-blue-50 p-3 rounded-xl">📦</div>
+            <div>
+                <div class="text-xs font-bold text-gray-400 uppercase tracking-widest">Total Groups</div>
+                <div class="text-2xl font-black text-gray-800" id="count-groups">{{ total_groups }}</div>
+            </div>
+        </div>
+
+        <div class="stats-card card-2 p-6 bg-white rounded-2xl shadow-sm border-0 flex items-center">
+            <div class="stats-icon text-3xl mr-4 bg-green-50 p-3 rounded-xl">✅</div>
+            <div>
+                <div class="text-xs font-bold text-gray-400 uppercase tracking-widest">Active</div>
+                <div class="text-2xl font-black text-gray-800">{{ active_groups }}</div>
+            </div>
+        </div>
+
+        <div class="stats-card card-3 p-6 bg-white rounded-2xl shadow-sm border-0 flex items-center">
+            <div class="stats-icon text-3xl mr-4 bg-purple-50 p-3 rounded-xl">👥</div>
+            <div>
+                <div class="text-xs font-bold text-gray-400 uppercase tracking-widest">Members</div>
+                <div class="text-2xl font-black text-gray-800">{{ total_members }}</div>
+            </div>
+        </div>
+
+        <div class="stats-card card-4 p-6 bg-white rounded-2xl shadow-sm border-0 flex items-center">
+            <div class="stats-icon text-3xl mr-4 bg-orange-50 p-3 rounded-xl">💵</div>
+            <div>
+                <div class="text-xs font-bold text-gray-400 uppercase tracking-widest">This Month</div>
+                <div class="text-2xl font-black text-green-600">₹{{ this_month_collection }}</div>
+            </div>
+        </div>
+
+        <div class="stats-card card-5 p-6 bg-primary rounded-2xl shadow-lg border-0 flex items-center text-white">
+            <div class="stats-icon text-3xl mr-4 bg-white bg-opacity-20 p-3 rounded-xl">🏦</div>
+            <div>
+                <div class="text-xs font-bold text-white text-opacity-70 uppercase tracking-widest">Total Cash</div>
+                <div class="text-2xl font-black">₹{{ total_received }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
+        <div class="px-8 py-6 border-b flex justify-between items-center bg-gray-50 bg-opacity-50">
+            <h2 class="text-xl font-extrabold text-gray-800 mb-0">Management Overview</h2>
+            <div class="flex gap-2">
+                <span class="badge bg-success-subtle text-success px-3 py-2 rounded-pill font-bold">Synced Live</span>
+            </div>
+        </div>
+        
         <div class="table-responsive">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Group Name</th>
-                        <th>Start Date</th>
-                        <th>Duration</th>
-                        <th>Monthly Amount</th>
-                        <th>Collector</th>
-                        <th>Status</th>
-                        <th>Actions</th>
+            <table class="w-full data-table" id="groupsTable">
+                <thead class="bg-gray-50">
+                    <tr class="text-left text-gray-400 text-xs font-bold uppercase tracking-widest border-b">
+                        <th class="px-8 py-4">Group Identity</th>
+                        <th class="px-8 py-4">Monthly Amount</th>
+                        <th class="px-8 py-4">Current Collector</th>
+                        <th class="px-8 py-4">Status</th>
+                        <th class="px-8 py-4 text-center">Control Panel</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody class="divide-y divide-gray-50">
                     {% for group in groups %}
-                    <tr>
-                        <td class="group-info">
-                            <div class="group-avatar">{{ group.name|slice:":2"|upper }}</div>
-                            <div class="group-details">
-                                <div class="group-name">{{ group.name }}</div>
-                                <div class="group-id">ID: {{ group.id }}</div>
+                    <tr class="hover:bg-gray-50 transition-colors duration-200">
+                        <td class="px-8 py-5">
+                            <div class="flex items-center">
+                                <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700 flex items-center justify-center font-black text-lg mr-4 shadow-sm">
+                                    {{ group.name|slice:":1"|upper }}
+                                </div>
+                                <div>
+                                    <div class="font-black text-gray-800 leading-tight">{{ group.name }}</div>
+                                    <div class="text-xs text-gray-400 font-medium">Started: {{ group.start_date|date:"M Y"|default:"TBD" }}</div>
+                                </div>
                             </div>
                         </td>
-                        <td>
-                            {% if group.start_date %}
-                                {{ group.start_date|date:"d M Y" }}
-                            {% else %}
-                                —
-                            {% endif %}
+                        <td class="px-8 py-5">
+                            <span class="text-lg font-bold text-gray-800">₹{{ group.monthly_amount }}</span>
                         </td>
-                        <td>{{ group.duration_months }} months</td>
-                        <td class="amount-cell">₹ {{ group.monthly_amount }}</td>
-                        <td class="collector-cell">
+                        <td class="px-8 py-5">
                             {% if group.collector %}
-                                <div class="collector-avatar">
-                                    {{ group.collector.user.get_full_name|default:group.collector.user.username|slice:":2"|upper }}
-                                </div>
-                                <div class="collector-name">
+                                <div class="flex items-center text-sm font-semibold text-gray-600">
+                                    <div class="w-2 h-2 rounded-full bg-blue-500 mr-2"></div>
                                     {{ group.collector.user.get_full_name|default:group.collector.user.username }}
                                 </div>
                             {% else %}
-                                <span class="no-collector">Not Assigned</span>
+                                <span class="text-xs font-bold py-1 px-3 bg-red-50 text-red-400 rounded-full italic">Not Assigned</span>
                             {% endif %}
                         </td>
-                        <td>
+                        <td class="px-8 py-5">
                             {% if group.is_active %}
-                                <span class="status-badge status-active">Active</span>
+                                <span class="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-black">ACTIVE</span>
                             {% else %}
-                                <span class="status-badge status-inactive">Inactive</span>
+                                <span class="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-black">INACTIVE</span>
                             {% endif %}
                         </td>
-                        <td class="action-buttons">
-                            <a href="{% url 'chitti:view_group' group.id %}" class="action-btn view-btn" title="View Group">👁</a>
-                            <a href="{% url 'chitti:edit_group' group.id %}" class="action-btn edit-btn" title="Edit Group">✏️</a>
-                            <a href="{% url 'payments:group_payment_list' %}?group_id={{ group.id }}" class="action-btn payment-btn" title="View Payments">💰</a>
+                        <td class="px-8 py-5 text-center">
+                            <div class="flex justify-center gap-2">
+                                <a href="{% url 'chitti:view_group' group.id %}" class="p-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-blue-600 hover:text-white transition shadow-sm" title="View Details">
+                                    <i class="bi bi-eye-fill"></i>
+                                </a>
+                               
+                                <a href="{% url 'chitti:group_payment_details' group.id %}" class="p-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-green-600 hover:text-white transition shadow-sm" title="Financials">
+                                    <i class="bi bi-wallet2"></i>
+                                </a>
+                            </div>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="7" class="empty-state">
-                            <div class="empty-state-content text-center py-6">
-                                <div class="empty-state-icon text-4xl mb-2">📂</div>
-                                <h3>No groups found</h3>
-                                <p>You haven’t created any groups yet. Start by adding a new group.</p>
-                                <a href="{% url 'chitti:add_group' %}" class="action-btn edit-btn mt-2">➕ Add Group</a>
-                            </div>
+                        <td colspan="5" class="py-24 text-center">
+                            <div class="text-6xl mb-4 text-gray-100"><i class="bi bi-folder2-open"></i></div>
+                            <h4 class="text-gray-400 font-bold">No groups matching your database.</h4>
+                            <a href="{% url 'chitti:add_group' %}" class="btn btn-primary mt-4 px-6 rounded-pill">Create New Group</a>
                         </td>
                     </tr>
                     {% endfor %}
@@ -133,6 +230,41 @@
             </table>
         </div>
     </div>
-
 </div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // 1. Instant Table Search
+        const searchInput = document.getElementById('groupSearch');
+        const rows = document.querySelectorAll('#groupsTable tbody tr');
+
+        searchInput.addEventListener('input', function(e) {
+            const term = e.target.value.toLowerCase();
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(term) ? '' : 'none';
+            });
+        });
+
+        // 2. Smooth Number Counter Animation
+        const animateCount = (id, target) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            let current = 0;
+            const inc = target / 40; 
+            const timer = setInterval(() => {
+                current += inc;
+                if (current >= target) {
+                    el.innerText = target;
+                    clearInterval(timer);
+                } else {
+                    el.innerText = Math.floor(current);
+                }
+            }, 20);
+        };
+
+        const totalG = parseInt("{{ total_groups }}") || 0;
+        animateCount("count-groups", totalG);
+    });
+</script>
 {% endblock %}

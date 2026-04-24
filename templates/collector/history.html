@@ -1,52 +1,113 @@
+<!-- history.html - Django Template File -->
 {% extends "collector/collector_base.html" %}
 {% load static %}
 
+{% block extra_css %}
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="{% static 'collector/css/history.css' %}">
+{% endblock %}
+
 {% block content %}
-<link rel="stylesheet" href="{% static 'collector/css/member_history.css' %}">
+<div class="container mt-4 pb-5">
 
-<div class="member-history-container">
-
-    <h4>{{ member.name }} – Payment History</h4>
-
-    <div class="summary-box">
-        <p><strong>Total Months:</strong> {{ total_months }}</p>
-        <p><strong>Monthly Amount:</strong> ₹{{ monthly_amount|floatformat:2 }}</p>
-        <p><strong>Total Kuri Amount:</strong> ₹{{ total_kuri_amount|floatformat:2 }}</p>
-        <p style="color:green;"><strong>Total Paid:</strong> ₹{{ total_paid|floatformat:2 }}</p>
-        <p style="color:red;"><strong>Pending Amount:</strong> ₹{{ pending_amount|floatformat:2 }}</p>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <a href="javascript:history.back()" class="btn-back"><i class="bi bi-arrow-left"></i> Back</a>
+        <h5 class="fw-bold mb-0 text-dark">{{ member.name }}</h5>
     </div>
 
-    <table class="history-table">
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Amount</th>
-                <th>Method</th>
-                <th>Collected By</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for p in payments %}
-            <tr>
-                <td>{{ p.paid_date|date:"M d, Y" }}</td>
-                <td>₹{{ p.amount|floatformat:2 }}</td>
-                <td>{{ p.payment_method }}</td>
-                <td>
-                    {% if p.collected_by.role == "group_admin" %}
-                        Group Admin
-                    {% else %}
-                        {{ p.collected_by.user.username }}
-                    {% endif %}
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="4" class="no-data">No payments found</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-calendar3"></i></div>
+                <div>
+                    <div class="small text-muted">Kuri Duration</div>
+                    <div class="fw-bold text-dark">{{ total_months }} Months | ₹{{ monthly_amount|floatformat:0 }} pm</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-cash-stack"></i></div>
+                <div>
+                    <div class="small text-muted">Total Paid</div>
+                    <div class="fw-bold text-success" style="font-size: 1.1rem;">₹{{ total_paid|floatformat:2 }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-clock-history"></i></div>
+                <div>
+                    <div class="small text-muted">Pending Balance</div>
+                    <div class="fw-bold text-danger" style="font-size: 1.1rem;">₹{{ pending_amount|floatformat:2 }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="glass-card">
+        <div class="section-title"><i class="bi bi-table"></i> Month-wise Payment Status</div>
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr class="text-muted small">
+                        <th>Month</th>
+                        <th>Target (₹)</th>
+                        <th>Received (₹)</th>
+                        <th>Remaining (₹)</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in month_status %}
+                    <tr class="{% if m.status == 'Full Paid' %}row-paid{% elif m.status == 'Advance' %}row-advance{% endif %}">
+                        <td class="fw-bold text-dark">
+                            Month {{ m.month_num }}
+                            {% if m.status == 'Advance' %}
+                                <i class="bi bi-info-circle-fill text-warning ms-1" title="Paid in Advance"></i>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted">₹{{ m.target|floatformat:0 }}</td>
+                        <td class="fw-bold text-dark">₹{{ m.received|floatformat:0 }}</td>
+                        <td class="text-{% if m.remaining > 0 %}danger{% else %}muted{% endif %}">
+                            ₹{{ m.remaining|floatformat:0 }}
+                        </td>
+                        <td>
+                            <span class="status-badge 
+                                {% if m.status == 'Full Paid' %}bg-full
+                                {% elif m.status == 'Partial' %}bg-partial
+                                {% elif m.status == 'Advance' %}bg-advance
+                                {% else %}bg-pending{% endif %}">
+                                {{ m.status }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <div class="section-title"><i class="bi bi-receipt"></i> Real Transaction History</div>
+        {% for p in payments %}
+        <div class="transaction-item shadow-sm">
+            <div>
+                <div class="fw-bold text-dark" style="font-size: 1.1rem;">₹{{ p.amount|floatformat:2 }}</div>
+                <div class="small text-muted">{{ p.paid_date|date:"d M, Y" }}</div>
+            </div>
+            <div class="text-end">
+                <span class="method-tag">{{ p.payment_method|upper }}</span>
+                <div class="small text-primary fw-bold mt-1" style="font-size: 0.7rem;">
+                    BY: {% if p.collected_by.role == "group_admin" %}ADMIN{% else %}{{ p.collected_by.user.username|upper }}{% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <p class="text-center text-muted py-4">No transactions recorded.</p>
+        {% endfor %}
+    </div>
 
 </div>
-
 {% endblock %}

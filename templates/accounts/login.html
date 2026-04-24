@@ -1,16 +1,26 @@
 {% load static %}
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartKuri - Login</title>
+    <title>SmartKuri - Create Account</title>
 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- 🔥 FAVICON FULL SETUP -->
+    <link rel="icon" type="image/x-icon" href="{% static 'images/favicon.ico' %}">
+    <link rel="shortcut icon" href="{% static 'images/favicon.ico' %}">
+
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'images/favicon-32x32.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'images/favicon-16x16.png' %}">
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="apple-touch-icon" href="{% static 'images/apple-touch-icon.png' %}">
+    <link rel="manifest" href="{% static 'images/site.webmanifest' %}">
 
+    <meta name="theme-color" content="#4f46e5">
+
+    <!-- STYLES -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'accounts/css/login.css' %}">
 </head>
 <body>
@@ -18,7 +28,7 @@
     <div class="auth-page-bg"></div>
 
     <div class="auth-wrapper">
-        <div class="auth-card fade-in">
+        <div class="auth-card">
             <div class="auth-header">
                 <div class="logo-circle">
                     <i class="fas fa-wallet"></i>
@@ -68,14 +78,13 @@
                     </span>
                 </div>
 
-                <button type="submit" class="btn btn-gradient">
+                <button type="submit" class="btn-gradient">
                     <span>Sign In</span>
                     <i class="fas fa-arrow-right-to-bracket"></i>
                 </button>
             </form>
 
             <div class="extra-links">
-                <!-- Added Back to Home link here -->
                 <a href="{% url 'core:home' %}" class="back-home-link">
                     <i class="fas fa-home"></i> Back to Home
                 </a>

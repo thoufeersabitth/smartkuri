@@ -18,6 +18,7 @@ from payments.models import Payment
 from chitti.models import Auction, ChittiGroup, ChittiMember
 from subscriptions.utils import can_add_member, get_effective_subscription, get_subscription_status, get_time_left
 from .forms import MemberAddForm, MemberEditForm
+from django.db import models
 
 # -----------------------------
 # Helper: Generate random password
@@ -29,6 +30,8 @@ def generate_random_password(length=8):
 # -----------------------------
 # MEMBER DASHBOARD (FINAL)
 # -----------------------------
+
+
 
 
 @login_required
@@ -44,19 +47,39 @@ def member_dashboard(request):
     total_paid = payments.aggregate(total=Sum('amount'))['total'] or 0
 
     group = member.assigned_chitti_group
+
+    # ✅ safety check
+    if not group:
+        return render(request, 'member/error.html', {
+            'message': 'No group assigned.'
+        })
+
     total_amount = getattr(group, 'total_amount', 0)
     remaining = total_amount - total_paid
 
-    # 🔥 Auction logic
-    auctions = Auction.objects.filter(
-        group=group,
-        winner__isnull=False
-    ).order_by('auction_date')
+    today = timezone.now().date()
 
-    # Latest (current month) auction
-    latest_auction = auctions.last()
+    # ✅ All completed auctions
+    auctions = (
+        Auction.objects
+        .filter(group=group, winner__isnull=False)
+        .select_related('winner__member__user')
+        .order_by('auction_date')
+    )
 
-    # Logged-in member ever won?
+    # 🔥 ✅ CURRENT MONTH WINNER (IMPORTANT FIX)
+    latest_auction = (
+        Auction.objects
+        .filter(
+            group=group,
+            auction_date__year=today.year,
+            auction_date__month=today.month
+        )
+        .select_related('winner__member__user')
+        .first()
+    )
+
+    # ✅ Logged-in member winner check
     is_winner = auctions.filter(winner__member=member).exists()
 
     context = {
@@ -65,9 +88,8 @@ def member_dashboard(request):
         'total_amount': total_amount,
         'remaining': remaining,
 
-        # winner related
-        'auctions': auctions,            # all winners so far
-        'latest_auction': latest_auction,
+        'auctions': auctions,
+        'latest_auction': latest_auction,  # ✅ current month winner
         'is_winner': is_winner,
     }
 
@@ -85,66 +107,121 @@ def member_profile(request):
     return render(request, 'member/member_profile.html', {'member': member_profile})
 
 
+
 @login_required
 def member_payment_history(request):
-    # logged-in member
+    # 1. Get the logged-in member profile
     member = get_object_or_404(Member, user=request.user)
 
-    # queryset (ONLY this member)
-    payments_list = (
-        Payment.objects
-        .filter(member=member)
-        .select_related(
-            "member__user",
-            "group",
-            "collected_by__user"
-        )
-        .order_by("-paid_date")
-    )
+    # 2. Get the ChittiMember record with group details
+    member_record = ChittiMember.objects.filter(member=member).select_related('group').first()
+    
+    if not member_record:
+        return render(request, "member/no_subscriptions.html")
 
-    # total paid (success only)
-    total_paid = payments_list.filter(
+    group = member_record.group
+    
+    # 3. Fetch successful payments, optimized with select_related
+    all_payments_qs = Payment.objects.filter(
+        member=member,
+        group=group,
         payment_status="success"
-    ).aggregate(
-        total=Sum("amount")
-    )["total"] or 0
+    ).select_related('collected_by__user').order_by("paid_date", "created_at")
 
-    # pagination
-    paginator = Paginator(payments_list, 10)
-    page_number = request.GET.get("page")
-    payments = paginator.get_page(page_number)
+    # 4. Calculation Logic
+    monthly_amount = float(group.monthly_amount)
+    duration = int(group.duration_months)
+    current_grp_month = int(group.current_month)
+    
+    total_paid = float(all_payments_qs.aggregate(total=Sum("amount"))["total"] or 0)
+    
+    payment_rows = []
+    payments_list = list(all_payments_qs)
+    overflow_cash = 0.0
+    active_payment = None
 
-    return render(
-        request,
-        "member/member_payment_list.html",
-        {
-            "payments": payments,
-            "total_paid": total_paid
-        }
-    )
+    for month in range(1, duration + 1):
+        target = monthly_amount
+        allocated_for_month = 0.0
+        month_transactions = []
+
+        while target > 0:
+            # If no overflow remains, get the next payment from the list
+            if overflow_cash <= 0:
+                if payments_list:
+                    active_payment = payments_list.pop(0)
+                    overflow_cash = float(active_payment.amount)
+                else:
+                    break # No more payments available
+
+            # Calculate the portion of payment to apply to this month
+            take = min(overflow_cash, target)
+            allocated_for_month += take
+            
+            # Logic to get collector name (Full Name fallback to Username)
+            collector_display = "Admin"
+            if active_payment.collected_by:
+                user_obj = active_payment.collected_by.user
+                collector_display = user_obj.get_full_name() or user_obj.username
+
+            # Record this specific transaction slice
+            month_transactions.append({
+                "amount": take,
+                "date": active_payment.paid_date,
+                "collector": collector_display
+            })
+
+            overflow_cash -= take
+            target -= take
+
+        # Determine Payment Status for the month
+        if allocated_for_month >= monthly_amount:
+            status = "Paid"
+        elif allocated_for_month > 0:
+            status = "Partial"
+        else:
+            status = "Pending"
+
+        payment_rows.append({
+            "month": month,
+            "target": monthly_amount,
+            "paid": allocated_for_month,
+            "balance": monthly_amount - allocated_for_month,
+            "status": status,
+            "transactions": month_transactions,
+            "is_advance": month > current_grp_month and allocated_for_month > 0
+        })
+
+    # 5. Financial Summary
+    total_due = max(0.0, (current_grp_month * monthly_amount) - total_paid)
+    collections_paid = sum(1 for p in payment_rows if p["status"] == "Paid")
+
+    context = {
+        "group": group,
+        "payment_rows": payment_rows,
+        "total_paid": total_paid,
+        "total_due": total_due,
+        "collections_paid": collections_paid,
+        "member_record": member_record,
+    }
+
+    return render(request, "member/member_payment_list.html", context)
 @login_required
 def member_auction_list(request):
     try:
-        # 🔹 Logged-in user → Member profile
-        member = Member.objects.select_related(
-            'assigned_chitti_group'
-        ).get(user=request.user)
+        # Get the profile of the logged-in user
+        member = Member.objects.select_related('assigned_chitti_group').get(user=request.user)
     except Member.DoesNotExist:
-        return render(request, "member/error.html", {
-            "message": "Member profile not found"
-        })
+        return render(request, "member/error.html", {"message": "Member profile not found"})
 
-    # 🔒 SAFETY: member must be assigned to a group
     if not member.assigned_chitti_group:
-        return render(request, "member/error.html", {
-            "message": "You are not assigned to any chitti group"
-        })
+        return render(request, "member/error.html", {"message": "You are not assigned to any group"})
 
-    # ✅ ONLY this member's group auctions
+    # Fetching auctions - Joins Winner -> Member -> User
     auctions = (
         Auction.objects
-        .select_related('group', 'winner', 'winner__member')
         .filter(group=member.assigned_chitti_group)
+        .select_related('group', 'winner__member__user') 
         .order_by('auction_date')
     )
 
@@ -154,7 +231,8 @@ def member_auction_list(request):
         {
             "member": member,
             "group": member.assigned_chitti_group,
-            "auctions": auctions
+            "auctions": auctions,
+            "today": timezone.now().date()
         }
     )
 
@@ -221,15 +299,17 @@ def member_list(request):
     admin_user = request.user
     groups = ChittiGroup.objects.filter(owner=admin_user)
 
-    members_qs = Member.objects.filter(
-        assigned_chitti_group__in=groups
-    ).order_by('id')
+    # CHANGE: Query ChittiMember instead of Member
+    # This makes 'm.id' in your loop refer to the ID that details/64/ needs
+    members_qs = ChittiMember.objects.filter(
+        group__in=groups
+    ).select_related('member', 'group').order_by('id')
 
     q = request.GET.get('q', '').strip()
     if q:
         members_qs = members_qs.filter(
-            Q(name__icontains=q) |
-            Q(phone=q)
+            Q(member__name__icontains=q) |
+            Q(member__phone__icontains=q)
         )
 
     paginator = Paginator(members_qs, 10)
@@ -243,52 +323,84 @@ def member_list(request):
 # -----------------------------
 # MEMBER CREATE
 # -----------------------------
+
+
 @group_admin_required
 def member_create(request):
     if request.method == 'POST':
         form = MemberAddForm(request.POST, admin_user=request.user)
+        
         if form.is_valid():
-            member = form.save(commit=False)
+            # Extract data from cleaned_data
+            email = form.cleaned_data.get('email')
+            phone = form.cleaned_data.get('phone')
+            assigned_group = form.cleaned_data.get('assigned_chitti_group')
+            password = form.cleaned_data.get('password')
 
-            if member.assigned_chitti_group:
-                if not can_add_member(member.assigned_chitti_group):
-                    messages.error(request, "Cannot add member: group limit reached or subscription expired")
-                    return redirect('members:member_list')
+            # 1. CHECK: Does a member with this Email or Phone already exist IN THIS GROUP?
+            if assigned_group:
+                # We check the ChittiMember table for duplicates within the specific group
+                duplicate_exists = ChittiMember.objects.filter(
+                    group=assigned_group
+                ).filter(
+                    Q(member__email=email) | Q(member__phone=phone)
+                ).exists()
 
-            username = member.phone or member.email
-            password = form.cleaned_data['password']
+                if duplicate_exists:
+                    # Fixed AttributeError: Using {assigned_group} directly calls the model's __str__
+                    messages.error(request, f"A member with this Email or Phone already exists in the group: {assigned_group}")
+                    return render(request, 'chitti/add_member.html', {'form': form})
 
-            user = User.objects.create_user(
-                username=username,
-                password=password,
-                email=member.email
-            )
+                # 2. CHECK: Group capacity/limit
+                if not can_add_member(assigned_group):
+                    messages.error(request, "Cannot add member: Group limit reached or subscription expired.")
+                    return render(request, 'chitti/add_member.html', {'form': form})
 
-            member.user = user
-            member.is_first_login = True
-            member.save()
-
-            if member.assigned_chitti_group:
-                existing_tokens = ChittiMember.objects.filter(
-                    group=member.assigned_chitti_group
-                ).values_list('token_no', flat=True)
-
-                next_token = max(existing_tokens, default=0) + 1
-
-                ChittiMember.objects.create(
-                    group=member.assigned_chitti_group,
-                    member=member,
-                    token_no=next_token
+            try:
+                # Create the Auth User (Username will be phone or email)
+                # Note: This will fail if the User already exists globally in the system
+                username = phone or email
+                user = User.objects.create_user(
+                    username=username,
+                    password=password,
+                    email=email
                 )
 
-            # ✅ Secure message
-            messages.success(request, "Member added successfully.")
-            return redirect('members:member_list')
+                # Save the Member object
+                member = form.save(commit=False)
+                member.user = user
+                member.is_first_login = True
+                member.save()
+
+                # Assign to ChittiMember table with Token Logic
+                if assigned_group:
+                    existing_tokens = ChittiMember.objects.filter(
+                        group=assigned_group
+                    ).values_list('token_no', flat=True)
+
+                    next_token = max(existing_tokens, default=0) + 1
+
+                    ChittiMember.objects.create(
+                        group=assigned_group,
+                        member=member,
+                        token_no=next_token
+                    )
+
+                messages.success(request, f"Member '{member.name}' added successfully!")
+                # Reset form for a fresh entry on the same page
+                form = MemberAddForm(admin_user=request.user)
+                
+            except Exception as e:
+                # Catching global uniqueness errors (e.g., username already exists in Django User table)
+                messages.error(request, f"An error occurred: {str(e)}")
+        else:
+            # Form-level errors (like global unique constraints on the Member model)
+            messages.error(request, "Please correct the errors shown below.")
+            
     else:
         form = MemberAddForm(admin_user=request.user)
 
     return render(request, 'chitti/add_member.html', {'form': form})
-
 
 
 # -----------------------------
@@ -332,88 +444,67 @@ def member_delete(request, pk):
     return redirect('members:member_list')
 
 
+
+
+
 @login_required
 def member_details(request, pk):
-    member_record = get_object_or_404(
-        ChittiMember,
-        member__id=pk,
-        group__owner=request.user
-    )
-
-    member = member_record.member
+    # 1. Fetch the ChittiMember record
+    member_record = get_object_or_404(ChittiMember, id=pk, group__owner=request.user)
+    
     group = member_record.group
+    member_profile = member_record.member # The actual 'Member' object
 
-    duration_months = group.duration_months
-    collections_per_month = group.collections_per_month
-
-    # 🔥 IMPORTANT: filter by group also
-    payments = Payment.objects.filter(
-        member=member,
+    # Configuration
+    monthly_amount = float(group.monthly_amount)
+    duration = int(group.duration_months)
+    current_grp_month = int(group.current_month)
+    
+    # FIX: Use 'member' and 'group' instead of 'chitti_member'
+    # Based on your error, these are the correct keywords for your Payment model
+    all_payments = Payment.objects.filter(
+        member=member_profile, 
         group=group,
         payment_status='success'
-    ).order_by('paid_date')
-
-    # 💰 Total Paid
-    total_paid = payments.aggregate(total=Sum('amount'))['total'] or 0
-
-    # 💸 Total Kuri Amount
-    total_kuri_amount = group.total_amount
-
-    # 🔥 SAME LOGIC as member_history
-    total_due = max(total_kuri_amount - total_paid, 0)
-
-    # 📊 Collection Table Build
+    ).order_by('paid_date', 'created_at')
+    
+    # ... rest of your calculation logic ...
+    total_paid = float(all_payments.aggregate(total=Sum('amount'))['total'] or 0)
+    temp_balance = total_paid 
     payment_rows = []
 
-    start_year = group.start_date.year
-    start_month = group.start_date.month
+    for month in range(1, duration + 1):
+        target = monthly_amount
+        allocated = 0
+        
+        if temp_balance >= target:
+            allocated = target
+            temp_balance -= target
+            status = "Paid"
+        elif temp_balance > 0:
+            allocated = temp_balance
+            temp_balance = 0
+            status = "Partial"
+        else:
+            allocated = 0
+            status = "Pending"
 
-    from collections import defaultdict
-    month_payments_dict = defaultdict(list)
-
-    for p in payments:
-        month_no = (p.paid_date.year - start_year) * 12 + (p.paid_date.month - start_month) + 1
-        if month_no <= duration_months:
-            month_payments_dict[month_no].append(p)
-
-    for month in range(1, duration_months + 1):
-        month_payments = month_payments_dict.get(month, [])
-
-        for c_no in range(1, collections_per_month + 1):
-            if c_no <= len(month_payments):
-                p = month_payments[c_no - 1]
-                payment_rows.append({
-                    'month': month,
-                    'collection_no': c_no,
-                    'amount': p.amount,
-                    'paid_date': p.paid_date,
-                    'collector': p.collected_by.user.get_full_name() if p.collected_by and p.collected_by.user else "Admin",
-                    'status': 'Paid'
-                })
-            else:
-                payment_rows.append({
-                    'month': month,
-                    'collection_no': c_no,
-                    'amount': None,
-                    'paid_date': None,
-                    'collector': None,
-                    'status': 'Pending'
-                })
-
-    total_collections = duration_months * collections_per_month
-    collections_paid = sum(1 for row in payment_rows if row['status'] == 'Paid')
+        payment_rows.append({
+            'month': month,
+            'target': target,
+            'paid': allocated,
+            'balance': target - allocated,
+            'status': status,
+            'is_advance': month > current_grp_month and allocated > 0
+        })
 
     context = {
         'member': member_record,
         'payment_rows': payment_rows,
-
-        # ✅ Synced values
         'total_paid': total_paid,
-        'total_due': total_due,
-        'total_kuri_amount': total_kuri_amount,
-
-        'collections_paid': collections_paid,
-        'total_collections': total_collections,
+        'total_due': max(0, (current_grp_month * monthly_amount) - total_paid),
+        'recent_transactions': all_payments,
+        'total_collections': duration,
+        'collections_paid': sum(1 for p in payment_rows if p['status'] == 'Paid'),
     }
-
     return render(request, 'chitti/member_details.html', context)

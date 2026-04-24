@@ -1,30 +1,48 @@
-    {% extends "chitti/group_admin_base.html" %}
-    {% load static %}
+{% extends "chitti/group_admin_base.html" %}
+{% load static %}
 
-    {% block extra_head %}
-    <link rel="stylesheet" href="{% static 'group_admin/css/auction.css' %}">
-    {% endblock %}
+{% block title %}Active Groups | SmartKuri Pro{% endblock %}
 
-    {% block content %}
-    <div class="container mt-5">
-        <h2 class="section-title">Your Groups & Auctions</h2>
-        <ul class="group-list">
-            {% if groups %}
-                {% for group in groups %}
-                    <li class="group-item">
-                        <div class="group-info">
-                            <strong>{{ group.name }}</strong> ({{ group.duration_months }} Months)
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'group_admin/css/auctions_lists.css' %}">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="section-title">
+        <i class="fa-solid fa-layer-group fa-lg"></i> 
+        Your Active Chitti Groups
+    </h2>
+
+    <div class="group-list-wrapper">
+        {% if groups %}
+            {% for group in groups %}
+                <div class="group-row-card">
+                    <div class="group-main-info">
+                        <div class="group-name-text">{{ group.name }}</div>
+                        <div class="group-sub-text">
+                            <i class="fa-solid fa-calendar-days"></i> 
+                            {{ group.duration_months }} Months Plan
                         </div>
-                        <div class="group-action">
-                            <a href="{% url 'chitti:auction_list_group' group.id %}" class="view-auctions-btn">
-                                View Auctions & Spin 🎯
-                            </a>
-                        </div>
-                    </li>
-                {% endfor %}
-            {% else %}
-                <p>No Groups Found</p>
-            {% endif %}
-        </ul>
+                    </div>
+
+                    <div class="group-action">
+                        <a href="{% url 'chitti:auction_list_group' group.id %}" class="go-btn">
+                            <i class="fa-solid fa-gavel"></i> 
+                            Manage Auction
+                        </a>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-box">
+                <i class="fa-solid fa-inbox"></i>
+                <h4 class="fw-bold text-dark">No Active Groups Yet</h4>
+                <p class="mb-0">Create your first Chitti group to get started</p>
+            </div>
+        {% endif %}
     </div>
-    {% endblock %}
+</div>
+{% endblock %}

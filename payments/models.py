@@ -1,29 +1,45 @@
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 from accounts.models import StaffProfile
 from chitti.models import ChittiGroup
-from subscriptions.models import SubscriptionPlan
 from members.models import Member
-from datetime import timedelta, datetime
 import uuid, random
+from datetime import datetime
 
+
+# ----------------------------
+# INSTALLMENT MODEL
+# ----------------------------
+class Installment(models.Model):
+    member = models.ForeignKey(Member, on_delete=models.CASCADE, related_name='installments')
+    group = models.ForeignKey(ChittiGroup, on_delete=models.CASCADE)
+    month = models.DateField()
+    amount_due = models.DecimalField(max_digits=10, decimal_places=2)
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('partial', 'Partial'),
+        ('paid', 'Paid'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+
+    class Meta:
+        ordering = ['month']
+
+    def __str__(self):
+        return f"{self.member.name} - {self.month.strftime('%B %Y')} - {self.status}"
+
+
+# ----------------------------
+# PAYMENT MODEL
+# ----------------------------
 class Payment(models.Model):
-    member = models.ForeignKey(
-        Member,
-        on_delete=models.CASCADE,
-        related_name='collections',
-        null=True,
-        blank=True
-    )
-    collected_by = models.ForeignKey(
-        StaffProfile,
-        on_delete=models.CASCADE
-    )
-    group = models.ForeignKey(ChittiGroup, on_delete=models.SET_NULL, null=True, blank=True)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    member = models.ForeignKey(Member, on_delete=models.CASCADE, related_name='collections', null=True)
+    group = models.ForeignKey(ChittiGroup, on_delete=models.CASCADE, null=True)
 
-    # New field: collection number per month
-    collection_number = models.PositiveSmallIntegerField(null=True, blank=True)
+    collected_by = models.ForeignKey(StaffProfile, on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
 
     PAYMENT_METHODS = [
         ('razorpay', 'Razorpay'),
@@ -40,46 +56,127 @@ class Payment(models.Model):
     ]
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS, default='success')
 
-    subscription_plan = models.ForeignKey(
-        SubscriptionPlan, on_delete=models.SET_NULL, null=True, blank=True
-    )
-    subscription_start = models.DateField(null=True, blank=True)
-    subscription_end = models.DateField(null=True, blank=True)
-
     paid_date = models.DateField(default=timezone.now)
     paid_time = models.TimeField(auto_now_add=True)
 
     transaction_id = models.CharField(max_length=50, unique=True, blank=True)
     invoice_number = models.CharField(max_length=50, unique=True, blank=True)
 
+    # collector → admin flow
+    sent_to_admin = models.BooleanField(default=False)
+
+    # old compatibility
+    received_by_admin = models.BooleanField(default=False)
+
+    ADMIN_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+
+    admin_status = models.CharField(
+        max_length=10,
+        choices=ADMIN_STATUS_CHOICES,
+        default='pending'
+    )
+
+     # 🔔 NEW FIELD (IMPORTANT)
+    is_seen = models.BooleanField(default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    # ✅ New fields for admin approval flow
-    sent_to_admin = models.BooleanField(default=False)      # marked by collector
-    received_by_admin = models.BooleanField(default=False)  # marked by admin
 
+    # ----------------------------
+    # SAVE (NO AUTO ALLOCATION HERE ❌)
+    # ----------------------------
     def save(self, *args, **kwargs):
-        creating = self.pk is None
+        is_new = self.pk is None
 
         if not self.transaction_id:
             self.transaction_id = uuid.uuid4().hex[:12].upper()
+
         if not self.invoice_number:
-            now = datetime.now()
-            self.invoice_number = f"INV{now.strftime('%Y%m%d')}{random.randint(1000,9999)}"
+            self.invoice_number = f"INV{datetime.now().strftime('%Y%m%d')}{random.randint(1000,9999)}"
+
+        # sync
+        self.received_by_admin = (self.admin_status == 'approved')
 
         super().save(*args, **kwargs)
 
-        # Auto subscription dates
-        if creating and self.payment_status == 'success' and self.subscription_plan and self.group:
-            start_date = timezone.now().date()
-            end_date = start_date + timedelta(days=self.subscription_plan.duration_days)
-            Payment.objects.filter(pk=self.pk).update(
-                subscription_start=start_date,
-                subscription_end=end_date
-            )
+        # ❌ IMPORTANT: DO NOT allocate here anymore
+
+
+    # ----------------------------
+    # ALLOCATION (ONLY APPROVE TIME)
+    # ----------------------------
+    def allocate_payment(self):
+        remaining = self.amount
+
+        installments = Installment.objects.filter(
+            member=self.member,
+            group=self.group,
+            status__in=['pending', 'partial']
+        ).order_by('month')
+
+        with transaction.atomic():
+            for inst in installments:
+                if remaining <= 0:
+                    break
+
+                due = inst.amount_due - inst.amount_paid
+                if due <= 0:
+                    continue
+
+                pay_amount = min(remaining, due)
+
+                inst.amount_paid += pay_amount
+                inst.status = 'paid' if inst.amount_paid >= inst.amount_due else 'partial'
+                inst.save()
+
+                PaymentAllocation.objects.create(
+                    payment=self,
+                    installment=inst,
+                    amount=pay_amount
+                )
+
+                remaining -= pay_amount
+
+
+    # ----------------------------
+    # REVERSE (ON REJECT)
+    # ----------------------------
+    def reverse_allocation(self):
+        allocations = self.allocations.all()
+
+        with transaction.atomic():
+            for alloc in allocations:
+                inst = alloc.installment
+
+                inst.amount_paid -= alloc.amount
+
+                if inst.amount_paid <= 0:
+                    inst.amount_paid = 0
+                    inst.status = 'pending'
+                elif inst.amount_paid < inst.amount_due:
+                    inst.status = 'partial'
+
+                inst.save()
+
+            allocations.delete()
+
 
     def __str__(self):
-        member_name = self.member.name if self.member else "No Member"
-        coll = f" (Collection #{self.collection_number})" if self.collection_number else ""
-        return f"{member_name} - ₹{self.amount}{coll} ({self.payment_status})"
+        return f"{self.member.name if self.member else 'No Member'} - ₹{self.amount}"
+
+
+# ----------------------------
+# PAYMENT ALLOCATION MODEL
+# ----------------------------
+class PaymentAllocation(models.Model):
+    payment = models.ForeignKey(Payment, on_delete=models.CASCADE, related_name='allocations')
+    installment = models.ForeignKey(Installment, on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.amount} → {self.installment}"

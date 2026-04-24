@@ -53,104 +53,143 @@ def group_payment_list(request):
         'total_collector_collected': total_collector_collected,
         'total_admin_collected': total_admin_collected,
     })
-
-
-from django.utils import timezone
-
 @group_admin_required
 @transaction.atomic
 def group_payment_create(request):
     user = request.user
-    selected_group = request.GET.get("group")
-    paid_date = timezone.now().date()
+    staff_profile = getattr(user, 'staffprofile', None) 
+    
+    selected_group_id = request.POST.get("group") or request.GET.get("group")
+    admin_groups = ChittiGroup.objects.filter(owner=user)
+    group = None
+    member_data = []
+
+    if selected_group_id and selected_group_id.isdigit():
+        group = admin_groups.filter(id=selected_group_id).first()
 
     if request.method == "POST":
         form = PaymentForm(request.POST, user=user)
+
         if form.is_valid():
-            payment = form.save(commit=False)
-            member = payment.member
-            chitti_member = get_object_or_404(
-                ChittiMember,
-                member=member,
-                group_id=selected_group
-            )
-            group = chitti_member.group
+            try:
+                if not group:
+                    messages.error(request, "Group not found.")
+                    return redirect(request.path)
 
-            # Amount per collection
-            collection_amount = group.monthly_amount / group.collections_per_month
+                payment = form.save(commit=False)
+                chitti_member_instance = form.cleaned_data.get('chitti_member')
+                
+                payment.member = chitti_member_instance.member
+                payment.group = group
+                
+                if staff_profile:
+                    payment.collected_by = staff_profile
+                else:
+                    messages.error(request, "Collector profile not found.")
+                    return redirect(request.path)
 
-            # Payments done this month
-            existing_numbers = Payment.objects.filter(
-                member=member,
-                paid_date__year=paid_date.year,
-                paid_date__month=paid_date.month,
-                payment_status="success",
-                group=group
-            ).values_list('collection_number', flat=True)
+                # 🔒 TOTAL LIMIT LOGIC
+                total_months = int(group.duration_months)
+                monthly_rate = float(group.monthly_amount)
+                full_total_amount = total_months * monthly_rate
 
-            if len(existing_numbers) >= group.collections_per_month:
-                messages.error(
+                actual_paid = float(Payment.objects.filter(
+                    member=payment.member,
+                    group=group,
+                    payment_status='success'
+                ).aggregate(Sum('amount'))['amount__sum'] or 0)
+
+                new_amount = float(payment.amount)
+                remaining = full_total_amount - actual_paid
+
+                # ❌ Already completed
+                if actual_paid >= full_total_amount:
+                    messages.error(
+                        request,
+                        f"{payment.member.name} already completed full payment (₹{full_total_amount})."
+                    )
+                    return redirect(f"{request.path}?group={selected_group_id}")
+
+                # 🔥 Auto adjust last payment
+                if new_amount > remaining:
+                    new_amount = remaining
+
+                payment.amount = new_amount
+
+                # ✅ SAVE + 🔔 NOTIFICATION FIX
+                payment.payment_status = 'success'
+                payment.sent_to_admin = True        # 🔥 IMPORTANT
+                payment.admin_status = 'pending'    # 🔥 IMPORTANT
+                payment.is_seen = False             # 🔥 IMPORTANT
+
+                payment.save()
+
+                messages.success(
                     request,
-                    f"{member.name} already completed collections for {paid_date.strftime('%B %Y')}!"
+                    f"Payment of ₹{payment.amount} recorded for {payment.member.name}"
                 )
-                return redirect("payments:group_payment_create")
+                return redirect(f"{request.path}?group={selected_group_id}")
 
-            remaining_numbers = [i for i in range(1, group.collections_per_month+1) if i not in existing_numbers]
-            payment.collection_number = remaining_numbers[0]
-            payment.amount = collection_amount
-            payment.group = group
-            payment.collected_by = user.staffprofile
-            payment.payment_status = "success"
-            payment.received_by_admin = True
-            payment.save()
-
-            messages.success(
-                request,
-                f"₹{collection_amount} payment added for {member.name} (Collection #{payment.collection_number})"
-            )
-            return redirect("payments:group_payment_create")
-
+            except Exception as e:
+                messages.error(request, f"Database Error: {str(e)}")
+        else:
+            messages.error(request, f"Form Error: {form.errors}")
     else:
-        form = PaymentForm(user=user, initial_group=selected_group)
+        form = PaymentForm(user=user)
 
-    # --- Prepare members for dropdown with extra info ---
-    members = ChittiMember.objects.filter(group_id=selected_group) if selected_group else []
-    member_collections_options = {}
-    member_data = []
+    # ===== STATUS LOGIC =====
+    if group:
+        current_month_no = int(group.current_month)
+        monthly_rate = float(group.monthly_amount)
+        total_expected_to_date = current_month_no * monthly_rate
 
-    for ch_member in members:
-        existing_numbers = Payment.objects.filter(
-            member=ch_member.member,
-            paid_date__year=paid_date.year,
-            paid_date__month=paid_date.month,
-            payment_status="success",
-            group=ch_member.group
-        ).values_list('collection_number', flat=True)
+        group_members = ChittiMember.objects.filter(group=group).select_related('member')
 
-        max_collections = ch_member.group.collections_per_month
-        remaining_numbers = [i for i in range(1, max_collections+1) if i not in existing_numbers]
-        member_collections_options[ch_member.member.id] = remaining_numbers
+        for cm in group_members:
+            actual_paid = float(Payment.objects.filter(
+                member=cm.member, 
+                group=group, 
+                payment_status='success'
+            ).aggregate(Sum('amount'))['amount__sum'] or 0)
 
-        # Send monthly_amount and collections to template for JS
-        member_data.append({
-            "id": ch_member.id,
-            "member_id": ch_member.member.id,
-            "name": ch_member.member.name,
-            "monthly_amount": ch_member.group.monthly_amount,
-            "collections": ch_member.group.collections_per_month
-        })
+            months_covered = int(actual_paid // monthly_rate)
+            next_installment = months_covered + 1
 
-    return render(
-        request,
-        "chitti/payment_form.html",
-        {
-            "form": form,
-            "selected_group": selected_group,
-            "members": member_data,
-            "member_collections_options": member_collections_options,
-        }
-    )
+            pending = max(0, total_expected_to_date - actual_paid)
+            advance = max(0, actual_paid - total_expected_to_date)
 
+            full_total_amount = float(group.total_amount)
+
+            # 🔥 STATUS
+            if actual_paid >= full_total_amount:
+                status_label = "Completed ✅"
+                is_advance_mode = False
+            elif pending > 0:
+                status_label = f"Due: ₹{pending:.2f}"
+                is_advance_mode = False
+            else:
+                status_label = f"Advance: ₹{advance:.2f} (Month {next_installment} Next)"
+                is_advance_mode = True
+
+            member_data.append({
+                "id": cm.id,
+                "name": cm.member.name,
+                "monthly_target": monthly_rate,
+                "total_paid": actual_paid,
+                "pending": pending,
+                "advance": advance,
+                "next_installment": next_installment,
+                "status_label": status_label,
+                "is_advance_mode": is_advance_mode,
+                "is_completed": actual_paid >= full_total_amount,
+            })
+
+    return render(request, "chitti/payment_form.html", {
+        "form": form,
+        "admin_groups": admin_groups,
+        "selected_group": selected_group_id,
+        "members": member_data,
+    })
 # ==============================
 # EDIT PAYMENT
 # ==============================

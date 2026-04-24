@@ -2,123 +2,141 @@
 {% load static %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'group_admin/css/auction_list.css' %}">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<link rel="stylesheet" href="{% static 'group_admin/css/auction_grups.css' %}">
 {% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="table-container">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Month</th>
-                    <th>Date</th>
-                    <th>Status</th>
-                    <th>Winner</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-
-            <tbody>
-                {% for m in months %}
-                    <tr>
-
-                        <!-- Month -->
-                        <td>Month {{ m.month_no }}</td>
-
-                        <!-- ✅ DATE -->
-                        <td>
-                            {% if not m.is_auction_month %}
-                                -
-                            {% elif m.auctions %}
-                                {% for auction in m.auctions %}
-                                    <div>{{ auction.auction_date|date:"d M Y" }}</div>
-                                {% endfor %}
-                            {% else %}
-                                <span style="color:#888;">
-                                    {{ m.auto_date|date:"d M Y" }}
-                                </span>
-                            {% endif %}
-                        </td>
-
-                        <!-- ✅ STATUS -->
-                        <td>
-                            {% if not m.is_auction_month %}
-                                <span class="month-badge disabled">No Auction</span>
-
-                            {% elif m.auctions %}
-                                {% for auction in m.auctions %}
-                                    <div>
-                                        {% if auction.is_closed %}
-                                            <span class="month-badge done">Done</span>
-                                        {% else %}
-                                            <span class="month-badge current">Upcoming</span>
-                                        {% endif %}
-                                    </div>
-                                {% endfor %}
-
-                            {% else %}
-                                <span class="month-badge pending">Scheduled</span>
-                            {% endif %}
-                        </td>
-
-                        <!-- ✅ WINNER -->
-                        <td>
-                            {% if not m.is_auction_month %}
-                                -
-                            {% elif m.auctions %}
-                                {% for auction in m.auctions %}
-                                    <div>
-                                        {% if auction.winner %}
-                                            {{ auction.winner.member.name }}
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </div>
-                                {% endfor %}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
-
-                        <!-- ✅ ACTION -->
-                        <td>
-                            {% if not m.is_auction_month %}
-                                -
-
-                            {% elif m.auctions %}
-                                {% for auction in m.auctions %}
-                                    <div class="action-buttons" style="margin-bottom:5px;">
-                                        
-                                        <a class="action-btn view-btn"
-                                           href="{% url 'chitti:auction_detail' auction.id %}">
-                                           View
-                                        </a>
-
-                                        {% if not auction.is_closed %}
-                                            <a class="action-btn edit-btn"
-                                               href="{% url 'chitti:auction_spin' auction.id %}">
-                                               Spin
-                                            </a>
-                                        {% else %}
-                                            <span class="status-badge">Closed</span>
-                                        {% endif %}
-
-                                    </div>
-                                {% endfor %}
-
-                            {% else %}
-                                <!-- 🔥 FUTURE AUCTION -->
-                                <span class="month-badge pending">Waiting</span>
-                            {% endif %}
-                        </td>
-
-                    </tr>
-                {% endfor %}
-            </tbody>
-
-        </table>
+<div class="dashboard-container">
+    <div class="page-header">
+        <h2>Auction Master Schedule</h2>
+        <p>Group #{{ group.id }} • Full Lifecycle Tracker</p>
     </div>
 
+    <div class="group-list-wrapper">
+        {% for m in months %}
+        <div class="group-row-card">
+            <div class="month-title">
+                <span class="status-dot" style="background: {% if m.auctions %}var(--success){% else %}var(--warning){% endif %}; box-shadow: 0 0 12px {% if m.auctions %}var(--success){% else %}var(--warning){% endif %};"></span>
+                <div style="display: flex; flex-direction: column;">
+                    <span style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Timeline</span>
+                    Month {{ m.month_no }}
+                </div>
+            </div>
+
+            <div class="d-flex flex-column gap-2">
+                <div class="date-section">
+                    {% if m.auctions %}
+                        {% for a in m.auctions %}
+                            <div id="display-{{ a.id }}" class="date-display">
+                                <span class="material-icons-round" style="font-size: 18px; color: var(--secondary);">calendar_today</span>
+                                <span>{{ a.auction_date|date:"d M Y" }}</span>
+                                {% if not a.is_closed %}
+                                    <span class="material-icons-round edit-trigger" onclick="toggleEdit('{{ a.id }}')">edit_calendar</span>
+                                {% endif %}
+                            </div>
+                            
+                            <form action="{% url 'chitti:edit_auction_dates' group.id %}" method="POST" id="form-{{ a.id }}" class="inline-edit-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="auction_id" value="{{ a.id }}">
+                                <input type="date" name="new_date" class="form-date-input" value="{{ a.auction_date|date:'Y-m-d' }}">
+                                <button type="submit" class="border-0 bg-transparent text-success p-0"><span class="material-icons-round">check_circle</span></button>
+                                <button type="button" class="border-0 bg-transparent text-danger p-0" onclick="toggleEdit('{{ a.id }}')"><span class="material-icons-round">cancel</span></button>
+                            </form>
+                        {% endfor %}
+                    {% else %}
+                        <div class="date-display" style="opacity: 0.5; border-style: dashed;">
+                            <span class="material-icons-round" style="font-size: 18px;">schedule</span>
+                            {{ m.auto_date|date:"d M Y" }} (Auto)
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="winner-section">
+                    {% if m.auctions %}
+                        {% for a in m.auctions %}
+                            {% if a.winner %}
+                                <div class="winner-box">
+                                    <span class="material-icons-round" style="font-size: 16px;">emoji_events</span>
+                                    <span>{{ a.winner.member.name }}</span>
+                                </div>
+                            {% else %}
+                                <span class="no-winner">Winner: Pending Auction</span>
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <span class="no-winner">Not scheduled</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="text-center">
+                {% if m.auctions %}
+                    {% for a in m.auctions %}
+                        <span class="badge-pill {% if a.is_closed %}badge-success{% else %}badge-upcoming{% endif %}">
+                            {% if a.is_closed %}Closed{% else %}Upcoming{% endif %}
+                        </span>
+                    {% endfor %}
+                {% else %}
+                    <span class="badge-pill" style="color: var(--text-secondary);">Empty</span>
+                {% endif %}
+            </div>
+
+            <div class="d-flex justify-content-end gap-2">
+                {% if m.auctions %}
+                    {% for a in m.auctions %}
+                        <a href="{% url 'chitti:auction_detail' a.id %}" class="btn-premium">
+                            <span class="material-icons-round" style="font-size: 18px;">visibility</span> View
+                        </a>
+                        {% if not a.is_closed %}
+                        <a href="{% url 'chitti:auction_spin' a.id %}" class="btn-premium" style="border-color: var(--primary); color: var(--primary);">
+                            <span class="material-icons-round" style="font-size: 18px;">autorenew</span> Spin
+                        </a>
+                        {% endif %}
+                    {% endfor %}
+                {% elif m.is_auction_month %}
+                    <form action="{% url 'chitti:edit_auction_dates' group.id %}" method="POST" class="d-flex gap-2">
+                        {% csrf_token %}
+                        <input type="hidden" name="month_no" value="{{ m.month_no }}">
+                        <input type="date" name="new_date" class="form-date-input border rounded px-2" value="{{ m.auto_date|date:'Y-m-d' }}" required style="font-size: 0.8rem; border-color: var(--glass-border) !important;">
+                        <button type="submit" class="btn-premium btn-confirm">SET DATE</button>
+                    </form>
+                {% else %}
+                    <span class="text-secondary small">Locked</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
 </div>
+
+<script>
+    function toggleEdit(id) {
+        const displayDiv = document.getElementById('display-' + id);
+        const formDiv = document.getElementById('form-' + id);
+        
+        if (formDiv.style.display === 'flex') {
+            formDiv.style.display = 'none';
+            displayDiv.style.display = 'flex';
+        } else {
+            formDiv.style.display = 'flex';
+            displayDiv.style.display = 'none';
+        }
+    }
+
+    document.querySelectorAll('form').forEach(form => {
+        form.onsubmit = function() {
+            Swal.fire({
+                title: 'Saving Schedule...',
+                background: '#161c26',
+                color: '#fff',
+                showConfirmButton: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+        };
+    });
+</script>
 {% endblock %}

@@ -5,20 +5,209 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>{% block title %}Group Admin Panel{% endblock %}</title>
+    <title>₹ {% block title %}Group Admin Panel{% endblock %} - SmartKuri</title>
+
+    <link rel="icon" type="image/x-icon" href="{% static 'images/favicon.ico' %}">
+    <link rel="shortcut icon" href="{% static 'images/favicon.ico' %}">
+
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'images/favicon-32x32.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'images/favicon-16x16.png' %}">
+    
+    <link rel="apple-touch-icon" href="{% static 'images/apple-touch-icon.png' %}">
+    <link rel="manifest" href="{% static 'images/site.webmanifest' %}">
+
+    <meta name="theme-color" content="#4f46e5">
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- Base CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+
     <link rel="stylesheet" href="{% static 'group_admin/css/group_admin_base.css' %}">
+
+    <style>
+        /* 🔔 NOTIFICATION SYSTEM STYLES */
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        .notif-wrapper {
+            position: relative;
+            margin-right: 20px;
+        }
+
+        .notif-bell-btn {
+            background: #f3f4f6;
+            border: none;
+            width: 45px;
+            height: 45px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.3s;
+            position: relative;
+            color: #4b5563;
+        }
+
+        .notif-bell-btn:hover {
+            background: #e5e7eb;
+            color: #2563eb;
+        }
+
+        .notif-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ef4444;
+            color: white;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 50px;
+            border: 2px solid white;
+        }
+
+        .pulse-dot {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 12px;
+            height: 12px;
+            background: #ef4444;
+            border-radius: 50%;
+            animation: pulse-red 2s infinite;
+        }
+
+        @keyframes pulse-red {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        .notif-dropdown {
+            position: absolute;
+            top: 55px;
+            right: 0;
+            width: 320px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            display: none;
+            z-index: 9999;
+            overflow: hidden;
+            border: 1px solid #f3f4f6;
+        }
+
+        .notif-dropdown.show {
+            display: block;
+        }
+
+        .notif-header {
+            padding: 15px;
+            background: #f9fafb;
+            border-bottom: 1px solid #f3f4f6;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn-clear-all {
+            font-size: 11px;
+            color: #ef4444;
+            text-decoration: none;
+            padding: 5px 8px;
+            border-radius: 6px;
+            transition: 0.2s;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+        }
+
+        .btn-clear-all:hover {
+            background: #fee2e2;
+        }
+
+        .notif-item {
+            padding: 15px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            border-bottom: 1px solid #f9fafb;
+            transition: 0.2s;
+            text-decoration: none;
+            color: inherit;
+            position: relative;
+        }
+
+        .notif-item:hover {
+            background: #f0f7ff;
+        }
+
+        .btn-dismiss {
+            position: absolute;
+            right: 10px;
+            top: 15px;
+            background: none;
+            border: none;
+            color: #d1d5db;
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.2s;
+        }
+
+        .btn-dismiss:hover {
+            color: #ef4444;
+        }
+
+        .notif-icon-circle {
+            background: #dcfce7;
+            color: #16a34a;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .notif-text p {
+            margin: 0;
+            font-size: 13px;
+            line-height: 1.4;
+            padding-right: 20px;
+        }
+
+        .notif-time {
+            font-size: 11px;
+            color: #9ca3af;
+            margin-top: 4px;
+        }
+
+        .view-all-btn {
+            display: block;
+            text-align: center;
+            padding: 12px;
+            font-size: 13px;
+            font-weight: bold;
+            color: #2563eb;
+            background: #f9fafb;
+            text-decoration: none;
+        }
+    </style>
 
     {% block extra_head %}{% endblock %}
 </head>
 
 <body>
 
-<!-- ================= SIDEBAR ================= -->
 <div class="sidebar">
     <div class="sidebar-header">
         <div class="logo-icon"><i class="fas fa-users-cog"></i></div>
@@ -26,7 +215,6 @@
     </div>
 
     <div class="sidebar-menu">
-
         <a href="{% url 'accounts:group_admin_dashboard' %}" class="sidebar-link active">
             <i class="fas fa-tachometer-alt"></i><span>Dashboard</span>
         </a>
@@ -35,84 +223,169 @@
             <i class="fas fa-user-circle"></i><span>Profile</span>
         </a>
 
-        <!-- Groups -->
         <div class="sidebar-item">
             <button class="toggle"><i class="fas fa-layer-group"></i><span>Groups</span></button>
             <div class="submenu">
                 <a href="{% url 'chitti:group_management' %}" class="submenu-link"><i class="fas fa-list"></i>Group List</a>
                 <a href="{% url 'chitti:add_group' %}" class="submenu-link"><i class="fas fa-plus-circle"></i>Create Group</a>
-                <a href="#" class="submenu-link"><i class="fas fa-chart-bar"></i>Reports</a>
             </div>
         </div>
 
-        <!-- Members -->
         <div class="sidebar-item">
             <button class="toggle"><i class="fas fa-users"></i><span>Members</span></button>
             <div class="submenu">
                 <a href="{% url 'members:member_list' %}" class="submenu-link"><i class="fas fa-list"></i>Member List</a>
                 <a href="{% url 'members:member_create' %}" class="submenu-link"><i class="fas fa-user-plus"></i>Create Member</a>
-
+                
                 {% if request.user.is_authenticated and request.user.staffprofile.role == "group_admin" %}
-                <a href="{% url 'chitti:cash_collector_list' %}" class="submenu-link">
-                    <i class="fas fa-hand-holding-usd"></i>Cash Collector List
-                </a>
-                <a href="{% url 'chitti:create_cash_collector' %}" class="submenu-link">
-                    <i class="fas fa-user-tie"></i>Add Cash Collector
-                </a>
+                <a href="{% url 'chitti:cash_collector_list' %}" class="submenu-link"><i class="fas fa-hand-holding-usd"></i>Collector List</a>
+                <a href="{% url 'chitti:create_cash_collector' %}" class="submenu-link"><i class="fas fa-user-tie"></i>Add Collector</a>
                 {% endif %}
-
-                <a href="#" class="submenu-link"><i class="fas fa-chart-bar"></i>Reports</a>
             </div>
         </div>
 
-        <!-- Collections -->
         <div class="sidebar-item">
             <button class="toggle"><i class="fas fa-money-check-alt"></i><span>Collections</span></button>
             <div class="submenu">
                 <a href="{% url 'payments:group_payment_create' %}" class="submenu-link"><i class="fas fa-plus-circle"></i>Add Collection</a>
-                <a href="{% url 'payments:group_payment_list' %}" class="submenu-link"><i class="fas fa-history"></i>Collection History</a>
-                <a href="{% url 'chitti:admin_pending_payments' %}" class="submenu-link"><i class="fas fa-hourglass-half"></i>Pending Payments</a>
+                <a href="{% url 'payments:group_payment_list' %}" class="submenu-link"><i class="fas fa-history"></i>History</a>
+                <a href="{% url 'chitti:admin_pending_payments' %}" class="submenu-link"><i class="fas fa-hourglass-half"></i>Pending Approvals</a>
             </div>
         </div>
 
-        <!-- Auctions -->
-        <div class="sidebar-item">
-            <button class="toggle"><i class="fas fa-gavel"></i><span>Auctions</span></button>
-            <div class="submenu">
-                <a href="{% url 'chitti:auction_list' %}" class="submenu-link"><i class="fas fa-list"></i>Auction List</a>
-            </div>
-        </div>
+        <a href="{% url 'chitti:auction_list' %}" class="sidebar-link">
+            <i class="fas fa-gavel"></i><span>Auction</span>
+        </a>
 
         <a href="{% url 'accounts:logout' %}" class="sidebar-link logout-link">
             <i class="fas fa-sign-out-alt"></i>Logout
         </a>
-
     </div>
 </div>
 
-<!-- ================= MAIN CONTENT ================= -->
 <div class="main">
 
     <div class="main-header">
-        <div class="welcome-section">
-            <h2>
-                Welcome back, {{ request.user.get_full_name|default:request.user.username }}
-            </h2>
-            <p>Here's what's happening with your groups today</p>
+        <div class="header-container">
+            <div class="welcome-section">
+                <h2>Welcome back, {{ request.user.get_full_name|default:request.user.username }}</h2>
+                <p>System is running smooth today</p>
+            </div>
+
+            <div class="notif-wrapper">
+                <button class="notif-bell-btn" id="bellBtn">
+                    <i class="fas fa-bell"></i>
+                    {% if total_pending_count > 0 %}
+                        <span class="pulse-dot" id="pulseDot"></span>
+                        <span class="notif-badge" id="mainBadge">{{ total_pending_count }}</span>
+                    {% endif %}
+                </button>
+
+                <div class="notif-dropdown animate__animated animate__fadeInUp" id="notifDropdown">
+                    <div class="notif-header">
+                        <span>Notifications</span>
+                        <span id="clearAllContainer">
+                            {% if total_pending_count > 0 %}
+                                <button onclick="clearAllNotifications()" class="btn-clear-all">
+                                    <i class="fas fa-trash-alt"></i> Clear All
+                                </button>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="notif-body" id="notifBody">
+                        {% if total_pending_count > 0 %}
+                        <div class="notif-item" id="notif_cash_handover">
+                            <div class="notif-icon-circle">
+                                <i class="fas fa-hand-holding-dollar"></i>
+                            </div>
+                            <div class="notif-text">
+                                <a href="{% url 'chitti:admin_pending_payments' %}" style="text-decoration: none; color: inherit;">
+                                    <p><strong>{{ total_pending_count }} Cash Handover</strong> pending your approval.</p>
+                                    <p style="color:#16a34a; font-weight:bold;">Amount: ₹{{ pending_total_amount }}</p>
+                                </a>
+                                <div class="notif-time">Just now</div>
+                            </div>
+                            <button class="btn-dismiss" onclick="dismissNotif('notif_cash_handover')">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        {% else %}
+                        <div style="padding: 30px; text-align: center; color: #9ca3af;">
+                            <i class="fas fa-check-circle" style="font-size: 30px; margin-bottom: 10px;"></i>
+                            <p>No pending approvals</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <a href="{% url 'chitti:admin_pending_payments' %}" class="view-all-btn">View All History</a>
+                </div>
+            </div>
         </div>
     </div>
 
-    {% block content %}
-    <p>Dashboard Content Goes Here</p>
-    {% endblock %}
+    <div class="content-body" style="padding: 25px;">
+        {% block content %}
+        {% endblock %}
+    </div>
 
 </div>
 
-<!-- ================= SIDEBAR TOGGLE JS ================= -->
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const toggles = document.querySelectorAll('.toggle');
+// 🔥 AJAX CLEAR ALL NOTIFICATIONS
+function clearAllNotifications() {
+    // API Call to backend
+    fetch("{% url 'chitti:clear_all_notifications' %}", {
+        method: "GET",
+        headers: {
+            "X-Requested-With": "XMLHttpRequest"
+        }
+    })
+    .then(response => {
+        // UI Instant Update
+        const body = document.getElementById('notifBody');
+        const badge = document.getElementById('mainBadge');
+        const pulse = document.getElementById('pulseDot');
+        const clearBtn = document.getElementById('clearAllContainer');
 
+        if (badge) badge.style.display = 'none';
+        if (pulse) pulse.style.display = 'none';
+        if (clearBtn) clearBtn.innerHTML = ''; // Remove Clear All button
+
+        body.innerHTML = `
+            <div style="padding: 30px; text-align: center; color: #9ca3af;">
+                <i class="fas fa-check-circle" style="font-size: 30px; margin-bottom: 10px;"></i>
+                <p>No pending approvals</p>
+            </div>
+        `;
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+// Function to visually remove single notification
+function dismissNotif(id) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.classList.add('animate__animated', 'animate__fadeOutRight');
+        setTimeout(() => {
+            element.remove();
+            const body = document.getElementById('notifBody');
+            if (!body.querySelector('.notif-item')) {
+                const badge = document.getElementById('mainBadge');
+                const pulse = document.getElementById('pulseDot');
+                const clearBtn = document.getElementById('clearAllContainer');
+                
+                if (badge) badge.style.display = 'none';
+                if (pulse) pulse.style.display = 'none';
+                if (clearBtn) clearBtn.innerHTML = '';
+
+                body.innerHTML = '<div style="padding: 30px; text-align: center; color: #9ca3af;"><i class="fas fa-check-circle" style="font-size: 30px; margin-bottom: 10px;"></i><p>No pending approvals</p></div>';
+            }
+        }, 500);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    // 1. Sidebar Submenu Logic
+    const toggles = document.querySelectorAll('.toggle');
     toggles.forEach(toggle => {
         toggle.addEventListener('click', () => {
             const submenu = toggle.nextElementSibling;
@@ -126,6 +399,35 @@ document.addEventListener('DOMContentLoaded', function () {
                 toggle.classList.add('active');
             }
         });
+    });
+
+    // 2. Notification Dropdown Toggle
+    const bellBtn = document.getElementById('bellBtn');
+    const notifDropdown = document.getElementById('notifDropdown');
+
+    bellBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        notifDropdown.classList.toggle('show');
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!notifDropdown.contains(e.target) && e.target !== bellBtn) {
+            notifDropdown.classList.remove('show');
+        }
+    });
+
+    // 3. Highlight Active Sidebar Link
+    const currentUrl = window.location.href;
+    const links = document.querySelectorAll('.sidebar-link, .submenu-link');
+    links.forEach(link => {
+        if (currentUrl.includes(link.getAttribute('href')) && link.getAttribute('href') !== "#") {
+            link.classList.add('active');
+            const parentSubmenu = link.closest('.submenu');
+            if (parentSubmenu) {
+                parentSubmenu.style.display = 'block';
+                parentSubmenu.previousElementSibling.classList.add('active');
+            }
+        }
     });
 });
 </script>

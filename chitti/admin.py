@@ -1,16 +1,25 @@
-from django.contrib import admin
-from django.urls import path
-from django.shortcuts import render, get_object_or_404
-from django.utils.html import format_html
-from .models import ChittiGroup, ChittiMember, Auction
 import random
 from datetime import date
+from django.contrib import admin
+from django.utils.html import format_html
+from django.urls import path, reverse
+from django.shortcuts import get_object_or_404, render
+from .models import ChittiGroup, ChittiMember, Auction
 
 @admin.register(ChittiGroup)
 class ChittiGroupAdmin(admin.ModelAdmin):
-    list_display = ('name', 'total_amount', 'duration_months', 'monthly_amount', 'start_date', 'view_spin')
+    list_display = ('name', 'total_amount', 'duration_months', 'monthly_amount', 'start_date', 'view_spin_btn')
     
-    # Add custom admin URL for spin
+    # Fields marked as editable=False in the model MUST be in readonly_fields
+    readonly_fields = ('total_amount', 'code')
+    
+    fields = (
+        'name', 'phone', 'email', 'owner', 'parent_group', 
+        'monthly_amount', 'duration_months', 'auction_type', 
+        'auctions_per_month', 'auction_interval_months', 
+        'start_date', 'collector', 'is_active', 'total_amount', 'code'
+    )
+
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
@@ -18,42 +27,61 @@ class ChittiGroupAdmin(admin.ModelAdmin):
         ]
         return custom_urls + urls
 
-    # Button to go to spin page
-    def view_spin(self, obj):
-        return format_html('<a class="button" href="spin/{}/">Spin Members</a>', obj.id)
-    view_spin.short_description = 'Spin Members'
-    view_spin.allow_tags = True
+    def view_spin_btn(self, obj):
+        url = reverse('admin:chitti-spin', args=[obj.id])
+        return format_html('<a class="button" style="background-color: #79aec8; color: white; padding: 5px 10px; border-radius: 4px;" href="{}">Spin Members</a>', url)
+    
+    view_spin_btn.short_description = 'Auction Action'
 
-    # Spin view
     def spin_view(self, request, group_id):
         group = get_object_or_404(ChittiGroup, id=group_id)
-        members = ChittiMember.objects.filter(group=group)
+        
+        # Get members who haven't won yet
+        past_winners_ids = Auction.objects.filter(
+            group=group, 
+            winner__isnull=False
+        ).values_list('winner_id', flat=True)
+        
+        eligible_members = ChittiMember.objects.filter(group=group).exclude(id__in=past_winners_ids)
+        
         winner = None
 
-        if request.method == "POST" and members.exists():
-            winner_member = random.choice(members)
-            winner = winner_member.member
+        if request.method == "POST" and eligible_members.exists():
+            winner = random.choice(eligible_members)
 
-            # Save to Auction model
-            Auction.objects.create(
-                group=group,
-                month_no=(group.duration_months - len(members) + 1),
-                auction_date=date.today(),
-                winner=winner,
-                bid_amount=0
-            )
+            # Find the first empty pre-generated Auction slot
+            current_slot = Auction.objects.filter(
+                group=group, 
+                winner__isnull=True
+            ).order_by('month_no', 'auction_no').first()
+
+            if current_slot:
+                current_slot.winner = winner
+                current_slot.auction_date = date.today()
+                current_slot.save()
+            else:
+                Auction.objects.create(
+                    group=group,
+                    month_no=group.current_month,
+                    auction_date=date.today(),
+                    winner=winner,
+                    bid_amount=0
+                )
 
         return render(request, "admin/chitti_spin.html", {
             "group": group,
-            "members": members,
+            "members": eligible_members,
             "winner": winner,
         })
 
-# Register other models normally
 @admin.register(ChittiMember)
 class ChittiMemberAdmin(admin.ModelAdmin):
+    # REMOVED 'is_active' to fix admin.E108 and admin.E116 errors
     list_display = ('member', 'group', 'token_no')
+    list_filter = ('group',)
 
 @admin.register(Auction)
 class AuctionAdmin(admin.ModelAdmin):
-    list_display = ('group', 'month_no', 'winner', 'bid_amount', 'auction_date')
+    list_display = ('group', 'month_no', 'auction_no', 'winner', 'auction_date', 'bid_amount')
+    list_filter = ('group', 'month_no')
+    readonly_fields = ('month_no', 'auction_no')

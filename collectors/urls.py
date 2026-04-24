@@ -10,8 +10,12 @@ urlpatterns = [
 
     # Collections
     path('add/', views.add_collection, name='add'),
-    path('all-collections/', views.all_collections, name='all_collections'),  # list all collections
-    path('request-admin-approval/<int:group_id>/', views.request_admin_approval, name='request_admin_approval'),  # corrected to include group_id
+    path('all-collections/', views.all_collections, name='all_collections'),
+    path('request-admin-approval/<int:group_id>/', views.request_admin_approval, name='request_admin_approval'),
+
+    path('resend-payment/<int:payment_id>/', views.resend_payment, name='resend_payment'),
+    path('resend-group/<int:group_id>/', views.resend_group_payments, name='resend_group_payments'),
+    
 
     # Payment actions
     path('receipt/<int:payment_id>/', views.receipt, name='receipt'),

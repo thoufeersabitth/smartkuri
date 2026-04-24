@@ -1,4 +1,5 @@
 from builtins import float, hasattr, int, print, str
+from decimal import Decimal
 import string
 import uuid
 from django.db.models import Sum, Q
@@ -8,7 +9,7 @@ from django.db import models
 from django.views.decorators.csrf import csrf_exempt
 import razorpay
 from dateutil.relativedelta import relativedelta
-from datetime import date
+from datetime import date, datetime, timedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout, authenticate
 from django.contrib import messages
@@ -41,135 +42,138 @@ from django.db import transaction
 from payments.models import Payment
 from django.utils.crypto import get_random_string
 
+import random
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.conf import settings
+from django.core.mail import send_mail
+from django.db import transaction
 
+from .forms import GroupSignUpForm
+from .models import User, StaffProfile
+
+
+# ✅ SIGNUP VIEW
+# ✅ SIGNUP VIEW
 def group_signup(request):
     if request.method == 'POST':
+        # ⚠️ Note: Make sure GroupSignUpForm ONLY has phone, email, password1, password2
         form = GroupSignUpForm(request.POST)
 
         if form.is_valid():
-            group_name = form.cleaned_data['group_name']
-            phone = form.cleaned_data['phone']
-            email = form.cleaned_data['email']
-            password = form.cleaned_data['password1']
-            plan = form.cleaned_data['plan']
+            data = form.cleaned_data
 
-            # ✅ VALIDATIONS
-            if ChittiGroup.objects.filter(name=group_name).exists():
-                messages.error(request, "Group name already exists.")
-                return redirect('accounts:group_signup')
+            # ✅ check existing email
+            if User.objects.filter(email=data['email']).exists():
+                form.add_error('email', "This email is already registered.")
+            else:
+                otp = str(random.randint(100000, 999999))
 
-            if User.objects.filter(email=email).exists():
-                messages.error(request, f"The email '{email}' is already used.")
-                return redirect('accounts:group_signup')
+                # ✅ session save (Simplified)
+                request.session['pending_group_data'] = {
+                    'phone': data['phone'],
+                    'email': data['email'],
+                    'password': data['password1'], # Store password to hash later
+                    'otp': otp
+                }
 
-            # 🔥 OTP
-            otp = random.randint(100000, 999999)
+                # ✅ debug
+                print(f"OTP for {data['email']}: {otp}")
 
-            # ✅ STORE FULL DATA (IMPORTANT FIX)
-            request.session['pending_group_data'] = {
-                'group_name': group_name,
-                'phone': phone,
-                'email': email,
-                'password': password,
-                'description': form.cleaned_data.get('description'),
-
-                'monthly_amount': float(form.cleaned_data.get('monthly_amount')),
-                'duration_months': form.cleaned_data.get('duration_months'),
-                'collections_per_month': form.cleaned_data.get('collections_per_month'),
-                'auction_type': form.cleaned_data.get('auction_type'),
-                'auctions_per_month': form.cleaned_data.get('auctions_per_month'),
-                'auction_interval_months': form.cleaned_data.get('auction_interval_months'),
-                'start_date': str(form.cleaned_data.get('start_date')),
-                'auction_dates': form.cleaned_data.get('auction_dates'),
-
-                'plan_id': plan.id,
-                'plan_price': float(plan.price),
-
-                'otp': otp,
-                'otp_created_at': time.time(),
-                'otp_verified': False,
-                'payment_done': False,
-            }
-
-            # 📧 SEND MAIL
-            try:
-                send_mail(
-                    "SmartKuri - OTP",
-                    f"Your OTP is: {otp}",
-                    settings.DEFAULT_FROM_EMAIL,
-                    [email],
-                    fail_silently=False
-                )
-                messages.success(request, "OTP sent!")
-            except Exception as e:
-                messages.error(request, f"Email failed: {str(e)}")
-                return redirect('accounts:group_signup')
-
-            return redirect('accounts:verify_group_otp')
+                # ✅ send email
+                try:
+                    send_mail(
+                        "OTP Verification",
+                        f"Your OTP is {otp}",
+                        settings.DEFAULT_FROM_EMAIL,
+                        [data['email']],
+                        fail_silently=True
+                    )
+                    return redirect('accounts:verify_group_otp')
+                except Exception as e:
+                    print("Email error:", e)
+                    messages.error(request, "Failed to send OTP. Please try again.")
 
         else:
-            print(form.errors)  # 🔥 Debug
-
+            print("FORM ERROR:", form.errors)
     else:
         form = GroupSignUpForm()
 
-    plans = SubscriptionPlan.objects.filter(is_active=True)
-    return render(request, 'accounts/group_signup.html', {'form': form, 'plans': plans})
+    return render(request, 'accounts/group_signup.html', {'form': form})
 
 
-
-
-# VERIFY OTP
-# -----------------------------
+# ✅ OTP VERIFY VIEW
+# ✅ OTP VERIFY VIEW
 def verify_group_otp(request):
     data = request.session.get('pending_group_data')
+
+    # ✅ session illenkil redirect back
     if not data:
-        messages.error(request, "No signup data found.")
+        messages.error(request, "Session expired. Please signup again.")
         return redirect('accounts:group_signup')
 
     if request.method == 'POST':
-        otp_entered = request.POST.get('otp')
+        entered_otp = request.POST.get('otp')
 
-        # OTP expiry check (10 minutes)
-        if time.time() - data['otp_created_at'] > 600:
-            messages.error(request, "OTP expired.")
-            del request.session['pending_group_data']
-            return redirect('accounts:group_signup')
+        # ✅ OTP match check
+        if entered_otp == data['otp']:
+            try:
+                with transaction.atomic():
+                    # ✅ Create User properly with Hashed Password
+                    if not User.objects.filter(email=data['email']).exists():
+                        user = User.objects.create_user(
+                            username=data['email'], # Using email as username
+                            email=data['email']
+                        )
+                        user.set_password(data['password']) # 👈 IMPORTANT: This hashes the password
+                        user.save()
+                    else:
+                        user = User.objects.get(email=data['email'])
 
-        if str(otp_entered) == str(data['otp']):
-            data['otp_verified'] = True
-            plan = SubscriptionPlan.objects.get(id=data['plan_id'])
+                    # ✅ Create/Update StaffProfile
+                    # Group is None here. User will create group AFTER login.
+                    StaffProfile.objects.update_or_create(
+                        user=user,
+                        defaults={
+                            'phone': data['phone'],
+                            'role': 'group_admin',
+                            'group': None, # 👈 This stays None for now
+                            'is_subscribed': False
+                        }
+                    )
 
-            # ✅ FREE / UNLIMITED PLAN: create group immediately
-            if plan.price <= 0 or getattr(plan, 'is_unlimited', False):
-                data['payment_done'] = True
-                request.session['pending_group_data'] = data
-                messages.success(request, "OTP verified! Creating your group...")
-                return create_group_after_payment(request)  # direct call
+                # ✅ Clear session
+                request.session.pop('pending_group_data', None)
 
-            # 🔥 Paid plan: go to payment page
-            request.session['pending_group_data'] = data
-            return redirect('accounts:payment_page')
+                messages.success(request, "Signup successful! Please login to set up your group.")
+                return redirect('accounts:login')
 
+            except Exception as e:
+                messages.error(request, f"Error during registration: {str(e)}")
         else:
-            messages.error(request, "Invalid OTP")
+            messages.error(request, "Invalid OTP. Please check again.")
 
-    return render(request, 'accounts/verify_group_otp.html', {'data': data})
+    return render(request, 'accounts/verify_group_otp.html')
 
-# -----------------------------
-# PAYMENT PAGE
 # -----------------------------
 def payment_page(request):
     data = request.session.get('pending_group_data')
-    if not data or not data.get('otp_verified'):
+
+   
+    if not data:
+        messages.error(request, "Session expired.")
+        return redirect('accounts:group_signup')
+
+    if not data.get('otp_verified'):
         messages.error(request, "Verify OTP first!")
         return redirect('accounts:verify_group_otp')
 
     plan = get_object_or_404(SubscriptionPlan, id=data['plan_id'])
 
-    # Duration display
+    # 📅 Duration display
     duration_months = plan.duration_days // 30
     remaining_days = plan.duration_days % 30
+
     if duration_months > 0 and remaining_days > 0:
         duration_display = f"{duration_months} Month ({remaining_days} Days)"
     elif duration_months > 0:
@@ -177,6 +181,7 @@ def payment_page(request):
     else:
         duration_display = f"{plan.duration_days} Days"
 
+    # ✅ UPDATE SESSION
     data.update({
         "plan_name": plan.name,
         "plan_price": float(plan.price),
@@ -184,29 +189,39 @@ def payment_page(request):
         "duration_days": plan.duration_days,
         "duration_display": duration_display,
         "max_members": plan.max_members,
-        "is_unlimited": getattr(plan, 'is_unlimited', False),  # <-- important
+        "is_unlimited": getattr(plan, 'is_unlimited', False),
     })
     request.session['pending_group_data'] = data
 
-    # Skip Razorpay if plan is free/unlimited
+    # 🟢 FREE PLAN
     if plan.price <= 0 or getattr(plan, 'is_unlimited', False):
         data['payment_done'] = True
         request.session['pending_group_data'] = data
-        messages.success(request, "Unlimited / Free plan selected. No payment required.")
+
         return redirect('accounts:create_group_after_payment')
 
-    # Razorpay order for paid plans
-    amount_paise = int(plan.price * 100)
-    client = razorpay.Client(
-        auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
-    )
-    order = client.order.create({
-        "amount": amount_paise,
-        "currency": "INR",
-        "receipt": f"group_signup_{data['email']}",
-        "payment_capture": 1
-    })
-    request.session['razorpay_order_id'] = order['id']
+    # 🔵 PAID PLAN
+    try:
+        amount_paise = int(plan.price * 100)
+
+        client = razorpay.Client(
+            auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
+        )
+
+        order = client.order.create({
+            "amount": amount_paise,
+            "currency": "INR",
+            "receipt": f"group_{data['email']}",
+            "payment_capture": 1
+        })
+
+        # ✅ store both order id + amount (important)
+        request.session['razorpay_order_id'] = order['id']
+        request.session['razorpay_amount'] = amount_paise
+
+    except Exception as e:
+        messages.error(request, f"Payment init failed: {str(e)}")
+        return redirect('accounts:group_signup')
 
     return render(request, 'accounts/payment_page.html', {
         "data": data,
@@ -216,45 +231,91 @@ def payment_page(request):
         "currency": "INR",
     })
 
-
 # -----------------------------
 # PAYMENT SUCCESS
 # -----------------------------
 @csrf_exempt
 def payment_success(request):
     data = request.session.get('pending_group_data')
-    if not data or not data.get('otp_verified'):
-        messages.error(request,"Session expired!")
+
+    # 🔒 Session + OTP check
+    if not data:
+        messages.error(request, "Session expired!")
         return redirect('accounts:group_signup')
 
-    if request.method=="POST":
-        payment_id = request.POST.get('razorpay_payment_id')
-        order_id = request.POST.get('razorpay_order_id')
-        signature = request.POST.get('razorpay_signature')
+    if not data.get('otp_verified'):
+        messages.error(request, "OTP not verified!")
+        return redirect('accounts:verify_group_otp')
 
-        client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
-        try:
-            client.utility.verify_payment_signature({
-                'razorpay_order_id': order_id,
-                'razorpay_payment_id': payment_id,
-                'razorpay_signature': signature
-            })
-            data['payment_done'] = True
-            request.session['pending_group_data'] = data
-            messages.success(request,"Payment successful! Creating group...")
+    # ❗ Only POST allowed
+    if request.method != "POST":
+        return redirect('accounts:payment_page')
+
+    payment_id = request.POST.get('razorpay_payment_id')
+    order_id = request.POST.get('razorpay_order_id')
+    signature = request.POST.get('razorpay_signature')
+
+    session_order_id = request.session.get('razorpay_order_id')
+
+    # 🔒 Order ID validation (VERY IMPORTANT)
+    if not session_order_id or order_id != session_order_id:
+        messages.error(request, "Invalid payment request!")
+        return redirect('accounts:payment_page')
+
+    client = razorpay.Client(
+        auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
+    )
+
+    try:
+        # ✅ Signature verify
+        client.utility.verify_payment_signature({
+            'razorpay_order_id': order_id,
+            'razorpay_payment_id': payment_id,
+            'razorpay_signature': signature
+        })
+
+        # 🛑 Prevent duplicate execution
+        if data.get('payment_done'):
             return redirect('accounts:create_group_after_payment')
-        except razorpay.errors.SignatureVerificationError:
-            messages.error(request,"Payment verification failed.")
-            return redirect('accounts:payment_page')
 
+        # ✅ Mark payment success
+        data['payment_done'] = True
+        request.session['pending_group_data'] = data
+
+        # 🧹 Clean Razorpay session
+        request.session.pop('razorpay_order_id', None)
+
+        messages.success(request, "Payment successful! Creating group...")
+        return redirect('accounts:create_group_after_payment')
+
+    except razorpay.errors.SignatureVerificationError:
+        messages.error(request, "Payment verification failed.")
+        return redirect('accounts:payment_page')
+
+    except Exception as e:
+        messages.error(request, f"Error: {str(e)}")
+        return redirect('accounts:payment_page')
 
 @transaction.atomic
 def create_group_after_payment(request):
     data = request.session.get('pending_group_data')
 
-    if not data or not data.get('payment_done'):
-        messages.error(request, "Payment not completed!")
+    # 🔒 Session checks
+    if not data:
+        messages.error(request, "Session expired!")
         return redirect('accounts:group_signup')
+
+    if not data.get('otp_verified'):
+        messages.error(request, "OTP not verified!")
+        return redirect('accounts:verify_group_otp')
+
+    if not data.get('payment_done'):
+        messages.error(request, "Payment not completed!")
+        return redirect('accounts:payment_page')
+
+    # 🛑 Duplicate protection
+    if data.get('group_created'):
+        return redirect('accounts:group_admin_dashboard')
 
     plan = get_object_or_404(SubscriptionPlan, id=data['plan_id'])
 
@@ -270,9 +331,16 @@ def create_group_after_payment(request):
     if plan.max_groups != 0 and existing_groups_count >= plan.max_groups:
         messages.error(
             request,
-            f"You have reached your group creation limit for the {plan.name} plan."
+            f"You have reached your group limit for {plan.name} plan."
         )
         return redirect('accounts:group_admin_dashboard')
+
+    # ----------------------------------
+    # EMAIL DUPLICATE SAFETY
+    # ----------------------------------
+    if User.objects.filter(email=data['email']).exists():
+        messages.error(request, "User already exists with this email.")
+        return redirect('accounts:group_signup')
 
     # ----------------------------------
     # CREATE ADMIN USER
@@ -287,7 +355,7 @@ def create_group_after_payment(request):
     )
 
     # ----------------------------------
-    # CREATE CHITTI GROUP
+    # CREATE GROUP
     # ----------------------------------
     monthly_amount = (
         round(plan.price / plan.duration_days * 30, 2)
@@ -304,7 +372,7 @@ def create_group_after_payment(request):
     )
 
     # ----------------------------------
-    # CREATE STAFF PROFILE
+    # STAFF PROFILE
     # ----------------------------------
     staff_profile = StaffProfile.objects.create(
         user=admin_user,
@@ -315,7 +383,7 @@ def create_group_after_payment(request):
     )
 
     # ----------------------------------
-    # PAYMENT ENTRY (ONLY IF PAID PLAN)
+    # PAYMENT ENTRY (ONLY PAID)
     # ----------------------------------
     if plan.price > 0:
         Payment.objects.create(
@@ -325,11 +393,13 @@ def create_group_after_payment(request):
             payment_status='success',
             group=group,
             subscription_plan=plan,
-            paid_date=timezone.now().date()
+            paid_date=timezone.now().date(),
+            # optional:
+            # payment_id = request.session.get('razorpay_payment_id')
         )
 
     # ----------------------------------
-    # GROUP SUBSCRIPTION
+    # SUBSCRIPTION
     # ----------------------------------
     GroupSubscription.objects.create(
         group=group,
@@ -340,9 +410,15 @@ def create_group_after_payment(request):
     )
 
     # ----------------------------------
-    # CLEAR SESSION
+    # 🛑 MARK CREATED (prevent duplicate)
     # ----------------------------------
-    del request.session['pending_group_data']
+    data['group_created'] = True
+    request.session['pending_group_data'] = data
+
+    # ----------------------------------
+    # 🧹 CLEAR SESSION (safe remove)
+    # ----------------------------------
+    request.session.pop('pending_group_data', None)
 
     messages.success(request, f"Group '{group.name}' created successfully!")
 
@@ -380,6 +456,7 @@ def resend_group_otp(request):
     return redirect('accounts:verify_group_otp')
 
 
+
 User = get_user_model()
 
 def login_view(request):
@@ -388,45 +465,62 @@ def login_view(request):
         password = request.POST.get('password')
         user = None
 
-        # 1️⃣ Authenticate by username
+        # 1️⃣ Authenticate by standard username
         user = authenticate(request, username=identifier, password=password)
 
-        # 2️⃣ Authenticate by email (safe with filter)
+        # 2️⃣ Authenticate by email
         if user is None:
             u = User.objects.filter(email=identifier).first()
             if u and u.check_password(password):
                 user = u
 
-        # 3️⃣ Authenticate member by phone (safe with filter)
+        # 3️⃣ Authenticate member by phone
         if user is None:
             member = Member.objects.filter(phone=identifier).first()
             if member and member.user and member.user.check_password(password):
                 user = member.user
 
-        # 4️⃣ Authenticate staff by phone (already safe with filter().first())
+        # 4️⃣ Authenticate staff by phone
         if user is None:
             staff = StaffProfile.objects.filter(phone=identifier).first()
-            if staff and staff.user.check_password(password):
+            if staff and staff.user and staff.user.check_password(password):
                 user = staff.user
 
-        # 5️⃣ Login & redirect
+        # 5️⃣ Final Login & Redirects
         if user:
+            # Check if account is active
+            if not user.is_active:
+                messages.error(request, "Access denied. Your account has been disabled.")
+                return redirect('accounts:login')
+
             login(request, user)
 
-            # Staff redirects
+            # --- STAFF REDIRECTS ---
             if hasattr(user, 'staffprofile'):
-                role = user.staffprofile.role
+                profile = user.staffprofile
+                role = profile.role
+
                 if role == 'admin':
                     return redirect('adminpanel:dashboard')
+                
                 elif role == 'collector':
                     return redirect('accounts:collector_dashboard')
+                
                 elif role == 'group_admin':
+                    # Check if group is created
+                    if not profile.group:
+                        messages.info(request, "Welcome! Please set up your group details to get started.")
+                        return redirect('accounts:create_group')
+                    
+                    # Check if subscription is active
+
                     return redirect('accounts:group_admin_dashboard')
 
-            # Member dashboard
+            # --- MEMBER REDIRECT ---
             return redirect('members:member_dashboard')
 
-        messages.error(request, "Invalid credentials. Use username, email, or phone number.")
+        # Authentication failed
+        messages.error(request, "Invalid login details. Please check your credentials and try again.")
         return redirect('accounts:login')
 
     return render(request, 'accounts/login.html')
@@ -664,3 +758,102 @@ def collector_dashboard(request):
     return render(request, 'collector/collector_dashboard.html', context)
 
 
+
+
+
+@login_required
+def create_group_view(request):
+    # 1. Security Check: Redirect if user already owns a group
+    if hasattr(request.user, 'staffprofile') and request.user.staffprofile.group:
+        return redirect('accounts:group_admin_dashboard')
+
+    plans = SubscriptionPlan.objects.filter(is_active=True)
+    user_phone = request.user.staffprofile.phone if hasattr(request.user, 'staffprofile') else ""
+
+    user_initial_data = {
+        'full_name': request.user.get_full_name() or request.user.username,
+        'email': request.user.email,
+        'phone': user_phone,
+    }
+
+    if request.method == 'POST':
+        try:
+            # 2. Get Subscription Plan
+            plan_id = request.POST.get('subscription_plan')
+            selected_plan = get_object_or_404(SubscriptionPlan, id=plan_id)
+
+            # 3. Parse Dates (Matching your HTML 'name' attributes)
+            # HTML: <input name="chitti_start_date">
+            reg_date_str = request.POST.get('chitti_start_date') 
+            # HTML: <input name="start_date"> (This is Auction Date 1)
+            auction_date_str = request.POST.get('start_date')     
+
+            registration_date = datetime.strptime(reg_date_str, '%Y-%m-%d').date()
+            auction_start_date = datetime.strptime(auction_date_str, '%Y-%m-%d').date()
+
+            # 4. Validation
+            if auction_start_date < registration_date:
+                messages.error(request, "First auction date must be on or after the registration date.")
+                return redirect('chitti:create_group')
+
+            with transaction.atomic():
+                # 5. Create Group
+                monthly_amount = Decimal(request.POST.get('monthly_amount', '0'))
+                duration_months = int(request.POST.get('duration_months', '0'))
+
+                new_group = ChittiGroup.objects.create(
+                    name=request.POST.get('name'),
+                    phone=request.POST.get('phone'),
+                    email=request.POST.get('email'),
+                    owner=request.user,
+                    monthly_amount=monthly_amount,
+                    duration_months=duration_months,
+                    total_amount=monthly_amount * duration_months,
+                    auction_type=request.POST.get('auction_type', 'monthly'),
+                    auctions_per_month=int(request.POST.get('auctions_per_month', 1)),
+                    auction_interval_months=request.POST.get('auction_interval_months') or None,
+                    
+                    # Updated Model Fields
+                    registration_start_date=registration_date,
+                    start_date=auction_start_date # Main start date used for Month 1
+                )
+
+                # 6. Handle Multiple Auction Dates (Date 2, 3, 4)
+                # We collect all dates provided in the form into a list
+                base_dates = [auction_start_date]
+                num_auctions = int(request.POST.get('auctions_per_month', 1))
+                
+                for i in range(2, num_auctions + 1):
+                    # In your HTML, these are id="date2", id="date3"...
+                    # Ensure your HTML <input> has name="date2", name="date3" etc.
+                    d_val = request.POST.get(f'date{i}')
+                    if d_val:
+                        base_dates.append(datetime.strptime(d_val, '%Y-%m-%d').date())
+
+                # 7. Generate All Auctions for the entire duration
+                new_group.create_auctions(base_dates=base_dates)
+
+                # 8. Link to Staff Profile
+                profile = request.user.staffprofile
+                profile.group = new_group
+                profile.save()
+
+                # 9. Activate Subscription
+                subscription = GroupSubscription.objects.create(
+                    group=new_group,
+                    plan=selected_plan
+                )
+                subscription.activate(start_date=registration_date)
+
+            messages.success(request, f"Group created! First auction on {auction_start_date}")
+            return redirect('accounts:group_admin_dashboard')
+
+        except ValueError:
+            messages.error(request, "Invalid input or date format. Please check your entries.")
+        except Exception as e:
+            messages.error(request, f"System Error: {str(e)}")
+
+    return render(request, 'chitti/create_group.html', {
+        'user_data': user_initial_data,
+        'plans': plans
+    })

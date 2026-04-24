@@ -1,0 +1,216 @@
+/* ===================== VARIABLES ===================== */
+:root {
+    --bg: #f9fafb;
+    --card-bg: #ffffff;
+    --text-main: #1f2937;
+    --text-secondary: #6b7280;
+
+    --primary: #4f46e5;
+    --secondary: #6366f1;
+    --accent: #10b981;
+
+    --success: #16a34a;
+    --danger: #ef4444;
+
+    --radius: 14px;
+    --shadow: 0 15px 30px rgba(0,0,0,0.08);
+}
+
+/* ===================== BASE ===================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text-main);
+}
+
+/* ===================== CONTAINER ===================== */
+.container {
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 20px;
+}
+
+/* ===================== TITLE ===================== */
+h2 {
+    font-size: 28px;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 20px;
+    color: var(--primary);
+}
+
+/* ===================== SEARCH ===================== */
+form {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 25px;
+}
+
+form input {
+    width: 280px;
+    padding: 10px 15px;
+    border-radius: 25px;
+    border: 1px solid #ddd;
+    outline: none;
+}
+
+form input:focus {
+    border-color: var(--primary);
+}
+
+form button {
+    padding: 10px 20px;
+    border-radius: 25px;
+    border: none;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: #fff;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+form button:hover {
+    transform: translateY(-1px);
+}
+
+/* ===================== TABLE CARD ===================== */
+.table-container {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 10px;
+    box-shadow: var(--shadow);
+}
+
+/* ===================== TABLE ===================== */
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+thead {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: #fff;
+}
+
+th, td {
+    padding: 14px;
+    text-align: center;
+}
+
+/* Rows */
+tbody tr {
+    border-bottom: 1px solid #eee;
+    transition: 0.2s;
+}
+
+tbody tr:hover {
+    background: #f3f4f6;
+}
+
+tbody tr:nth-child(even) {
+    background: #f9fafb;
+}
+
+/* Defaulted */
+.defaulted {
+    background: #fee2e2 !important;
+    font-weight: 600;
+}
+
+/* ===================== BUTTONS ===================== */
+.btn {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    text-decoration: none;
+    display: inline-block;
+    margin: 2px;
+    background: #e0e7ff;
+    color: var(--primary);
+    transition: 0.2s;
+}
+
+.btn:hover {
+    transform: scale(1.05);
+}
+
+/* Edit */
+.btn-edit {
+    background: var(--success);
+    color: #fff;
+}
+
+/* Delete */
+.btn-delete {
+    background: var(--danger);
+    color: #fff;
+}
+
+/* ===================== PAGINATION ===================== */
+.pagination {
+    text-align: center;
+    margin-top: 20px;
+}
+
+.pagination a {
+    padding: 6px 12px;
+    margin: 3px;
+    border-radius: 6px;
+    background: #e5e7eb;
+    text-decoration: none;
+}
+
+.pagination a:hover {
+    background: var(--primary);
+    color: white;
+}
+
+/* ===================== EMPTY ===================== */
+tbody tr td[colspan] {
+    text-align: center;
+    padding: 15px;
+    color: var(--text-secondary);
+}
+
+/* ===================== MOBILE ===================== */
+@media (max-width: 768px) {
+    .container {
+        margin: 20px;
+    }
+
+    table, tbody, tr, td {
+        display: block;
+        width: 100%;
+    }
+
+    thead {
+        display: none;
+    }
+
+    tr {
+        margin-bottom: 10px;
+        background: #fff;
+        border-radius: var(--radius);
+        padding: 10px;
+    }
+
+    td {
+        text-align: right;
+        padding-left: 50%;
+        position: relative;
+    }
+
+    td::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 10px;
+        font-weight: 600;
+        color: var(--text-secondary);
+    }
+}

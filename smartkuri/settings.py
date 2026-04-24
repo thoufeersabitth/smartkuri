@@ -86,6 +86,9 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                
+                # ✅ Corrected Path for your Chitti App
+                'chitti.context_processors.group_admin_notifications',
             ],
         },
     },

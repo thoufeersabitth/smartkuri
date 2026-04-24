@@ -26,12 +26,12 @@ urlpatterns = [
     # ---------------- Group Admin Profile ----------------
     path('group-admin/profile/', group_admin_profile, name='group_admin_profile'),
 
-    # ---------------- Group Admin: Member CRUD ----------------
-    path('admin/list/', member_list, name='member_list'),
-    path('admin/create/', member_create, name='member_create'),
-    path('admin/edit/<int:pk>/', member_edit, name='member_edit'),
-    path('admin/delete/<int:pk>/', member_delete, name='member_delete'),
+        # ---------------- Group Admin: Member CRUD ----------------
+        path('admin/list/', member_list, name='member_list'),
+        path('admin/create/', member_create, name='member_create'),
+        path('admin/edit/<int:pk>/', member_edit, name='member_edit'),
+        path('admin/delete/<int:pk>/', member_delete, name='member_delete'),
 
-    # ---------------- Group Admin: Member Details / Statement ----------------
-    path('admin/details/<int:pk>/', member_details, name='member_details'),
-]
+        # ---------------- Group Admin: Member Details / Statement ----------------
+        path('admin/details/<int:pk>/', member_details, name='member_details'),
+    ]

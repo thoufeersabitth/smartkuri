@@ -1,60 +1,88 @@
 {% extends "member/member_base.html" %}
 {% load static %}
 
-{% block title %}Auctions{% endblock %}
+{% block title %}Auction Timeline | SmartKuri{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'member/css/auctions.css' %}">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<link rel="stylesheet" href="{% static 'member/css/auction_timeline.css' %}">
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container py-5">
+    <div class="premium-header d-flex flex-column flex-md-row align-items-center justify-content-between">
+        <div class="mb-3 mb-md-0">
+            <h2 class="fw-800 mb-1" style="letter-spacing: -1px;">Auction <span style="color: var(--primary);">Timeline</span></h2>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-primary rounded-pill px-3">{{ group.group_name }}</span>
+                <small class="text-secondary fw-bold">{{ auctions|length }} Months Total</small>
+            </div>
+        </div>
 
-    <!-- PAGE HEADER -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="fw-bold">🏆 Auctions</h4>
-        <span class="text-muted">Total Auctions: {{ auctions|length }}</span>
+        <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass text-secondary"></i>
+            <input type="text" id="memberSearch" placeholder="Find a winner...">
+        </div>
     </div>
 
-    <!-- AUCTIONS TABLE -->
-    <div class="card shadow-sm border-0">
-        <div class="table-responsive">
-            <table class="table table-bordered table-hover align-middle mb-0 auctions-table">
-                <thead class="table-light text-center">
+    <div class="timeline-container">
+        <div class="table-responsive" style="overflow: visible;">
+            <table class="auction-table" id="timelineTable">
+                <thead>
                     <tr>
-                        <th>#</th>
-                        <th>Month</th>
-                        <th>Status</th>
-                        <th>Winner</th>
+                        <th>Timeline</th>
+                        <th>Winner Details</th>
+                        <th class="text-center">Status</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for auction in auctions %}
-                    <tr class="text-center">
-                        <td data-label="No">{{ forloop.counter }}</td>
-                        <td data-label="Month">{{ auction.auction_date|date:"M Y" }}</td>
-                        <td data-label="Status">
-                            {% if auction.is_closed %}
-                                <span class="badge bg-success">Done</span>
-                            {% else %}
-                                <span class="badge bg-warning text-dark">Pending</span>
-                            {% endif %}
+                    <tr class="auction-row {% if auction.winner and auction.winner.member.user == request.user %}me-row{% endif %}">
+                        <td width="200">
+                            <span class="text-secondary fw-bold d-block small mb-1">SCHEDULED</span>
+                            <span class="fs-5 fw-800 text-navy">{{ auction.auction_date|date:"F Y" }}</span>
                         </td>
-                        <td data-label="Winner">
+                        <td>
                             {% if auction.winner %}
-                                {{ auction.winner.member.name }}
-                                {% if auction.winner.member.user == request.user %}
-                                    <span class="badge bg-primary text-white ms-1">You</span>
-                                {% endif %}
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="avatar-circle {% if auction.winner.member.user == request.user %}bg-primary text-white{% else %}bg-warning bg-opacity-10{% endif %}">
+                                        {% if auction.winner.member.user == request.user %}
+                                            <i class="fa-solid fa-user-check"></i>
+                                        {% else %}
+                                            🏆
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold fs-6">
+                                            {{ auction.winner.member.name|default:auction.winner.member.user.username }}
+                                            {% if auction.winner.member.user == request.user %}
+                                                <span class="ms-2 badge bg-primary" style="font-size: 10px;">THAT'S YOU</span>
+                                            {% endif %}
+                                        </div>
+                                        <small class="text-secondary">Successfully won Month {{ auction.month_no }}</small>
+                                    </div>
+                                </div>
                             {% else %}
-                                -
+                                <div class="d-flex align-items-center gap-3 opacity-50">
+                                    <div class="avatar-circle bg-light">
+                                        <i class="fa-solid fa-lock text-secondary fs-6"></i>
+                                    </div>
+                                    <span class="text-secondary fw-500">Winner not yet decided</span>
+                                </div>
                             {% endif %}
                         </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="4" class="text-center text-muted py-5">
-                            No auctions found
+                        <td class="text-center" width="180">
+                            {% if auction.winner %}
+                                <span class="status-badge status-settled">
+                                    <i class="fa-solid fa-circle-check"></i> SETTLED
+                                </span>
+                            {% else %}
+                                <span class="status-badge status-upcoming">
+                                    <i class="fa-solid fa-hourglass-half"></i> UPCOMING
+                                </span>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -62,6 +90,25 @@
             </table>
         </div>
     </div>
-
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const searchInput = document.getElementById('memberSearch');
+        const rows = document.querySelectorAll('.auction-row');
+
+        searchInput.addEventListener('input', (e) => {
+            const val = e.target.value.toLowerCase();
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(val) ? '' : 'none';
+            });
+        });
+
+        const myRow = document.querySelector('.me-row');
+        if(myRow) {
+            myRow.style.animation = "pulse 2s infinite";
+        }
+    });
+</script>
 {% endblock %}

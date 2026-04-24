@@ -4,103 +4,249 @@
 
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'group_admin/css/group_admin_profile.css' %}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+
+<style>
+    :root {
+        --glass: rgba(255, 255, 255, 0.2);
+        --glass-border: rgba(255, 255, 255, 0.3);
+        --premium-blue: #4f46e5;
+        --premium-pink: #db2777;
+    }
+
+    body {
+        background: #f8fafc;
+    }
+
+    .profile-header {
+        margin-bottom: 2rem;
+        border-left: 6px solid var(--premium-blue);
+        padding-left: 15px;
+    }
+
+    /* 💎 Premium Stats Grid */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 25px;
+        perspective: 1000px;
+    }
+
+    .stats-card {
+        background: white;
+        border-radius: 24px;
+        padding: 30px;
+        border: 1px solid #f1f5f9;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stats-card:hover {
+        transform: translateY(-10px) rotateX(2deg);
+        box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.1);
+    }
+
+    .stats-icon {
+        font-size: 2.5rem;
+        margin-bottom: 15px;
+        display: inline-block;
+        background: #f1f5f9;
+        width: 70px;
+        height: 70px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 20px;
+    }
+
+    .stats-label {
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #94a3b8;
+        font-size: 0.75rem;
+        margin-bottom: 10px;
+    }
+
+    .stats-value {
+        font-size: 1.5rem;
+        font-weight: 900;
+        color: #1e293b;
+        margin-bottom: 15px;
+    }
+
+    /* 📊 Usage Progress Bar */
+    .progress-container {
+        margin-top: 15px;
+        background: #e2e8f0;
+        height: 8px;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--premium-blue), var(--premium-pink));
+        width: 0%; /* JS will animate this */
+        transition: width 1.5s ease-in-out;
+    }
+
+    .status-badge {
+        padding: 6px 16px;
+        border-radius: 50px;
+        font-weight: 800;
+        font-size: 0.8rem;
+    }
+
+    .status-active {
+        background: #dcfce7;
+        color: #15803d;
+    }
+
+    .status-inactive {
+        background: #fee2e2;
+        color: #b91c1c;
+    }
+
+    hr {
+        border: 0;
+        border-top: 1px solid #f1f5f9;
+        margin: 20px 0;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="container">
-    <h1>Group Admin Profile</h1>
+<div class="container mx-auto p-6 animate__animated animate__fadeIn">
+    
+    <div class="profile-header">
+        <h1 class="text-3xl font-black text-gray-800">Account Profile</h1>
+        <p class="text-gray-500 font-medium">Manage your subscription and organization limits.</p>
+    </div>
 
     <div class="stats-grid">
 
-        <!-- ADMIN INFO -->
-        <div class="stats-card">
+        <div class="stats-card animate__animated animate__fadeInUp" style="animation-delay: 0.1s;">
             <div class="stats-icon">👤</div>
             <div>
-                <div class="stats-label">Admin Info</div>
-
-                <div class="stats-value">
+                <div class="stats-label">Admin Identity</div>
+                <div class="stats-value text-indigo-600">
                     {{ profile.user.get_full_name|default:profile.user.username }}
                 </div>
-
-                <p><strong>Phone:</strong> {{ profile.phone }}</p>
-                <p><strong>Email:</strong> {{ profile.user.email }}</p>
+                <div class="space-y-2 text-gray-600 font-medium">
+                    <p><i class="bi bi-telephone-fill me-2"></i> {{ profile.phone }}</p>
+                    <p><i class="bi bi-envelope-at-fill me-2"></i> {{ profile.user.email }}</p>
+                </div>
             </div>
         </div>
 
-        <!-- SUBSCRIPTION -->
-        <div class="stats-card">
+        <div class="stats-card animate__animated animate__fadeInUp" style="animation-delay: 0.2s;">
             <div class="stats-icon">💳</div>
             <div>
-                <div class="stats-label">Subscription</div>
-
-                <p><strong>Plan:</strong>
-                    {% if effective_sub %}
-                        {{ effective_sub.plan.name }}
-                    {% else %}
-                        N/A
-                    {% endif %}
-                </p>
-
-                <p><strong>Status:</strong>
+                <div class="stats-label">Current Plan</div>
+                <div class="stats-value">
+                    {% if effective_sub %}{{ effective_sub.plan.name }}{% else %}Free Trial{% endif %}
+                </div>
+                
+                <div class="mb-4">
                     {% if subscription_status and subscription_status.active %}
-                        <span class="status-badge status-active">Active 🟢</span>
+                        <span class="status-badge status-active">ACTIVE LICENSE</span>
                     {% else %}
-                        <span class="status-badge status-inactive">Expired 🔴</span>
+                        <span class="status-badge status-inactive">EXPIRED / INACTIVE</span>
                     {% endif %}
-                </p>
+                </div>
 
-                <p><strong>Validity:</strong>
-                    {% if effective_sub %}
-                        {{ effective_sub.start_date|date:"M d, Y" }} →
-                        {{ effective_sub.end_date|date:"M d, Y" }}
-                    {% else %}
-                        N/A
-                    {% endif %}
-                </p>
-
-                <p><strong>Time Left:</strong>
-                    {{ time_left|default:"N/A" }}
-                </p>
+                <div class="text-sm text-gray-500 font-bold">
+                    <p>VALID UNTIL: <span class="text-gray-800">{% if effective_sub %}{{ effective_sub.end_date|date:"M d, Y" }}{% else %}N/A{% endif %}</span></p>
+                    <p class="text-indigo-500 mt-1"><i class="bi bi-clock-history me-1"></i> {{ time_left|default:"Expiring soon" }}</p>
+                </div>
             </div>
         </div>
 
-        <!-- GROUPS & MEMBERS -->
-        <div class="stats-card">
-            <div class="stats-icon">👥</div>
+        <div class="stats-card animate__animated animate__fadeInUp" style="animation-delay: 0.3s;">
+            <div class="stats-icon">📊</div>
             <div>
-                <div class="stats-label">Groups & Members</div>
+                <div class="stats-label">Resource Usage</div>
+                
+                <div class="mb-4">
+                    <div class="flex justify-between text-xs font-black mb-1">
+                        <span>GROUPS</span>
+                        <span>{{ groups_count }} / {{ max_groups|default:groups_count }}</span>
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress-fill" data-percent="{{ group_usage_percent|default:0 }}"></div>
+                    </div>
+                </div>
 
-                <p><strong>Total Groups:</strong>
-                    {{ groups_count|intcomma }}
-                </p>
+                <div class="mb-2">
+                    <div class="flex justify-between text-xs font-black mb-1">
+                        <span>MEMBERS</span>
+                        <span>{{ members_count }} / {{ max_members|default:members_count }}</span>
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress-fill" data-percent="{{ member_usage_percent|default:0 }}"></div>
+                    </div>
+                </div>
 
-                <p><strong>Total Members:</strong>
-                    {{ members_count|intcomma }}
-                </p>
-
-                {% if effective_sub %}
-                <hr>
-
-                <p><strong>Max Groups:</strong>
-                    {{ max_groups|intcomma }}
-                </p>
-
-                <p><strong>Remaining Groups:</strong>
-                    {{ remaining_groups|intcomma }}
-                </p>
-
-                <p><strong>Max Members:</strong>
-                    {{ max_members|intcomma }}
-                </p>
-
-                <p><strong>Remaining Members:</strong>
-                    {{ remaining_members|intcomma }}
-                </p>
-                {% endif %}
-
+                <div class="mt-6 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-[10px] font-black text-gray-400 uppercase">Available Slots</div>
+                    <div class="flex gap-4 mt-1">
+                        <div>
+                            <span class="text-sm font-black text-gray-700">{{ remaining_groups|default:0 }}</span>
+                            <span class="text-[10px] font-bold text-gray-400"> Groups</span>
+                        </div>
+                        <div>
+                            <span class="text-sm font-black text-gray-700">{{ remaining_members|default:0 }}</span>
+                            <span class="text-[10px] font-bold text-gray-400"> Members</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
     </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    
+    // 1. 🚀 Animate Progress Bars
+    // View-il ninnu usage percentage pass cheyyunnundennu karuthunnu. 
+    // Allenkil thazhe ulla calculation upayogikkam.
+    
+    const progressBars = document.querySelectorAll('.progress-fill');
+    
+    setTimeout(() => {
+        progressBars.forEach(bar => {
+            // Percent calculation if not passed from Django
+            const percent = bar.getAttribute('data-percent');
+            bar.style.width = percent + '%';
+        });
+    }, 500);
+
+    // 2. ✨ Subtle Tilt Effect for Stats Cards
+    const cards = document.querySelectorAll('.stats-card');
+    cards.forEach(card => {
+        card.addEventListener('mousemove', (e) => {
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            
+            const rotateX = (y - centerY) / 20;
+            const rotateY = (centerX - x) / 20;
+
+            card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-5px)`;
+        });
+
+        card.addEventListener('mouseleave', () => {
+            card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0)`;
+        });
+    });
+});
+</script>
 {% endblock %}

@@ -1,182 +1,284 @@
 {% extends "chitti/group_admin_base.html" %}
 {% load static %}
 
-{% block title %}Add Group Payment{% endblock %}
+{% block title %}SmartKuri | Premium Payment Ledger{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'group_admin/css/payment_form.css' %}">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+    :root {
+        --bg: #f3f4f6;
+        --card: #ffffff;
+        --primary: #4f46e5;
+        --secondary: #6366f1;
+        --accent: #10b981;
+        --text: #111827;
+        --muted: #6b7280;
+        --success: #059669;
+        --warning: #d97706;
+        --danger: #dc2626;
+        --radius: 16px;
+        --shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+    }
+
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); }
+    .ledger-wrapper { max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+
+    /* 🔔 Django Messages Styling */
+    .msg-container { margin-bottom: 1.5rem; }
+    .alert {
+        padding: 1rem 1.5rem; border-radius: 12px; font-weight: 600;
+        margin-bottom: 1rem; display: flex; align-items: center; gap: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05);
+        animation: slideIn 0.4s ease-out;
+    }
+    .alert-success { background: #ecfdf5; color: #065f46; border-left: 5px solid var(--success); }
+    .alert-error, .alert-danger { background: #fef2f2; color: #991b1b; border-left: 5px solid var(--danger); }
+    
+    @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+    .header-section { text-align: center; margin-bottom: 2.5rem; }
+    .page-title {
+        font-size: 2.2rem; font-weight: 800; letter-spacing: -0.025em;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        margin-bottom: 0.5rem;
+    }
+
+    .form-container {
+        background: var(--card); border-radius: var(--radius); padding: 2.5rem;
+        box-shadow: var(--shadow); border: 1px solid rgba(255, 255, 255, 0.7);
+        position: relative; overflow: hidden;
+    }
+
+    .section-label {
+        font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+        color: var(--muted); letter-spacing: 0.1em; margin-bottom: 0.8rem;
+        display: flex; align-items: center; gap: 8px;
+    }
+    .section-label i { color: var(--primary); }
+
+    .pro-input {
+        width: 100%; padding: 1rem 1.2rem; border-radius: 12px;
+        border: 2px solid #f3f4f6; font-size: 1rem; font-weight: 500;
+        transition: all 0.3s; background: #f9fafb;
+    }
+    .pro-input:focus { background: #fff; border-color: var(--primary); outline: none; }
+    .pro-input:disabled { background: #e5e7eb; cursor: not-allowed; }
+
+    #statusPanel {
+        display: none; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.25rem; margin: 2rem 0; padding: 1.5rem;
+        background: #f8fafc; border-radius: var(--radius); border: 1px dashed #e2e8f0;
+    }
+
+    .mini-card span { font-size: 0.7rem; color: var(--muted); font-weight: 600; display: block; }
+    .mini-card strong { font-size: 1.3rem; font-weight: 800; color: var(--text); }
+
+    .status-badge {
+        padding: 0.4rem 0.8rem; border-radius: 8px; font-size: 0.7rem;
+        font-weight: 800; display: inline-flex; align-items: center; gap: 5px;
+    }
+    .status-advance { background: #ecfdf5; color: var(--success); }
+    .status-due { background: #fef2f2; color: var(--danger); }
+    .status-done { background: #fffbeb; color: #92400e; }
+
+    .btn-submit {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white; padding: 1.2rem; border-radius: 14px; font-weight: 700;
+        border: none; width: 100%; cursor: pointer; transition: 0.3s;
+        box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.4);
+        display: flex; justify-content: center; align-items: center; gap: 10px;
+    }
+    .btn-submit:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.1); }
+    .btn-submit:disabled { background: #cbd5e1; cursor: not-allowed; box-shadow: none; }
+
+    .empty-state { text-align: center; padding: 3rem; color: var(--muted); }
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="card shadow p-4">
+<div class="ledger-wrapper">
+    {% if messages %}
+    <div class="msg-container">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {% if message.tags == 'success' %}
+                <i class="fa-solid fa-circle-check"></i>
+            {% else %}
+                <i class="fa-solid fa-circle-exclamation"></i>
+            {% endif %}
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
 
-        <h3 class="text-center text-primary mb-4">Add Group Payment</h3>
+    <div class="header-section">
+        <h1 class="page-title">Payment Ledger</h1>
+        <p class="text-muted">Manage collections and verify balances in real-time</p>
+    </div>
 
-        <!-- Messages -->
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }}">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        {% endif %}
-
-        <!-- GROUP SELECT -->
-        <form method="get">
-            <div class="mb-3">
-                <label class="form-label fw-bold">Chitti Group</label>
-                <select name="group" class="form-select" onchange="this.form.submit();">
-                    <option value="">Select Group</option>
-                    {% for g in form.fields.group.queryset %}
-                        <option value="{{ g.id }}"
-                            {% if selected_group == g.id|stringformat:"s" %} selected {% endif %}>
-                            {{ g.name }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </div>
+    <div class="form-container">
+        <form method="get" id="groupSelectForm">
+            <label class="section-label"><i class="fa-solid fa-layer-group"></i> 01. Select Chitti Group</label>
+            <select name="group" class="pro-input" onchange="this.form.submit();">
+                <option value="">-- Select Active Group --</option>
+                {% for g in admin_groups %}
+                    <option value="{{ g.id }}" {% if selected_group == g.id|stringformat:"s" %} selected {% endif %}>
+                        🏛️ {{ g.name }} ({{ g.code }})
+                    </option>
+                {% endfor %}
+            </select>
         </form>
 
-        <!-- PAYMENT FORM -->
-        <form method="post">
+        {% if selected_group and members %}
+        <form method="post" id="paymentForm" class="mt-5">
             {% csrf_token %}
             <input type="hidden" name="group" value="{{ selected_group }}">
 
-            {% if form.errors %}
-                <div class="alert alert-danger">
-                    {{ form.errors }}
+            <label class="section-label"><i class="fa-solid fa-user-check"></i> 02. Select Member</label>
+            <select name="chitti_member" id="memberSelect" class="pro-input" required>
+                <option value="">-- Choose Member --</option>
+                {% for m in members %}
+                    <option value="{{ m.id }}" 
+                            data-monthly="{{ m.monthly_target }}"
+                            data-pending="{{ m.pending }}"
+                            data-paid="{{ m.total_paid }}"
+                            data-label="{{ m.status_label }}"
+                            data-advance-mode="{{ m.is_advance_mode|yesno:'true,false' }}"
+                            data-completed="{{ m.is_completed|yesno:'true,false' }}">
+                        {{ m.name }} {% if m.is_completed %}🏆{% endif %}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <div id="statusPanel">
+                <div class="mini-card">
+                    <span>Account Status</span>
+                    <div id="statusBadge" class="status-badge">---</div>
                 </div>
-            {% endif %}
+                <div class="mini-card">
+                    <span>Paid to Date</span>
+                    <strong id="infoPaid">₹0.00</strong>
+                </div>
+                <div class="mini-card">
+                    <span>Expected Current</span>
+                    <strong id="infoMonthly">₹0.00</strong>
+                </div>
+            </div>
 
-            <!-- MEMBER SELECT -->
-            <div class="mb-3">
-                <label class="form-label fw-bold">Member</label>
-                <select name="chitti_member" id="memberSelect" class="form-select" required>
-                    <option value="">Select Member</option>
-                    {% for member in members %}
-                        <option value="{{ member.id }}"
-                                data-member-id="{{ member.member_id }}"
-                                data-monthly="{{ member.monthly_amount }}"
-                                data-collections="{{ member.collections }}">
-                            {{ member.name }}
-                        </option>
-                    {% endfor %}
+            <div class="row mt-4">
+                <div class="col-md-6 mb-4">
+                    <label class="section-label"><i class="fa-solid fa-coins"></i> 03. Amount (INR)</label>
+                    <div class="position-relative">
+                        <span style="position: absolute; left: 1.2rem; top: 1rem; font-weight: 800; color: var(--primary);">₹</span>
+                        <input type="number" step="0.01" name="amount" id="amountInput" class="pro-input" style="padding-left: 2.2rem;" placeholder="0.00" required>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <label class="section-label"><i class="fa-solid fa-calendar-check"></i> 04. Payment Date</label>
+                    <input type="date" name="paid_date" class="pro-input" value="{% now 'Y-m-d' %}" required>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="section-label"><i class="fa-solid fa-credit-card"></i> 05. Transaction Mode</label>
+                <select name="payment_method" class="pro-input">
+                    <option value="cash">💵 Cash / Physical</option>
+                    <option value="upi">📱 UPI (GPay/PhonePe)</option>
+                    <option value="bank">🏛️ Bank Transfer</option>
                 </select>
-                <div id="statusMessage" class="mt-2"></div>
             </div>
 
-            <!-- COLLECTION NUMBER -->
-            <div class="mb-3">
-                <label class="form-label fw-bold">Collection Number (this month)</label>
-                <select name="collection_number" id="collectionNumberSelect" class="form-select" required>
-                    <option value="">Select Collection</option>
-                </select>
-            </div>
-
-            <!-- AMOUNT -->
-            <div class="mb-3">
-                <label class="form-label fw-bold">Amount</label>
-                <input type="number" name="amount" id="amountInput" class="form-control" readonly>
-            </div>
-
-            <!-- PAID DATE -->
-            <div class="mb-3">
-                <label class="form-label fw-bold">Paid Date</label>
-                {{ form.paid_date }}
-            </div>
-
-            <!-- PAYMENT METHOD -->
-            <div class="mb-3">
-                <label class="form-label fw-bold">Payment Method</label>
-                {{ form.payment_method }}
-            </div>
-
-            <button type="submit" id="submitBtn" class="btn btn-primary w-100">Submit Payment</button>
+            <button type="submit" id="submitBtn" class="btn-submit">
+                <span id="btnText">CONFIRM & RECORD PAYMENT</span>
+                <i class="fa-solid fa-arrow-right" id="btnIcon"></i>
+            </button>
         </form>
+
+        {% elif selected_group %}
+        <div class="empty-state">
+            <i class="fa-solid fa-user-slash fa-3x mb-3" style="opacity: 0.3;"></i>
+            <h4>No members added to this group yet.</h4>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fa-solid fa-arrow-pointer fa-3x mb-3" style="opacity: 0.3;"></i>
+            <h4>Please select a group above.</h4>
+        </div>
+        {% endif %}
     </div>
 </div>
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-
     const memberSelect = document.getElementById("memberSelect");
     const amountInput = document.getElementById("amountInput");
-    const collectionSelect = document.getElementById("collectionNumberSelect");
-    const statusMessage = document.getElementById("statusMessage");
+    const statusPanel = document.getElementById("statusPanel");
+    const statusBadge = document.getElementById("statusBadge");
+    const infoPaid = document.getElementById("infoPaid");
+    const infoMonthly = document.getElementById("infoMonthly");
     const submitBtn = document.getElementById("submitBtn");
+    const btnText = document.getElementById("btnText");
+    const btnIcon = document.getElementById("btnIcon");
 
-    // member_collections_options passed from Django view
-    const memberCollectionsOptions = {{ member_collections_options|safe }};
+    if (memberSelect) {
+        memberSelect.addEventListener("change", function() {
+            const opt = this.options[this.selectedIndex];
+            
+            if (opt.value) {
+                const monthly = parseFloat(opt.getAttribute("data-monthly"));
+                const pending = parseFloat(opt.getAttribute("data-pending"));
+                const totalPaid = opt.getAttribute("data-paid");
+                const labelText = opt.getAttribute("data-label");
+                const isAdvance = opt.getAttribute("data-advance-mode") === "true";
+                const isCompleted = opt.getAttribute("data-completed") === "true";
 
-    function populateCollections(memberId, monthlyAmount, collections) {
+                statusPanel.style.display = 'grid';
+                infoPaid.innerText = `₹${totalPaid}`;
 
-        memberId = parseInt(memberId);
-
-        // reset UI
-        statusMessage.innerHTML = "";
-        collectionSelect.innerHTML = '<option value="">Select Collection</option>';
-        amountInput.value = "";
-        submitBtn.disabled = false;
-
-        if (!memberId || !memberCollectionsOptions[memberId]) return;
-
-        let remaining = memberCollectionsOptions[memberId];
-
-        // 🔴 COMPLETED CASE
-        if (remaining.length === 0) {
-            statusMessage.innerHTML = `
-                <div class="alert alert-danger">
-                    🚫 All collections for this month are already completed.
-                </div>
-            `;
-            let opt = document.createElement("option");
-            opt.textContent = "Completed";
-            opt.disabled = true;
-            collectionSelect.appendChild(opt);
-
-            // set default per-collection amount
-            if (monthlyAmount && collections) {
-                amountInput.value = (monthlyAmount / collections).toFixed(2);
+                if (isCompleted) {
+                    statusBadge.className = "status-badge status-done";
+                    statusBadge.innerHTML = `<i class="fa-solid fa-trophy"></i> COMPLETED`;
+                    infoMonthly.innerText = `₹0.00`;
+                    amountInput.value = "0";
+                    amountInput.disabled = true;
+                    submitBtn.disabled = true;
+                    btnText.innerText = "CHITTI FULLY PAID";
+                } else if (isAdvance) {
+                    statusBadge.className = "status-badge status-advance";
+                    statusBadge.innerHTML = `<i class="fa-solid fa-star"></i> ${labelText}`;
+                    infoMonthly.innerText = `₹${monthly.toFixed(2)}`;
+                    amountInput.value = monthly.toFixed(2);
+                    amountInput.disabled = false;
+                    submitBtn.disabled = false;
+                    btnText.innerText = "RECORD ADVANCE PAYMENT";
+                } else {
+                    statusBadge.className = "status-badge status-due";
+                    statusBadge.innerHTML = `<i class="fa-solid fa-clock"></i> ${labelText}`;
+                    infoMonthly.innerText = `₹${pending.toFixed(2)}`;
+                    amountInput.value = pending.toFixed(2);
+                    amountInput.disabled = false;
+                    submitBtn.disabled = false;
+                    btnText.innerText = "CLEAR PENDING DUES";
+                }
+            } else {
+                statusPanel.style.display = 'none';
             }
-
-            submitBtn.disabled = true;
-            return;
-        }
-
-        // 🟢 NORMAL CASE
-        if (monthlyAmount && collections) {
-            amountInput.value = (monthlyAmount / collections).toFixed(2);
-        }
-
-        remaining.forEach(num => {
-            let opt = document.createElement("option");
-            opt.value = num;
-            opt.textContent = "Collection #" + num;
-            collectionSelect.appendChild(opt);
         });
     }
 
-    // initial population if member pre-selected
-    if (memberSelect.value) {
-        const selectedOption = memberSelect.options[memberSelect.selectedIndex];
-        populateCollections(
-            selectedOption.getAttribute("data-member-id"),
-            selectedOption.getAttribute("data-monthly"),
-            selectedOption.getAttribute("data-collections")
-        );
+    const paymentForm = document.getElementById("paymentForm");
+    if (paymentForm) {
+        paymentForm.addEventListener("submit", function() {
+            submitBtn.disabled = true;
+            btnText.innerText = 'SECURELY SAVING...';
+            btnIcon.className = "fa-solid fa-spinner fa-spin";
+        });
     }
-
-    memberSelect.addEventListener("change", function() {
-        const selectedOption = this.options[this.selectedIndex];
-        populateCollections(
-            selectedOption.getAttribute("data-member-id"),
-            selectedOption.getAttribute("data-monthly"),
-            selectedOption.getAttribute("data-collections")
-        );
-    });
-
 });
 </script>
-
 {% endblock %}

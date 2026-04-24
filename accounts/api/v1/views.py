@@ -23,75 +23,108 @@ from django.contrib.auth import logout
 from rest_framework.permissions import IsAuthenticated
 
 
-User = get_user_model()
+
+
 
 # ----------------------
 # LOGIN API
 # ----------------------
+
+
+
+
+
+
+User = get_user_model()
+
+
 class LoginAPIView(APIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = []
 
     def post(self, request):
-        serializer = LoginSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        identifier = request.data.get('identifier')
+        password = request.data.get('password')
 
-        identifier = serializer.validated_data["identifier"]
-        password = serializer.validated_data["password"]
+        # ✅ Validate input
+        if not identifier or not password:
+            return Response(
+                {"error": "Identifier and password are required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         user = None
 
-        # Username login
+        # 1️⃣ Username login
         user = authenticate(request, username=identifier, password=password)
 
-        # Email login
-        if not user:
+        # 2️⃣ Email login
+        if user is None:
             u = User.objects.filter(email=identifier).first()
             if u and u.check_password(password):
                 user = u
 
-        # Member phone login
-        if not user:
+        # 3️⃣ Member phone login
+        if user is None:
             member = Member.objects.filter(phone=identifier).first()
             if member and member.user and member.user.check_password(password):
                 user = member.user
 
-        # Staff phone login
-        if not user:
+        # 4️⃣ Staff phone login
+        if user is None:
             staff = StaffProfile.objects.filter(phone=identifier).first()
             if staff and staff.user and staff.user.check_password(password):
                 user = staff.user
 
-        if not user:
-            return Response(
-                {"detail": "Invalid credentials."},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+        # 5️⃣ Final Response
+        if user:
+            if not user.is_active:
+                return Response(
+                    {"error": "Your account is disabled"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
-        if not user.is_active:
-            return Response(
-                {"detail": "Account inactive."},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            # ✅ JWT TOKEN GENERATION (FIXED)
+            refresh = RefreshToken.for_user(user)
 
-        # Role detect
-        role = "member"
-        if hasattr(user, "staffprofile"):
-            role = user.staffprofile.role
+            # 🔥 Role Logic
+            role = "member"
+            redirect_to = "members:member_dashboard"
+            group_setup_needed = False
 
-        # First login check
-        member = Member.objects.filter(user=user).first()
-        is_first_login = member.is_first_login if member else False
+            if hasattr(user, 'staffprofile'):
+                profile = user.staffprofile
+                role = profile.role
 
-        # Token create
-        refresh = RefreshToken.for_user(user)
+                if role == 'admin':
+                    redirect_to = "adminpanel:dashboard"
 
-        return Response({
-            "access": str(refresh.access_token),
-            "refresh": str(refresh),
-            "username": user.username,
-            "role": role,
-            "is_first_login": is_first_login
-        })
+                elif role == 'collector':
+                    redirect_to = "accounts:collector_dashboard"
+
+                elif role == 'group_admin':
+                    if not profile.group:
+                        group_setup_needed = True
+                        redirect_to = "accounts:create_group"
+                    else:
+                        redirect_to = "accounts:group_admin_dashboard"
+
+            return Response({
+                "status": "success",
+                "access": str(refresh.access_token),   
+                "refresh": str(refresh),              
+                "user_id": user.id,
+                "email": user.email,
+                "role": role,
+                "redirect_to": redirect_to,
+                "group_setup_needed": group_setup_needed
+            }, status=status.HTTP_200_OK)
+
+        # ❌ Login failed
+        return Response(
+            {"error": "Invalid login details"},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -110,146 +143,135 @@ class SubscriptionPlanListAPIView(APIView):
         }, status=status.HTTP_200_OK)
 
 
-# ----------------------
-# GROUP SIGNUP API
-# ----------------------
+
+
+
+User = get_user_model()
+
 class GroupSignupAPIView(APIView):
     permission_classes = []
 
     def post(self, request):
+        # 1. Get data using the EXACT keys from your Postman JSON
+        email = request.data.get('email')
+        phone = request.data.get('phone')
+        password = request.data.get('password') # Changed from password1 to password
+        name = request.data.get('name')
 
-        group_name = request.data.get("group_name")
-        phone = request.data.get("phone")
-        email = request.data.get("email")
-        password1 = request.data.get("password1")
-        password2 = request.data.get("password2")
-        plan_id = request.data.get("plan_id")
-
-        if not all([group_name, phone, email, password1, password2, plan_id]):
-            return Response({"error": "All fields are required"}, status=400)
-
-        if password1 != password2:
-            return Response({"error": "Passwords do not match"}, status=400)
-
-        if ChittiGroup.objects.filter(name=group_name).exists():
-            return Response({"error": "Group name already exists"}, status=400)
-
-        if User.objects.filter(username=phone).exists():
-            return Response({"error": "Phone number already registered"}, status=400)
+        # 2. Validation
+        # If any of these are missing in the JSON, it returns this error
+        if not email or not phone or not password or not name:
+            return Response({"error": "All fields (name, email, phone, password) are required."}, 
+                            status=status.HTTP_400_BAD_REQUEST)
 
         if User.objects.filter(email=email).exists():
-            return Response({"error": "Email already registered"}, status=400)
+            return Response({"error": "Email already registered."}, 
+                            status=status.HTTP_400_BAD_REQUEST)
 
-        plan = get_object_or_404(SubscriptionPlan, id=plan_id)
+        # 3. Generate OTP
+        otp = str(random.randint(100000, 999999))
+        print(f"DEBUG OTP for {email}: {otp}") 
 
-        otp = random.randint(100000, 999999)
-
-        request.session["pending_group_data"] = {
-            "group_name": group_name,
-            "phone": phone,
-            "email": email,
-            "password": password1,
-            "plan_id": plan.id,
-            "otp": otp,
-            "otp_created_at": time.time(),
-            "otp_verified": False,
-            "payment_done": False
+        # 4. Save to Session
+        request.session['pending_group_data'] = {
+            'name': name,
+            'phone': phone,
+            'email': email,
+            'password': password, # Plain text for now, hashed in Verify view
+            'otp': otp
         }
+        request.session.modified = True 
 
-        request.session.modified = True
-
-        send_mail(
-            "SmartKuri - Group Signup OTP",
-            f"Your OTP for group '{group_name}' signup is: {otp}",
-            settings.DEFAULT_FROM_EMAIL,
-            [email],
-            fail_silently=False
-        )
-
-        return Response({
-            "status": "success",
-            "message": "OTP sent successfully"
-        })
-
-
+        # 5. Send Email
+        try:
+            send_mail(
+                "Verify Your Account",
+                f"Your registration OTP is {otp}",
+                settings.DEFAULT_FROM_EMAIL,
+                [email],
+                fail_silently=False 
+            )
+            return Response({
+                "message": "OTP sent successfully.",
+                "email": email
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({"error": f"Mail error: {str(e)}"}, 
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 # ----------------------
 # VERIFY OTP API
 # ----------------------
+
+
+User = get_user_model()
+
 class VerifyGroupOTPAPIView(APIView):
     permission_classes = []
 
     def post(self, request):
+        # 1. Fetch data stored in session during Signup
+        data = request.session.get('pending_group_data')
+        entered_otp = request.data.get('otp')
 
-        data = request.session.get("pending_group_data")
-
+        # Check if session exists
         if not data:
-            return Response({"error": "No signup data found"}, status=400)
+            return Response({"error": "Session expired or not found. Please signup again."}, 
+                            status=status.HTTP_400_BAD_REQUEST)
 
-        otp_entered = request.data.get("otp")
+        # 2. OTP Verification Logic
+        if str(entered_otp) == str(data.get('otp')):
+            try:
+                with transaction.atomic():
+                    email = data.get('email')
+                    password = data.get('password')
+                    phone = data.get('phone')
+                    name = data.get('name')
 
-        if not otp_entered:
-            return Response({"error": "OTP required"}, status=400)
+                    # 3. Create or Update the User
+                    user = User.objects.filter(email=email).first()
+                    
+                    if not user:
+                        # ✅ Standard way to create user with hashed password
+                        user = User.objects.create_user(
+                            username=email, # We are using email as the username
+                            email=email,
+                            password=password
+                        )
+                        user.first_name = name
+                        user.save()
+                    else:
+                        # If user exists, update password correctly
+                        user.set_password(password)
+                        user.save()
 
-        if time.time() - data["otp_created_at"] > 600:
-            del request.session["pending_group_data"]
-            return Response({"error": "OTP expired. Signup again"}, status=400)
+                    # 4. Link User to StaffProfile (Role: Group Admin)
+                    StaffProfile.objects.update_or_create(
+                        user=user,
+                        defaults={
+                            'phone': phone,
+                            'role': 'group_admin',
+                            'group': None,
+                            'is_subscribed': False
+                        }
+                    )
 
-        if str(otp_entered) != str(data["otp"]):
-            return Response({"error": "Invalid OTP"}, status=400)
+                # 5. Success - Cleanup Session
+                request.session.pop('pending_group_data', None)
+                request.session.modified = True
 
-        data["otp_verified"] = True
+                return Response({
+                    "status": "success",
+                    "message": "Signup successful! You can now login using your email."
+                }, status=status.HTTP_201_CREATED)
 
-        plan = get_object_or_404(SubscriptionPlan, id=data["plan_id"])
-
-        UserModel = get_user_model()
-
-        # check existing user
-        owner = UserModel.objects.filter(username=data["phone"]).first()
-
-        if not owner:
-            owner = UserModel.objects.create_user(
-                username=data["phone"],
-                email=data["email"],
-                password=data["password"],
-                first_name=data["group_name"]  # name display fix
-            )
-
-        # create group
-        group = ChittiGroup.objects.create(
-            name=data["group_name"],
-            owner=owner,
-            total_amount=0,
-            monthly_amount=0,
-            duration_months=0,
-            start_date=timezone.now().date(),
-            is_active=True
-        )
-
-        # create subscription (important)
-        GroupSubscription.objects.create(
-            group=group,
-            plan=plan,
-            is_active=True
-        )
-
-        # create staff profile
-        StaffProfile.objects.create(
-            user=owner,
-            phone=data["phone"],
-            role="group_admin",
-            group=group,
-            is_subscribed=True
-        )
-
-        del request.session["pending_group_data"]
-
-        return Response({
-            "status": "success",
-            "message": "OTP verified! Group created successfully",
-            "group_id": group.id,
-            "plan": plan.name
-        })
-
+            except Exception as e:
+                return Response({"error": f"Database Error: {str(e)}"}, 
+                                status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            return Response({"error": "Invalid OTP. Please check your email again."}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+        
 # ----------------------
 # PAYMENT ORDER API (Razorpay)
 # ----------------------

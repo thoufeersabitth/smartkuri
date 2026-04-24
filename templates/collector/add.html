@@ -2,152 +2,321 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'collector/css/add_collection.css' %}">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+
+<style>
+    :root {
+        --primary: #4318ff;
+        --secondary: #6c757d;
+        --success: #05cd99;
+        --warning: #ffb547;
+        --danger: #ee5d50;
+        --info: #01b9ff;
+        --bg-light: #f4f7fe;
+        --glass-bg: rgba(255, 255, 255, 0.9);
+    }
+
+    body { 
+        font-family: 'Plus Jakarta Sans', sans-serif; 
+        background-color: var(--bg-light); 
+        color: #1b2559;
+    }
+
+    /* Summary Cards Glassmorphism */
+    .summary-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 20px;
+        padding: 20px 15px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border-bottom: 4px solid transparent;
+    }
+    .summary-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+    .summary-card span { font-size: 0.7rem; font-weight: 700; color: var(--secondary); letter-spacing: 1px; }
+    .summary-card h5 { font-size: 1.25rem; font-weight: 800; margin-top: 5px; }
+
+    /* Action Banner */
+    .admin-alert-banner {
+        background: linear-gradient(135deg, var(--primary), #7048ff);
+        border-radius: 22px;
+        padding: 22px;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    .admin-alert-banner::after {
+        content: ''; position: absolute; top: -50%; right: -10%; width: 150px; height: 150px;
+        background: rgba(255,255,255,0.1); border-radius: 50%;
+    }
+
+    /* Form Design */
+    .form-section {
+        background: #fff;
+        border-radius: 24px;
+        padding: 30px;
+        margin-bottom: 25px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+        transition: all 0.4s ease;
+    }
+    .section-header { font-weight: 700; color: #1b2559; font-size: 1.1rem; margin-bottom: 20px; display: flex; align-items: center; }
+    .section-header i { background: var(--bg-light); color: var(--primary); padding: 8px; border-radius: 10px; margin-right: 12px; }
+
+    .form-control, .form-select {
+        border-radius: 14px; border: 2px solid #e0e5f2; padding: 14px 16px; font-weight: 500;
+    }
+    .form-control:focus { border-color: var(--primary); box-shadow: none; background: #fff; }
+
+    /* Method Selector */
+    .method-option input { display: none; }
+    .method-box {
+        border: 2px solid #e0e5f2; border-radius: 16px; padding: 15px; text-align: center;
+        cursor: pointer; transition: all 0.2s; font-weight: 600; color: var(--secondary);
+    }
+    .method-option input:checked + .method-box {
+        border-color: var(--primary); background: rgba(67, 24, 255, 0.05); color: var(--primary);
+    }
+
+    .btn-create {
+        background: var(--primary); color: white; border: none; border-radius: 20px;
+        padding: 20px; font-weight: 700; width: 100%; transition: all 0.3s;
+        text-transform: uppercase; letter-spacing: 1px;
+    }
+    .btn-create:hover:not(:disabled) { background: #3311cc; transform: translateY(-2px); box-shadow: 0 10px 20px rgba(67, 24, 255, 0.2); }
+    .btn-create:disabled { background: #cbd5e0; cursor: not-allowed; }
+
+    #paymentFields { transition: all 0.3s ease; }
+</style>
 {% endblock %}
 
 {% block content %}
+<div class="container pb-5 mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
 
-<div class="container mt-4">
-    <div class="card shadow p-4">
-
-        <h3 class="text-center text-primary mb-4">Add Collection</h3>
-
-        <!-- Messages -->
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} mb-2">
-                    {{ message }}
+            <div class="row g-3 mb-4 animate__animated animate__fadeIn">
+                <div class="col-6 col-md-3">
+                    <div class="summary-card shadow-sm text-center">
+                        <span>TOTAL</span>
+                        <h5 class="text-dark">₹{{ total_amount|floatformat:0 }}</h5>
+                    </div>
                 </div>
-            {% endfor %}
-        {% endif %}
-
-        <form method="post" id="paymentForm">
-            {% csrf_token %}
-
-            <!-- MEMBER -->
-            <div class="mb-3">
-                <label class="form-label fw-bold">Member</label>
-                <select name="member" id="memberSelect" class="form-select" required>
-                    <option value="">Select Member</option>
-                    {% for m in members %}
-                        <option value="{{ m.id }}"
-                                data-monthly="{{ m.assigned_chitti_group.monthly_amount }}"
-                                data-collections="{{ m.assigned_chitti_group.collections_per_month }}">
-                            {{ m.name }} ({{ m.phone }})
-                        </option>
-                    {% endfor %}
-                </select>
-                <div id="statusMessage" class="mt-2"></div>
+                <div class="col-6 col-md-3">
+                    <div class="summary-card shadow-sm text-center" style="border-bottom-color: var(--success)">
+                        <span>RECEIVED</span>
+                        <h5 style="color: var(--success)">₹{{ admin_received|floatformat:0 }}</h5>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="summary-card shadow-sm text-center" style="border-bottom-color: var(--warning)">
+                        <span>SENT</span>
+                        <h5 style="color: var(--warning)">₹{{ sent_amount|floatformat:0 }}</h5>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="summary-card shadow-sm text-center" style="border-bottom-color: var(--primary)">
+                        <span>DRAFT</span>
+                        <h5 style="color: var(--primary)">₹{{ draft_amount|floatformat:0 }}</h5>
+                    </div>
+                </div>
             </div>
 
-            <!-- COLLECTION NUMBER -->
-            <div class="mb-3">
-                <label class="form-label fw-bold">Collection Number</label>
-                <select name="collection_number" id="collectionNumberSelect" class="form-select" required>
-                    <option value="">Select Collection</option>
-                </select>
+            {% if draft_amount > 0 %}
+            <div class="admin-alert-banner shadow-sm mb-4 animate__animated animate__pulse animate__infinite">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="fw-bold mb-1"><i class="bi bi-wallet-fill me-2"></i>Handover Pending</h5>
+                        <p class="mb-0 opacity-75 small">₹{{ draft_amount }} is ready to be sent to Admin</p>
+                    </div>
+                    <button class="btn btn-light fw-bold px-4 rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#sendAdminModal">
+                        Settle Now
+                    </button>
+                </div>
             </div>
+            {% endif %}
 
-            <!-- AMOUNT -->
-            <div class="mb-3">
-                <label class="form-label fw-bold">Amount</label>
-                <input type="number" name="amount" id="amountInput" class="form-control" readonly>
+            <div class="animate__animated animate__fadeInUp">
+                <form method="POST" id="mainPaymentForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_type" value="member_collection">
+
+                    <div class="form-section">
+                        <div class="section-header"><i class="bi bi-person-bounding-box"></i> Member Selection</div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">SELECT CHITTI MEMBER</label>
+                            <select name="member" id="memberSelect" class="form-select" required>
+                                <option value="">Type member name...</option>
+                                {% for data in members_data %}
+                                    <option value="{{ data.member_obj.id }}"
+                                            data-target="{{ data.monthly_target }}"
+                                            data-status="{{ data.status_label }}"
+                                            data-is-advance="{{ data.is_advance_mode|yesno:'true,false' }}"
+                                            data-is-completed="{{ data.is_completed|yesno:'true,false' }}">
+                                        {{ data.member_obj.name }} ({{ data.group_name }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div id="statusContainer"></div>
+                    </div>
+
+                    <div id="paymentFields">
+                        <div class="form-section">
+                            <div class="section-header"><i class="bi bi-wallet2"></i> Transaction Details</div>
+                            <div class="row g-4">
+                                <div class="col-12">
+                                    <label class="form-label small fw-bold text-muted">COLLECTED AMOUNT</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light border-0 fw-bold">₹</span>
+                                        <input type="number" name="amount" id="amountInput" class="form-control form-control-lg border-start-0" placeholder="0.00" required>
+                                    </div>
+                                    <div id="calcNote" class="mt-2 small text-primary fw-bold"></div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-muted">PAID DATE</label>
+                                    <input type="date" name="paid_date" id="paidDateInput" class="form-control" value="{{ today|date:'Y-m-d' }}" required>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-muted">PAYMENT METHOD</label>
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <label class="method-option w-100">
+                                                <input type="radio" name="payment_method" value="cash" checked>
+                                                <div class="method-box"><i class="bi bi-cash-stack d-block mb-1"></i> Cash</div>
+                                            </label>
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="method-option w-100">
+                                                <input type="radio" name="payment_method" value="upi">
+                                                <div class="method-box"><i class="bi bi-qr-code d-block mb-1"></i> UPI</div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn-create shadow-lg mb-5" id="submitBtn">
+                            <span id="btnText">CONFIRM COLLECTION</span>
+                        </button>
+                    </div>
+                </form>
             </div>
+        </div>
+    </div>
+</div>
 
-            <!-- PAID DATE -->
-            <div class="mb-3">
-                <label class="form-label fw-bold">Paid Date</label>
-                <input type="date" name="paid_date" class="form-control" value="{% now 'Y-m-d' %}" required>
+<div class="modal fade" id="sendAdminModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 28px;">
+            <div class="modal-body p-5 text-center">
+                <div class="mb-4">
+                    <i class="bi bi-send-check-fill text-primary" style="font-size: 4rem;"></i>
+                </div>
+                <h3 class="fw-bold">Handover Cash</h3>
+                <p class="text-muted">You are handing over <b>₹{{ draft_amount }}</b> to the Admin. This action will mark these entries as 'Sent'.</p>
+                
+                <form method="POST" class="mt-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_type" value="send_to_admin">
+                    <button type="submit" class="btn btn-primary w-100 py-3 fw-bold rounded-pill shadow">Confirm Handover</button>
+                    <button type="button" class="btn btn-link text-muted mt-2" data-bs-dismiss="modal">Cancel</button>
+                </form>
             </div>
-
-            <!-- PAYMENT METHOD -->
-            <div class="mb-3">
-                <label class="form-label fw-bold">Payment Method</label>
-                <select name="payment_method" class="form-select" required>
-                    <option value="cash">Cash</option>
-                    <option value="upi">UPI</option>
-                    <option value="bank">Bank</option>
-                </select>
-            </div>
-
-            <!-- SUBMIT BUTTON -->
-            <button type="submit" id="submitBtn" class="btn btn-primary w-100">
-                Submit Payment
-            </button>
-
-        </form>
+        </div>
     </div>
 </div>
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-
     const memberSelect = document.getElementById("memberSelect");
+    const statusContainer = document.getElementById("statusContainer");
     const amountInput = document.getElementById("amountInput");
-    const collectionSelect = document.getElementById("collectionNumberSelect");
-    const statusMessage = document.getElementById("statusMessage");
+    const calcNote = document.getElementById("calcNote");
     const submitBtn = document.getElementById("submitBtn");
+    const paymentFields = document.getElementById("paymentFields");
 
-    const memberCollectionsOptions = {{ member_collections_options|default:"{}"|safe }};
-
-    function populateCollections(memberId) {
-
-        memberId = parseInt(memberId);
-
-        const selectedOption = memberSelect.options[memberSelect.selectedIndex];
-        if (!selectedOption) return;
-
-        const monthlyAmount = parseFloat(selectedOption.dataset.monthly) || 0;
-        const collections = parseInt(selectedOption.dataset.collections) || 1;
-
-        // RESET UI
-        statusMessage.innerHTML = "";
-        collectionSelect.innerHTML = '<option value="">Select Collection</option>';
-        amountInput.value = "";
-        submitBtn.disabled = false;
-
-        if (!memberId || !memberCollectionsOptions[memberId]) return;
-
-        let remaining = memberCollectionsOptions[memberId];
-
-        // 🔴 COMPLETED CASE
-        if (remaining.length === 0) {
-
-            statusMessage.innerHTML = `
-                <div class="alert alert-danger">
-                    🚫 <strong>Payment Blocked</strong><br>
-                    All collections for this month are already completed.
-                </div>
-            `;
-
-            amountInput.value = monthlyAmount.toFixed(2);
-
-            let opt = document.createElement("option");
-            opt.textContent = "Completed";
-            opt.disabled = true;
-            collectionSelect.appendChild(opt);
-
-            submitBtn.disabled = true;
+    memberSelect.addEventListener("change", function() {
+        const option = this.options[this.selectedIndex];
+        
+        if (!option.value) {
+            statusContainer.innerHTML = "";
+            calcNote.innerHTML = "";
+            resetUI();
             return;
         }
 
-        // 🟢 NORMAL CASE
-        let perCollection = monthlyAmount / collections;
-        amountInput.value = perCollection.toFixed(2);
+        const target = option.dataset.target;
+        const status = option.dataset.status;
+        const isAdvance = option.dataset.isAdvance === "true";
+        const isCompleted = option.dataset.isCompleted === "true";
 
-        remaining.forEach(num => {
-            let opt = document.createElement("option");
-            opt.value = num;
-            opt.textContent = "Collection #" + num;
-            collectionSelect.appendChild(opt);
-        });
-    }
-
-    memberSelect.addEventListener("change", function() {
-        populateCollections(this.value);
+        if (isCompleted) {
+            // Case: Member has no more dues
+            statusContainer.innerHTML = `
+                <div class="animate__animated animate__shakeX">
+                    <div class="p-3 mt-2 rounded-4 d-flex align-items-center bg-success text-white shadow-sm">
+                        <i class="bi bi-patch-check-fill fs-2 me-3"></i>
+                        <div>
+                            <small class="d-block fw-bold opacity-75">ACCOUNT STATUS</small>
+                            <span class="fw-bold">COMPLETED - ${status}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            lockUI();
+        } else {
+            // Case: Member has dues or is in advance mode
+            statusContainer.innerHTML = `
+                <div class="animate__animated animate__fadeInUp">
+                    <div class="p-3 mt-2 rounded-4 d-flex align-items-center ${isAdvance ? 'bg-info text-white' : 'bg-warning text-dark'} shadow-sm">
+                        <i class="bi ${isAdvance ? 'bi-stars' : 'bi-exclamation-circle-fill'} fs-4 me-3"></i>
+                        <div>
+                            <small class="d-block fw-bold opacity-75">CURRENT STATUS</small>
+                            <span class="fw-bold">${status}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            unlockUI(target);
+        }
     });
 
+    function lockUI() {
+        paymentFields.style.opacity = "0.4";
+        paymentFields.style.pointerEvents = "none";
+        submitBtn.disabled = true;
+        submitBtn.innerText = "ALREADY COMPLETED";
+        amountInput.value = "";
+        calcNote.innerHTML = "";
+    }
+
+    function unlockUI(target) {
+        paymentFields.style.opacity = "1";
+        paymentFields.style.pointerEvents = "auto";
+        submitBtn.disabled = false;
+        submitBtn.innerText = "CONFIRM COLLECTION";
+        amountInput.value = target;
+        calcNote.innerHTML = `<i class="bi bi-info-circle"></i> Suggested collection: ₹${target}`;
+    }
+
+    function resetUI() {
+        paymentFields.style.opacity = "1";
+        paymentFields.style.pointerEvents = "auto";
+        submitBtn.disabled = false;
+        submitBtn.innerText = "CONFIRM COLLECTION";
+    }
+
+    // Submit Animation
+    document.getElementById("mainPaymentForm").addEventListener("submit", function() {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Processing...`;
+    });
 });
 </script>
-
 {% endblock %}

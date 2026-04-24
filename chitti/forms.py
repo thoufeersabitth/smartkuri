@@ -7,7 +7,22 @@ from dateutil.relativedelta import relativedelta
 class ChittiGroupForm(forms.ModelForm):
     class Meta:
         model = ChittiGroup
-        fields = ['name', 'total_amount', 'duration_months', 'monthly_amount', 'start_date']
+        # FIX: Removed 'total_amount' because it's non-editable.
+        # It will still calculate automatically in your Model's save() method.
+        fields = [
+            'name', 
+            'duration_months', 
+            'monthly_amount', 
+            'start_date', 
+            'auction_type', 
+            'auctions_per_month'
+        ]
+        widgets = {
+            'start_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Group Name'}),
+            'monthly_amount': forms.NumberInput(attrs={'class': 'form-control'}),
+            'duration_months': forms.NumberInput(attrs={'class': 'form-control'}),
+        }
 
 
 class ChittiMemberForm(forms.ModelForm):

@@ -1,0 +1,335 @@
+/* add_collection.css - External Stylesheet */
+/* ====== GLOBAL STYLES ====== */
+:root { 
+    --primary: #4361ee; 
+    --primary-dark: #3a0ca3;
+    --bg: #f4f7fe; 
+    --white: #ffffff;
+    --due-color: #ef476f; 
+    --advance-color: #06d6a0; 
+    --text-muted: #718096;
+    --card-shadow: 0 10px 40px rgba(0,0,0,0.04);
+    --gradient-btn: linear-gradient(135deg, #4361ee, #3a0ca3);
+    --border-light: #edf2f7;
+}
+
+body { 
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #f0f4f8, #d9e2ec);
+    color: #2d3748; 
+    margin: 0;
+    padding: 0;
+}
+
+/* Main Container */
+.container {
+    max-width: 700px;
+    margin: 50px auto;
+    padding: 30px;
+    background: linear-gradient(145deg, #ffffff, #f9fafc);
+    border-radius: 20px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+    animation: fadeInDown 1s ease;
+    position: relative;
+}
+
+/* Top animated bar */
+.container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 5px;
+    width: 0;
+    background: linear-gradient(90deg, var(--primary), var(--advance-color));
+    animation: expandBar 1.2s forwards;
+    border-radius: 20px 20px 0 0;
+}
+
+/* Form Sections */
+.form-section { 
+    background: var(--white); 
+    padding: 28px 25px; 
+    border-radius: 28px; 
+    box-shadow: 0 8px 20px rgba(0,0,0,0.02), 0 2px 4px rgba(0,0,0,0.02); 
+    margin-bottom: 28px; 
+    border: 1px solid rgba(67, 97, 238, 0.08); 
+    transition: all 0.25s ease;
+}
+
+.section-header { 
+    color: var(--primary); 
+    font-weight: 700; 
+    font-size: 0.85rem; 
+    margin-bottom: 22px; 
+    display: flex; 
+    align-items: center; 
+    text-transform: uppercase; 
+    letter-spacing: 1.5px;
+}
+
+.section-header i { 
+    margin-right: 12px; 
+    font-size: 1.3rem; 
+    background: rgba(67, 97, 238, 0.1);
+    padding: 8px;
+    border-radius: 14px;
+}
+
+.form-label { 
+    font-weight: 600; 
+    color: #1a2c3e; 
+    font-size: 0.8rem; 
+    margin-bottom: 10px; 
+    letter-spacing: 0.3px;
+    display: block;
+}
+
+/* Inputs & Select */
+.form-control, .form-select { 
+    width: 100%;
+    padding: 14px 18px; 
+    font-size: 0.95rem;
+    border-radius: 20px; 
+    border: 2px solid #eef2f9; 
+    transition: all 0.25s ease; 
+    background-color: #fbfdff;
+    font-weight: 500;
+}
+
+.form-control:focus, .form-select:focus { 
+    border-color: var(--primary); 
+    box-shadow: 0 0 0 4px rgba(67, 97, 238, 0.12); 
+    background-color: #fff;
+    outline: none;
+}
+
+/* Custom select arrow */
+select.form-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background: #fbfdff url("data:image/svg+xml;charset=US-ASCII,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='6'><path fill='%234361ee' d='M0 0l6 6 6-6z'/></svg>") no-repeat right 18px center;
+    background-size: 12px 6px;
+    padding-right: 45px;
+}
+
+/* Status Cards */
+#statusMessage .status-card {
+    border-radius: 20px; 
+    padding: 18px 20px;
+    display: flex; 
+    align-items: center; 
+    gap: 16px;
+    margin-top: 18px;
+    animation: fadeSlideIn 0.4s ease;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+
+.status-due { 
+    background: #fff5f7; 
+    color: var(--due-color); 
+    border-left: 6px solid var(--due-color); 
+}
+
+.status-advance { 
+    background: #f0fffb; 
+    color: var(--advance-color); 
+    border-left: 6px solid var(--advance-color); 
+}
+
+/* Amount Input Wrapper */
+.amount-wrapper { 
+    position: relative; 
+    margin-top: 5px;
+}
+
+.currency-tag {
+    position: absolute; 
+    left: 20px; 
+    top: 50%; 
+    transform: translateY(-50%);
+    font-weight: 700; 
+    color: var(--primary); 
+    font-size: 1.4rem;
+    pointer-events: none;
+    z-index: 2;
+}
+
+#amountInput { 
+    padding-left: 48px; 
+    font-size: 1.4rem; 
+    font-weight: 700; 
+    color: var(--primary); 
+    background-color: #ffffff;
+}
+
+/* Payment Method Cards */
+.method-grid { 
+    display: grid; 
+    grid-template-columns: repeat(3, 1fr); 
+    gap: 14px; 
+    margin-top: 8px; 
+}
+
+.method-option { 
+    position: relative; 
+    cursor: pointer; 
+}
+
+.method-option input { 
+    position: absolute; 
+    opacity: 0; 
+    cursor: pointer; 
+}
+
+.method-box {
+    background: #f9fbfe;
+    border: 2px solid #e9edf4;
+    border-radius: 20px;
+    padding: 14px 8px;
+    text-align: center;
+    transition: all 0.25s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #2c3e66;
+}
+
+.method-option input:checked + .method-box {
+    border-color: var(--primary);
+    background: rgba(67, 97, 238, 0.06);
+    color: var(--primary);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 18px rgba(67, 97, 238, 0.12);
+}
+
+/* Submit Button */
+.btn-create { 
+    background: var(--gradient-btn); 
+    color: white; 
+    padding: 18px 22px; 
+    font-weight: 700; 
+    border-radius: 28px; 
+    border: none; 
+    width: 100%; 
+    font-size: 1.05rem; 
+    letter-spacing: 1px;
+    box-shadow: 0 12px 28px rgba(67, 97, 238, 0.35);
+    transition: all 0.35s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-create:hover { 
+    transform: translateY(-4px); 
+    box-shadow: 0 22px 35px rgba(67, 97, 238, 0.4); 
+}
+
+/* Button shine effect */
+.btn-create::after {
+    content: "";
+    position: absolute;
+    left: -60%;
+    top: 0;
+    width: 40%;
+    height: 100%;
+    background: rgba(255,255,255,0.25);
+    transform: skewX(-20deg);
+    transition: all 0.6s ease;
+}
+
+.btn-create:hover::after {
+    left: 120%;
+}
+
+/* Alerts */
+.alert {
+    border-radius: 18px;
+    border: none;
+    padding: 18px;
+}
+
+.alert-success {
+    background: #d4edda;
+    color: #155724;
+}
+
+.alert-danger {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Animations */
+@keyframes fadeInDown {
+    0% {
+        opacity: 0;
+        transform: translateY(-40px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes expandBar {
+    0% {
+        width: 0;
+    }
+    100% {
+        width: 100%;
+    }
+}
+
+@keyframes fadeSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .container {
+        margin: 20px;
+        padding: 20px;
+    }
+
+    .display-6 {
+        font-size: 1.8rem;
+    }
+
+    .form-section {
+        padding: 20px 18px;
+    }
+
+    .method-grid {
+        gap: 8px;
+    }
+
+    .method-box {
+        padding: 10px 4px;
+        font-size: 0.75rem;
+    }
+
+    #amountInput {
+        font-size: 1.2rem;
+    }
+
+    .btn-create {
+        padding: 14px 18px;
+        font-size: 0.95rem;
+    }
+}

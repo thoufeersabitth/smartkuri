@@ -38,14 +38,23 @@ urlpatterns = [
     path('auction/<int:auction_id>/', views.auction_detail_view, name='auction_detail'),
     path('auction/<int:auction_id>/spin/', views.auction_spin_view, name='auction_spin'),
     path('auction/<int:auction_id>/assign_winner_ajax/', views.assign_winner_ajax, name='assign_winner_ajax'),
+    path('groups/edit-dates/<int:group_id>/', views.edit_auction_dates, name='edit_auction_dates'),
+    path('auction/<int:auction_id>/assign-all/', views.assign_all_winners_ajax, name='assign_all_winners_ajax'),
 
     # -----------------------------
     # Admin Payments
     # -----------------------------
     path('admin/payments/pending/', views.admin_pending_payments, name='admin_pending_payments'),
     path('admin/payments/approve/<int:payment_id>/', views.admin_approve_payment, name='admin_approve_payment'),
-
-    # ✅ Approve all payments for a group
     path('admin/payments/approve/group/<int:group_id>/', views.admin_approve_payment_group, name='admin_approve_payment_group'),
     path('admin/payments/group/<int:group_id>/details/', views.group_payment_details, name='group_payment_details'),
+    path('admin/payments/reject/<int:payment_id>/', views.admin_reject_payment, name='admin_reject_payment'),
+    path('admin/payments/reject/group/<int:group_id>/', views.admin_reject_payment_group, name='admin_reject_payment_group'),
+
+
+
+    # -----------------------------
+    # Notifications
+    # -----------------------------
+    path('notifications/clear-all/', views.clear_all_notifications, name='clear_all_notifications'),
 ]
