@@ -484,17 +484,22 @@ class AdminGroupCreateAPIView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # 🔎 INPUT VALIDATION
         try:
+            # =========================
+            # 📥 INPUTS (SAFE)
+            # =========================
             name = request.data.get("name", "").strip()
-            monthly_amount = Decimal(str(request.data.get("monthly_amount", 0)))
-            duration_months = int(request.data.get("duration_months", 0))
 
-            auctions_per_month = int(request.data.get("auctions_per_month", 1))
+            monthly_amount = Decimal(request.data.get("monthly_amount") or 0)
+            duration_months = int(request.data.get("duration_months") or 0)
+
+            auctions_per_month = int(request.data.get("auctions_per_month") or 1)
             auction_type = request.data.get("auction_type", "monthly")
             auction_interval_months = request.data.get("auction_interval_months")
 
-            # 🔁 Interval validation
+            # =========================
+            # 🔁 INTERVAL VALIDATION
+            # =========================
             if auction_type == "interval":
                 auction_interval_months = int(auction_interval_months or 0)
                 if auction_interval_months <= 0:
@@ -502,45 +507,82 @@ class AdminGroupCreateAPIView(APIView):
             else:
                 auction_interval_months = None
 
-            # 📅 Date parsing
+            # =========================
+            # 📅 START DATE
+            # =========================
             date_input = request.data.get("start_date")
+
+            if not date_input:
+                raise ValueError("start_date required")
 
             try:
                 start_date = datetime.strptime(date_input, "%d-%m-%Y").date()
             except ValueError:
                 start_date = datetime.strptime(date_input, "%Y-%m-%d").date()
 
-            # ✅ Basic validation
-            if not name or monthly_amount <= 0 or duration_months <= 0:
-                raise ValueError
-
-            # 🔥 Auction dates
+            # =========================
+            # 🔥 AUCTION DATES VALIDATION
+            # =========================
             base_dates = []
+
             for i in range(1, auctions_per_month + 1):
                 d = request.data.get(f"auction_date_{i}")
+
                 if not d:
                     raise ValueError("All auction dates required")
 
-                base_dates.append(
-                    datetime.strptime(d, "%Y-%m-%d").date()
+                auction_date = datetime.strptime(d, "%Y-%m-%d").date()
+
+                if auction_date < start_date:
+                    return Response(
+                        {"error": f"Auction date {i} must be after start date"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                base_dates.append(auction_date)
+
+            # ❌ Duplicate check
+            if len(base_dates) != len(set(base_dates)):
+                return Response(
+                    {"error": "Duplicate auction dates not allowed"},
+                    status=status.HTTP_400_BAD_REQUEST
                 )
 
-        except (ValueError, TypeError, InvalidOperation):
+            # ❌ Order check
+            if base_dates != sorted(base_dates):
+                return Response(
+                    {"error": "Auction dates must be in ascending order"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # =========================
+            # BASIC VALIDATION
+            # =========================
+            if not name or monthly_amount <= 0 or duration_months <= 0:
+                return Response(
+                    {"error": "Invalid input"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        except Exception as e:
             return Response(
-                {"error": "Invalid input data"},
+                {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         total_amount = monthly_amount * duration_months
 
-        # 🔍 CHECK MAIN GROUP
+        # 🔍 MAIN GROUP
         main_group = ChittiGroup.objects.filter(
             owner=user,
             parent_group__isnull=True
         ).first()
 
+        # =============================
         # 🔧 CREATE FUNCTION
+        # =============================
         def create_group(parent=None):
+
             group = ChittiGroup.objects.create(
                 owner=user,
                 parent_group=parent,
@@ -557,8 +599,11 @@ class AdminGroupCreateAPIView(APIView):
                 start_date=start_date
             )
 
-            # 🔥 IMPORTANT (missing in your code)
-            group.create_auctions(base_dates=base_dates)
+            # 🔥 SAFE CALL (IMPORTANT FIX)
+            if hasattr(group, "create_auctions"):
+                group.create_auctions(base_dates=base_dates)
+            else:
+                raise Exception("create_auctions method missing in model")
 
             return group
 
@@ -600,7 +645,6 @@ class AdminGroupCreateAPIView(APIView):
             "message": "Sub group created successfully",
             "group": ChittiGroupSerializer(group).data
         }, status=status.HTTP_201_CREATED)
-
 
 # ==================================================
 # ==================================================
@@ -1201,6 +1245,7 @@ class AuctionDetailAPIView(APIView):
         })
     
 
+
 class AssignAllWinnersAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -1220,36 +1265,74 @@ class AssignAllWinnersAPIView(APIView):
             return Response({"error": "No winner data received"}, status=400)
 
         try:
+            # 🔥 Already winners (global)
+            existing_winners = set(
+                Auction.objects.filter(
+                    group=group,
+                    winner__isnull=False
+                ).values_list('winner_id', flat=True)
+            )
+
+            # 🔥 Last completed month
+            last_month = Auction.objects.filter(
+                group=group,
+                winner__isnull=False
+            ).aggregate(Max('month_no'))['month_no__max'] or 0
+
             for item in winners_list:
                 month_no = int(item.get("month"))
                 member_id = item.get("id")
+
+                # ❌ Restrict past months
+                if month_no <= last_month:
+                    return Response({
+                        "error": f"You can only add winners after month {last_month}"
+                    }, status=400)
+
+                # ❌ Already winner check (global)
+                if member_id in existing_winners:
+                    return Response({
+                        "error": f"Member {member_id} already won"
+                    }, status=400)
 
                 winner_member = ChittiMember.objects.get(
                     id=member_id,
                     group=group
                 )
 
-                # 🔥 find existing auctions in this month
+                # 🔥 Get all auctions in that month
                 monthly_auctions = group.auctions.filter(
                     month_no=month_no
                 ).order_by("auction_no")
 
+                # ❌ Same month duplicate check
+                if monthly_auctions.filter(winner=winner_member).exists():
+                    return Response({
+                        "error": f"Member already selected in month {month_no}"
+                    }, status=400)
+
+                # 🔥 Decide auction slot
                 if monthly_auctions.exists():
-                    auction = monthly_auctions.first()
+                    next_auction_no = monthly_auctions.count() + 1
                 else:
-                    # 🔥 create proper date using relativedelta
-                    auction_date = group.start_date + relativedelta(months=month_no - 1)
+                    next_auction_no = 1
 
-                    auction = Auction.objects.create(
-                        group=group,
-                        month_no=month_no,
-                        auction_no=1,
-                        auction_date=auction_date,
-                        selection_type="manual"
-                    )
+                # 🔥 Create auction always (multi-slot support)
+                auction_date = group.start_date + relativedelta(months=month_no - 1)
 
-                if not auction.is_closed:
-                    auction.assign_winner(winner_member, bid_amount=0)
+                auction = Auction.objects.create(
+                    group=group,
+                    month_no=month_no,
+                    auction_no=next_auction_no,
+                    auction_date=auction_date,
+                    selection_type="manual"
+                )
+
+                # 🔥 Assign winner
+                auction.assign_winner(winner_member, bid_amount=0)
+
+                # 🔥 Add to used list
+                existing_winners.add(member_id)
 
             return Response({"success": True})
 
@@ -1261,7 +1344,6 @@ class AssignAllWinnersAPIView(APIView):
 
         except Exception as e:
             return Response({"error": f"Unexpected error: {str(e)}"}, status=500)
-        
 
 
 class EditAuctionDatesAPIView(APIView):

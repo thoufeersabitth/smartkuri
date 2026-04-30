@@ -43,7 +43,7 @@ def add_collection(request):
 
     # ---------------- SUMMARY ----------------
     all_payments = Payment.objects.filter(
-        collected_by=staff,
+        group__collector=staff,   # ✅ FIX
         payment_status='success'
     )
 
@@ -69,9 +69,10 @@ def add_collection(request):
 
         total_expected_to_date = current_month_no * monthly_rate
 
-        actual_paid = all_payments.filter(
+        actual_paid = Payment.objects.filter(   # ✅ FIX (fresh query)
             member=member,
-            group=group
+            group=group,
+            payment_status='success'
         ).aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
 
         months_covered = int(actual_paid // monthly_rate) if monthly_rate else 0
@@ -108,6 +109,7 @@ def add_collection(request):
     if request.method == 'POST':
         form_type = request.POST.get('form_type')
 
+        # ---------------- MEMBER COLLECTION ----------------
         if form_type == 'member_collection':
             try:
                 member_id = request.POST.get('member')
@@ -125,12 +127,13 @@ def add_collection(request):
 
                 full_total_amount = Decimal(group.monthly_amount) * group.duration_months
 
-                actual_paid = all_payments.filter(
+                actual_paid = Payment.objects.filter(   # ✅ FIX
                     member=member,
-                    group=group
+                    group=group,
+                    payment_status='success'
                 ).aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
 
-                # ❌ duplicate protection
+                # duplicate check
                 if Payment.objects.filter(
                     member=member,
                     group=group,
@@ -140,13 +143,13 @@ def add_collection(request):
                     messages.error(request, "Already payment exists for this date")
                     return redirect('collector:add')
 
-                # ❌ limit check
+                # limit check
                 if actual_paid + amount_input > full_total_amount:
                     remaining = full_total_amount - actual_paid
                     messages.error(request, f"Only ₹{remaining} allowed")
                     return redirect('collector:add')
 
-                # ✅ SAVE
+                # SAVE
                 Payment.objects.create(
                     member=member,
                     collected_by=staff,
@@ -156,7 +159,7 @@ def add_collection(request):
                     payment_method=payment_method.lower(),
                     payment_status='success',
                     sent_to_admin=False,
-                    received_by_admin=False,
+                    received_by_admin=False,   # correct flow
                     admin_status='pending'
                 )
 
@@ -166,11 +169,12 @@ def add_collection(request):
             except Exception as e:
                 messages.error(request, str(e))
 
-        # SEND TO ADMIN
+        # ---------------- SEND TO ADMIN ----------------
         elif form_type == 'send_to_admin':
             draft_payments = Payment.objects.filter(
-                collected_by=staff,
-                sent_to_admin=False
+                group__collector=staff,   # ✅ FIX
+                sent_to_admin=False,
+                payment_status='success'
             )
 
             total_sending = draft_payments.aggregate(Sum('amount'))['amount__sum'] or 0
@@ -545,7 +549,7 @@ def member_history(request, member_id):
         'month_status': month_status,
     }
 
-    return render(request, 'collector/his.html', context)
+    return render(request, 'collector/history.html', context)
 @login_required
 @collector_required
 def resend_payment(request, payment_id):

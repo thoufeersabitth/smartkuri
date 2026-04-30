@@ -13,7 +13,7 @@ from payments.models import Payment
 from members.models import Member
 from chitti.models import ChittiGroup, ChittiMember
 from django.core.paginator import Paginator
-
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 # =====================================================
 # 1️⃣ GROUP PAYMENT LIST API
@@ -613,30 +613,53 @@ class RejectGroupPaymentsAPI(APIView):
 # ============================================
 # 🔔 ADMIN NOTIFICATION API
 # ============================================
+from django.db.models import Sum, Count, F
+def get_all_subgroup_ids(group):
+    ids = [group.id]
+    children = group.sub_groups.all()
+
+    for child in children:
+        ids.extend(get_all_subgroup_ids(child))
+
+    return ids
+
+
 class AdminNotificationAPI(APIView):
+    authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
 
-        if not request.user.is_staff:
+        staff = request.user.staffprofile
+
+        if staff.role not in ["admin", "group_admin"]:
             return Response({
                 "pending_groups": [],
                 "total_pending_count": 0
             })
 
-        pending_groups = Payment.objects.filter(
+        qs = Payment.objects.filter(
             sent_to_admin=True,
-            admin_status='pending',
-            is_seen=False   # 🔥 IMPORTANT
-        ).values(
-            'group__id',
-            'group__name'
-        ).annotate(
-            total_pending=Sum('amount'),
-            entry_count=Count('id')
+            admin_status__iexact='pending',
+            is_seen=False
+        )
+
+        # 🔥 group_admin → main + all subgroups
+        if staff.role == "group_admin" and staff.group:
+            all_group_ids = get_all_subgroup_ids(staff.group)
+            qs = qs.filter(group_id__in=all_group_ids)
+
+        pending_groups = list(
+            qs.values(
+                'group__id',
+                'group__name'
+            ).annotate(
+                total_pending=Sum('amount'),
+                entry_count=Count('id')
+            )
         )
 
         return Response({
             "pending_groups": pending_groups,
-            "total_pending_count": sum(i['entry_count'] for i in pending_groups)
+            "total_pending_count": qs.count()
         })

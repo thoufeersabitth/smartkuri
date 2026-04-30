@@ -1,6 +1,7 @@
+from datetime import timezone
 import random
 import string
-
+from django.utils import timezone
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Max
@@ -326,32 +327,180 @@ class MemberProfileAPIView(APIView):
 
 # -----------------------------
 # Member Payment History
-# -----------------------------
 class MemberPaymentsAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+
+        # ✅ Member
         member = get_object_or_404(Member, user=request.user)
-        payments_qs = Payment.objects.filter(member=member).select_related("collected_by__user").order_by("-paid_date")
-        total_paid = payments_qs.filter(payment_status="success").aggregate(total=Sum('amount'))['total'] or 0
+
+        # ✅ Group
+        member_record = (
+            ChittiMember.objects
+            .filter(member=member)
+            .select_related('group')
+            .first()
+        )
+
+        if not member_record:
+            return Response(
+                {"message": "No subscriptions found"},
+                status=status.HTTP_200_OK
+            )
+
+        group = member_record.group
+
+        # ✅ Payments
+        payments_qs = (
+            Payment.objects
+            .filter(
+                member=member,
+                group=group,
+                payment_status="success"
+            )
+            .select_related('collected_by__user')
+            .order_by("paid_date", "created_at")
+        )
+
+        monthly_amount = float(group.monthly_amount)
+        duration = int(group.duration_months)
+        current_grp_month = int(group.current_month)
+
+        total_paid = float(
+            payments_qs.aggregate(total=Sum("amount"))["total"] or 0
+        )
+
+        payment_rows = []
+        payments_list = list(payments_qs)
+
+        overflow_cash = 0.0
+        active_payment = None
+
+        # 🔥 SAME LOGIC AS HTML
+        for month in range(1, duration + 1):
+
+            target = monthly_amount
+            allocated_for_month = 0.0
+            month_transactions = []
+
+            while target > 0:
+
+                if overflow_cash <= 0:
+                    if payments_list:
+                        active_payment = payments_list.pop(0)
+                        overflow_cash = float(active_payment.amount)
+                    else:
+                        break
+
+                take = min(overflow_cash, target)
+                allocated_for_month += take
+
+                # collector name
+                collector_display = "Admin"
+                if active_payment.collected_by:
+                    user_obj = active_payment.collected_by.user
+                    collector_display = (
+                        user_obj.get_full_name() or user_obj.username
+                    )
+
+                month_transactions.append({
+                    "amount": take,
+                    "date": active_payment.paid_date,
+                    "collector": collector_display
+                })
+
+                overflow_cash -= take
+                target -= take
+
+            # ✅ Status
+            if allocated_for_month >= monthly_amount:
+                status_label = "Paid"
+            elif allocated_for_month > 0:
+                status_label = "Partial"
+            else:
+                status_label = "Pending"
+
+            payment_rows.append({
+                "month": month,
+                "target": monthly_amount,
+                "paid": allocated_for_month,
+                "balance": monthly_amount - allocated_for_month,
+                "status": status_label,
+                "transactions": month_transactions,
+                "is_advance": month > current_grp_month and allocated_for_month > 0
+            })
+
+        # ✅ Summary
+        total_due = max(
+            0.0,
+            (current_grp_month * monthly_amount) - total_paid
+        )
+
+        collections_paid = sum(
+            1 for p in payment_rows if p["status"] == "Paid"
+        )
 
         return Response({
-            "total_paid": total_paid,
-            "payments": PaymentSerializer(payments_qs, many=True).data
-        })
-
+            "group": {
+                "id": group.id,
+                "name": group.name,
+                "monthly_amount": monthly_amount,
+                "duration": duration,
+                "current_month": current_grp_month
+            },
+            "summary": {
+                "total_paid": total_paid,
+                "total_due": total_due,
+                "collections_paid": collections_paid
+            },
+            "payment_rows": payment_rows
+        }, status=status.HTTP_200_OK)
 
 # -----------------------------
 # Member Auction List
 # -----------------------------
+
+
 class MemberAuctionsAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        member = get_object_or_404(Member.objects.select_related('assigned_chitti_group'), user=request.user)
 
+        # ✅ Get member with group
+        member = get_object_or_404(
+            Member.objects.select_related('assigned_chitti_group'),
+            user=request.user
+        )
+
+        # ✅ Check group
         if not member.assigned_chitti_group:
-            return Response({"error": "You are not assigned to any chitti group"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "You are not assigned to any chitti group"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        auctions_qs = Auction.objects.filter(group=member.assigned_chitti_group).select_related('winner__member').order_by('auction_date')
-        return Response(AuctionSerializer(auctions_qs, many=True).data)
+        group = member.assigned_chitti_group
+
+        # ✅ Fetch auctions (optimized)
+        auctions_qs = (
+            Auction.objects
+            .filter(group=group)
+            .select_related('group', 'winner__member__user')
+            .order_by('auction_date')
+        )
+
+        return Response({
+            "member": {
+                "id": member.id,
+                "name": member.name,
+            },
+            "group": {
+                "id": group.id,
+                "name": group.name,
+            },
+            "today": timezone.now().date(),
+            "auctions": AuctionSerializer(auctions_qs, many=True).data
+        }, status=status.HTTP_200_OK)

@@ -33,6 +33,7 @@
                     {% for group in groups %}
                         <option value="{{ group.id }}"
                             data-type="{{ group.auction_type }}"
+                            data-count="{{ group.auctions_per_month }}"
                             {% if request.POST.group_id == group.id|stringformat:"s" %}
                                 selected
                             {% endif %}
@@ -49,20 +50,12 @@
                 </select>
             </div>
 
-            <!-- Auction Date -->
-            <div class="form-group">
-                <label class="form-label">Auction Date</label>
-                <input type="date"
-                       name="auction_date"
-                       id="auctionDate"
-                       class="form-control"
-                       value="{{ request.POST.auction_date }}"
-                       required>
-            </div>
+            <!-- 🔥 Dynamic Auction Dates -->
+            <div id="auctionDatesContainer"></div>
 
             <!-- Info Box -->
             <div id="infoBox" style="margin-top:10px; font-size:14px;">
-                ⚡ You can create auctions based on group settings.
+                ⚡ Select a group to configure auctions.
             </div>
 
             <!-- Buttons -->
@@ -86,20 +79,49 @@
 <script>
 const groupSelect = document.getElementById("groupSelect");
 const infoBox = document.getElementById("infoBox");
-const dateInput = document.getElementById("auctionDate");
+const container = document.getElementById("auctionDatesContainer");
 
 groupSelect.addEventListener("change", function () {
+
+    container.innerHTML = "";
+
     const selected = this.options[this.selectedIndex];
-    const type = selected.getAttribute("data-type");
+    const type = selected.dataset.type;
+    const count = Number(selected.dataset.count || 1);
 
     if (type === "interval") {
         infoBox.innerHTML = "❌ Interval groups use auto-generated auctions.";
         infoBox.style.color = "red";
-        dateInput.disabled = true;
-    } else {
-        infoBox.innerHTML = "✅ You can manually add auctions for this group.";
-        infoBox.style.color = "green";
-        dateInput.disabled = false;
+        return;
+    }
+
+    infoBox.innerHTML = `✅ Add ${count} auction date(s)`;
+    infoBox.style.color = "green";
+
+    const today = new Date().toISOString().split('T')[0];
+
+    for (let i = 1; i <= count; i++) {
+        const div = document.createElement("div");
+        div.classList.add("form-group");
+
+        div.innerHTML = `
+            <label class="form-label">Auction Date ${i}</label>
+            <input type="date"
+                   name="auction_date_${i}"
+                   class="form-control"
+                   min="${today}"
+                   required>
+        `;
+
+        container.appendChild(div);
+    }
+});
+
+
+// 🔥 FIX: auto trigger on page load (VERY IMPORTANT)
+window.addEventListener("load", function () {
+    if (groupSelect.value) {
+        groupSelect.dispatchEvent(new Event("change"));
     }
 });
 </script>

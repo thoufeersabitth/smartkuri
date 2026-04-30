@@ -18,7 +18,7 @@ from decimal import Decimal
 from rest_framework import status
 from django.utils import timezone
 from datetime import timedelta
-
+from collections import defaultdict
 
 
 class CollectorDashboardAPIView(APIView):
@@ -116,38 +116,76 @@ class ListMembersAPIView(ListAPIView):
 # MEMBER HISTORY API (Collector)
 # ==================================================
 
+
 class MemberHistoryAPIView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request, member_id):
 
-        # Logged-in staff
         staff = request.user.staffprofile
+        current_date = timezone.now().date()
 
-        # Get member under this collector
         member = get_object_or_404(
             Member,
             id=member_id,
             assigned_chitti_group__collector=staff
         )
 
-        # Get successful payments
         payments = Payment.objects.filter(
             member=member,
             payment_status='success'
         ).order_by('-paid_date')
 
-        total_paid = payments.aggregate(total=Sum('amount'))['total'] or 0
+        total_paid = payments.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
         group = member.assigned_chitti_group
 
-        total_months = group.duration_months
-        monthly_amount = group.monthly_amount
-        total_kuri_amount = group.total_amount
-        pending_amount = max(total_kuri_amount - total_paid, 0)
+        start_date = group.start_date if group.start_date else current_date
 
-        # Payment list with role logic
+        total_months = group.duration_months
+        monthly_amount = float(group.monthly_amount)
+        total_kuri_amount = float(group.total_amount) if group.total_amount else (monthly_amount * total_months)
+
+        temp_total_paid = float(total_paid)
+        pending_amount = max(total_kuri_amount - temp_total_paid, 0)
+
+        # ✅ Month-wise status
+        month_status = []
+
+        for i in range(1, total_months + 1):
+
+            target = monthly_amount
+            received = 0
+            remaining = target
+
+            month_due_date = start_date + timedelta(days=30 * (i - 1))
+            is_future_month = month_due_date > current_date
+
+            if temp_total_paid >= target:
+                received = target
+                remaining = 0
+                status = "Advance" if is_future_month else "Full Paid"
+                temp_total_paid -= target
+
+            elif temp_total_paid > 0:
+                received = temp_total_paid
+                remaining = target - received
+                status = "Partial"
+                temp_total_paid = 0
+
+            else:
+                status = "Pending"
+
+            month_status.append({
+                "month": i,
+                "target": target,
+                "received": received,
+                "remaining": remaining,
+                "status": status
+            })
+
+        # ✅ Payment list
         payment_data = []
 
         for payment in payments:
@@ -183,9 +221,9 @@ class MemberHistoryAPIView(APIView):
                 "total_paid": total_paid,
                 "pending_amount": pending_amount,
             },
+            "month_status": month_status,  # ✅ NEW
             "payments": payment_data
         })
-    
 
 # ==================================================
 # ➕ Add Collection API (Collector)
@@ -209,7 +247,7 @@ class AddCollectionAPIView(APIView):
         method = request.data.get("payment_method")
 
         # -----------------------------
-        # Validate required fields
+        # ✅ Required fields check
         # -----------------------------
         if not all([member_id, amount, paid_date_str, method]):
             return Response(
@@ -218,7 +256,7 @@ class AddCollectionAPIView(APIView):
             )
 
         # -----------------------------
-        # Validate member under collector
+        # ✅ Member validation
         # -----------------------------
         member = get_object_or_404(
             Member,
@@ -226,8 +264,10 @@ class AddCollectionAPIView(APIView):
             assigned_chitti_group__collector=staff
         )
 
+        group = member.assigned_chitti_group
+
         # -----------------------------
-        # Validate amount
+        # ✅ Amount validation
         # -----------------------------
         try:
             amount = Decimal(amount)
@@ -243,49 +283,209 @@ class AddCollectionAPIView(APIView):
             )
 
         # -----------------------------
-        # Convert date (DD-MM-YYYY)
+        # ✅ Date convert (flexible)
         # -----------------------------
-        try:
-            paid_date = datetime.strptime(paid_date_str, "%d-%m-%Y").date()
-        except:
+        paid_date = None
+        formats = ["%d-%m-%Y", "%Y-%m-%d"]
+
+        for fmt in formats:
+            try:
+                paid_date = datetime.strptime(paid_date_str, fmt).date()
+                break
+            except:
+                continue
+
+        if not paid_date:
             return Response(
-                {"error": "Invalid date format. Use DD-MM-YYYY"},
+                {"error": "Invalid date format"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         # -----------------------------
-        # Prevent duplicate monthly payment
+        # ✅ Duplicate check (same day)
         # -----------------------------
-        exists = Payment.objects.filter(
+        if Payment.objects.filter(
             member=member,
-            paid_date__year=paid_date.year,
-            paid_date__month=paid_date.month
-        ).exists()
-
-        if exists:
+            group=group,
+            paid_date=paid_date,
+            payment_status='success'
+        ).exists():
             return Response(
-                {"error": "Payment for this month already collected"},
+                {"error": "Already payment exists for this date"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         # -----------------------------
-        # Create payment
+        # ✅ LIMIT CHECK (IMPORTANT 🔥)
+        # -----------------------------
+        full_total_amount = Decimal(group.monthly_amount) * group.duration_months
+
+        actual_paid = Payment.objects.filter(
+            member=member,
+            group=group,
+            payment_status='success'
+        ).aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+
+        if actual_paid + amount > full_total_amount:
+            remaining = full_total_amount - actual_paid
+            return Response(
+                {"error": f"Only ₹{remaining} allowed"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # -----------------------------
+        # ✅ CREATE PAYMENT (FULL FLOW)
         # -----------------------------
         Payment.objects.create(
             member=member,
             collected_by=staff,
-            group=member.assigned_chitti_group,
+            group=group,
             amount=amount,
             paid_date=paid_date,
-            payment_method=method,
-            payment_status='success'
+            payment_method=method.lower(),
+            payment_status='success',
+
+            # 🔥 IMPORTANT FLAGS
+            sent_to_admin=False,
+            received_by_admin=False,
+            admin_status='pending'
         )
 
         return Response(
-            {"message": "Payment collected successfully"},
+            {
+                "message": "Payment collected successfully ✅",
+                "amount": float(amount),
+                "member": member.name
+            },
             status=status.HTTP_201_CREATED
         )
 
+
+
+# -----------------------------
+# 📤 Send Payments to Admin API
+# -----------------------------
+class SendToAdminAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        staff = request.user.staffprofile
+
+        # Optional: group filter
+        group_id = request.data.get("group_id")
+
+        payments = Payment.objects.filter(
+            collected_by=staff,
+            payment_status='success',
+            sent_to_admin=False,
+            received_by_admin=False
+        )
+
+        # ✅ If group_id given → filter
+        if group_id:
+            payments = payments.filter(group_id=group_id)
+
+        if not payments.exists():
+            return Response(
+                {"message": "No pending payments to send"},
+                status=status.HTTP_200_OK
+            )
+
+        total_amount = payments.aggregate(
+            total=Sum('amount')
+        )['total'] or 0
+
+        # ✅ Mark as sent
+        payments.update(
+            sent_to_admin=True,
+            admin_status='pending'
+        )
+
+        return Response({
+            "message": "Payments sent to admin successfully ✅",
+            "total_amount": float(total_amount),
+            "count": payments.count()
+        }, status=status.HTTP_200_OK) 
+    
+
+
+
+class ResendSinglePaymentAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, payment_id):
+        staff = request.user.staffprofile
+
+        payment = get_object_or_404(
+            Payment,
+            id=payment_id,
+            collected_by=staff
+        )
+
+        # ❌ Only rejected allowed
+        if payment.admin_status != 'rejected':
+            return Response(
+                {"error": "Only rejected payments can be resent"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 🔁 Reset & resend
+        payment.admin_status = 'pending'
+        payment.sent_to_admin = True
+        payment.received_by_admin = False
+        payment.save()
+
+        return Response({
+            "message": "Payment resent to admin successfully ✅",
+            "payment_id": payment.id
+        }, status=status.HTTP_200_OK)
+
+
+
+class ResendGroupPaymentsAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        staff = request.user.staffprofile
+        group_id = request.data.get("group_id")
+
+        if not group_id:
+            return Response(
+                {"error": "group_id is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        payments = Payment.objects.filter(
+            collected_by=staff,
+            group_id=group_id,
+            admin_status='rejected'
+        )
+
+        if not payments.exists():
+            return Response(
+                {"message": "No rejected payments to resend"},
+                status=status.HTTP_200_OK
+            )
+
+        count = payments.count()
+
+        # ⚡ Bulk update (fast)
+        payments.update(
+            admin_status='pending',
+            sent_to_admin=True,
+            received_by_admin=False
+        )
+
+        return Response({
+            "message": "All rejected payments resent successfully ✅",
+            "total_resent": count
+        }, status=status.HTTP_200_OK)
+    
+    
+    
 class TodayCollectionsAPIView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -315,6 +515,85 @@ class TodayCollectionsAPIView(APIView):
         return Response({
             "total_collected": total_collected,
             "payments": payment_data
+        })
+    
+
+class AllCollectionsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        staff = request.user.staffprofile
+        today = date.today()
+
+        payments = Payment.objects.filter(
+            collected_by=staff,
+            payment_status='success'
+        ).select_related('member', 'group').order_by('-paid_date')
+
+        payments_by_group = defaultdict(list)
+
+        # 🔹 Group payments
+        for payment in payments:
+            payment.is_today = (payment.paid_date == today)
+            payments_by_group[payment.group].append(payment)
+
+        group_list = []
+
+        for group, group_payments in payments_by_group.items():
+
+            total_collector = sum(p.amount for p in group_payments)
+
+            total_admin = sum(
+                p.amount for p in group_payments
+                if p.received_by_admin
+            )
+
+            sent = sum(
+                p.amount for p in group_payments
+                if p.sent_to_admin
+            )
+
+            draft = sum(
+                p.amount for p in group_payments
+                if not p.sent_to_admin
+            )
+
+            pending = sent - total_admin
+            if pending < 0:
+                pending = 0
+
+            has_rejected = any(
+                p.admin_status == "rejected"
+                for p in group_payments
+            )
+
+            # 🔥 Serialize payments
+            payments_data = []
+            for p in group_payments:
+                payments_data.append({
+                    "payment_id": p.id,
+                    "member_name": p.member.name if p.member else None,
+                    "amount": float(p.amount),
+                    "paid_date": p.paid_date,
+                    "is_today": p.is_today,
+                    "sent_to_admin": p.sent_to_admin,
+                    "received_by_admin": p.received_by_admin,
+                    "admin_status": p.admin_status
+                })
+
+            group_list.append({
+                "group_id": group.id,
+                "group_name": group.name,
+                "total_collector": float(total_collector),
+                "total_admin": float(total_admin),
+                "pending": float(pending),
+                "not_sent": float(draft),
+                "has_rejected": has_rejected,
+                "payments": payments_data
+            })
+
+        return Response({
+            "groups": group_list
         })
 
 

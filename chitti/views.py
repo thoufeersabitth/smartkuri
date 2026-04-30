@@ -93,9 +93,6 @@ def group_management(request):
     return render(request, 'chitti/group_management.html', {
         'groups': updated_groups
     })
-
-
-
 @login_required
 @transaction.atomic
 def add_group(request):
@@ -125,7 +122,7 @@ def add_group(request):
             if auction_type == "interval":
                 auction_interval_months = int(auction_interval_months or 0)
                 if auction_interval_months <= 0:
-                    raise ValueError("Invalid interval")
+                    raise ValueError("Invalid interval months")
             else:
                 auction_interval_months = None
 
@@ -146,7 +143,7 @@ def add_group(request):
                 raise ValueError("Invalid basic input")
 
             # =============================
-            # 🔥 STRICT AUCTION DATES
+            # 🔥 MANUAL AUCTION DATES
             # =============================
             base_dates = []
 
@@ -154,14 +151,25 @@ def add_group(request):
                 d = request.POST.get(f"auction_date_{i}")
 
                 if not d:
-                    raise ValueError("All auction dates required")
+                    raise ValueError(f"Auction date {i} missing")
 
-                base_dates.append(
-                    datetime.strptime(d, "%Y-%m-%d").date()
-                )
+                auction_date = datetime.strptime(d, "%Y-%m-%d").date()
 
-        except Exception:
-            messages.error(request, "Invalid input data.")
+                if auction_date < start_date:
+                    raise ValueError(f"Auction date {i} must be after start date")
+
+                base_dates.append(auction_date)
+
+            # ❌ Duplicate check
+            if len(base_dates) != len(set(base_dates)):
+                raise ValueError("Duplicate auction dates not allowed")
+
+            # ❌ Order check
+            if base_dates != sorted(base_dates):
+                raise ValueError("Auction dates must be ascending")
+
+        except Exception as e:
+            messages.error(request, f"Invalid input: {str(e)}")
             return redirect('chitti:add_group')
 
         # =============================
@@ -186,15 +194,20 @@ def add_group(request):
                 total_amount=monthly_amount * duration_months,
 
                 auction_type=auction_type,
-                auctions_per_month=auctions_per_month,   # ✅ FIXED
+                auctions_per_month=auctions_per_month,
                 auction_interval_months=auction_interval_months,
 
                 registration_start_date=start_date,
                 start_date=start_date
             )
 
-            # ✅ CREATE AUCTIONS (ONLY HERE)
-            group.create_auctions(base_dates=base_dates)
+            # =============================
+            # 🔥 FIXED AUCTION CREATION
+            # =============================
+            if auctions_per_month == 1:
+                group.create_auctions()
+            else:
+                group.create_auctions(base_dates=base_dates)
 
             return group
 
@@ -217,13 +230,13 @@ def add_group(request):
         subscription = get_effective_subscription(main_group)
 
         if not subscription:
-            messages.error(request, "Your subscription is expired or inactive.")
+            messages.error(request, "Subscription inactive.")
             return redirect('chitti:group_management')
 
         if not can_create_group(user):
             messages.error(
                 request,
-                f"You have reached the limit for the {subscription.plan.name} plan."
+                f"Limit reached for {subscription.plan.name}"
             )
             return redirect('chitti:group_management')
 
@@ -241,7 +254,6 @@ def add_group(request):
     ).first()
 
     subscription = get_effective_subscription(main_group) if main_group else None
-
     existing_count = ChittiGroup.objects.filter(owner=user).count()
 
     remaining_groups = 0
@@ -256,7 +268,6 @@ def add_group(request):
         "plan": subscription.plan if subscription else None,
         "remaining_groups": remaining_groups,
     })
-
 
 
 def view_group(request, group_id):

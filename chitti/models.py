@@ -164,39 +164,41 @@ class ChittiGroup(models.Model):
     # -----------------------------
     # CREATE AUCTIONS (FINAL FIX)
     # -----------------------------
+    from calendar import monthrange
+
+
     def create_auctions(self, base_dates=None):
         from .models import Auction
 
-        # 🧹 delete old
+        # 🧹 clear old auctions
         Auction.objects.filter(group=self).delete()
 
         # =========================
-        # 🟢 MANUAL MODE (API dates)
+        # 🟢 MANUAL MODE
         # =========================
         if base_dates:
             for i, d in enumerate(base_dates, start=1):
                 Auction.objects.create(
                     group=self,
-                    month_no=i,          # ✅ FIXED
-                    auction_no=i,        # ✅ FIXED
+                    month_no=i,
+                    auction_no=i,
                     auction_date=d
                 )
             return
 
         # =========================
-        # 🔵 AUTO MODE
+        # 🔵 AUTO MODE (FIXED)
         # =========================
         start = self.start_date
         base_day = start.day
 
-        for month_no, auction_no in self.generate_auctions_structure():
+        for month_no in range(1, self.duration_months + 1):
 
             temp_date = start + relativedelta(months=month_no - 1)
 
             year = temp_date.year
             month = temp_date.month
 
-            # 🔒 safe last day fix
             last_day = monthrange(year, month)[1]
             safe_day = min(base_day, last_day)
 
@@ -205,10 +207,9 @@ class ChittiGroup(models.Model):
             Auction.objects.create(
                 group=self,
                 month_no=month_no,
-                auction_no=auction_no,
+                auction_no=1,   # (or remove if not needed per month logic)
                 auction_date=auction_date
-            )
-
+        )
     # -----------------------------
     # CREATE AUCTIONS (FIXED)
     # -----------------------------

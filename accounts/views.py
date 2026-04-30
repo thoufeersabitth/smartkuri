@@ -760,14 +760,15 @@ def collector_dashboard(request):
 
 
 
-
 @login_required
 def create_group_view(request):
-    # 1. Security Check: Redirect if user already owns a group
+
+    # 🔒 already has group
     if hasattr(request.user, 'staffprofile') and request.user.staffprofile.group:
         return redirect('accounts:group_admin_dashboard')
 
     plans = SubscriptionPlan.objects.filter(is_active=True)
+
     user_phone = request.user.staffprofile.phone if hasattr(request.user, 'staffprofile') else ""
 
     user_initial_data = {
@@ -778,29 +779,46 @@ def create_group_view(request):
 
     if request.method == 'POST':
         try:
-            # 2. Get Subscription Plan
+            # =========================
+            # 🔥 PLAN
+            # =========================
             plan_id = request.POST.get('subscription_plan')
             selected_plan = get_object_or_404(SubscriptionPlan, id=plan_id)
 
-            # 3. Parse Dates (Matching your HTML 'name' attributes)
-            # HTML: <input name="chitti_start_date">
-            reg_date_str = request.POST.get('chitti_start_date') 
-            # HTML: <input name="start_date"> (This is Auction Date 1)
-            auction_date_str = request.POST.get('start_date')     
+            # =========================
+            # 🔥 DATES
+            # =========================
+            reg_date_str = request.POST.get('chitti_start_date')
+            auction_date_str = request.POST.get('start_date')
 
             registration_date = datetime.strptime(reg_date_str, '%Y-%m-%d').date()
             auction_start_date = datetime.strptime(auction_date_str, '%Y-%m-%d').date()
 
-            # 4. Validation
+            # ✅ validation
             if auction_start_date < registration_date:
-                messages.error(request, "First auction date must be on or after the registration date.")
+                messages.error(request, "First auction date must be after registration date.")
                 return redirect('chitti:create_group')
 
             with transaction.atomic():
-                # 5. Create Group
+
+                # =========================
+                # 🔥 BASIC DATA
+                # =========================
                 monthly_amount = Decimal(request.POST.get('monthly_amount', '0'))
                 duration_months = int(request.POST.get('duration_months', '0'))
+                auctions_per_month = int(request.POST.get('auctions_per_month', 1))
 
+                auction_type = request.POST.get('auction_type', 'monthly')
+                auction_interval_months = request.POST.get('auction_interval_months') or None
+
+                if auction_type == "interval":
+                    auction_interval_months = int(auction_interval_months or 0)
+                    if auction_interval_months <= 0:
+                        raise ValueError("Invalid interval months")
+
+                # =========================
+                # 🔥 CREATE GROUP
+                # =========================
                 new_group = ChittiGroup.objects.create(
                     name=request.POST.get('name'),
                     phone=request.POST.get('phone'),
@@ -809,36 +827,47 @@ def create_group_view(request):
                     monthly_amount=monthly_amount,
                     duration_months=duration_months,
                     total_amount=monthly_amount * duration_months,
-                    auction_type=request.POST.get('auction_type', 'monthly'),
-                    auctions_per_month=int(request.POST.get('auctions_per_month', 1)),
-                    auction_interval_months=request.POST.get('auction_interval_months') or None,
-                    
-                    # Updated Model Fields
+                    auction_type=auction_type,
+                    auctions_per_month=auctions_per_month,
+                    auction_interval_months=auction_interval_months,
                     registration_start_date=registration_date,
-                    start_date=auction_start_date # Main start date used for Month 1
+                    start_date=auction_start_date
                 )
 
-                # 6. Handle Multiple Auction Dates (Date 2, 3, 4)
-                # We collect all dates provided in the form into a list
-                base_dates = [auction_start_date]
-                num_auctions = int(request.POST.get('auctions_per_month', 1))
-                
-                for i in range(2, num_auctions + 1):
-                    # In your HTML, these are id="date2", id="date3"...
-                    # Ensure your HTML <input> has name="date2", name="date3" etc.
-                    d_val = request.POST.get(f'date{i}')
-                    if d_val:
-                        base_dates.append(datetime.strptime(d_val, '%Y-%m-%d').date())
+                # =========================
+                # 🔥 CREATE AUCTIONS (CORRECT LOGIC)
+                # =========================
 
-                # 7. Generate All Auctions for the entire duration
-                new_group.create_auctions(base_dates=base_dates)
+                # ✅ Single auction per month
+                if auctions_per_month == 1:
+                    new_group.create_auctions()
 
-                # 8. Link to Staff Profile
+                # ✅ Multiple auctions per month
+                else:
+                    base_dates = []
+
+                    # first date
+                    base_dates.append(auction_start_date)
+
+                    # other dates (date2, date3...)
+                    for i in range(2, auctions_per_month + 1):
+                        d_val = request.POST.get(f'date{i}')
+                        if d_val:
+                            base_dates.append(datetime.strptime(d_val, '%Y-%m-%d').date())
+
+                    # 👉 call multi create
+                    new_group.create_auctions_multi(base_dates)
+
+                # =========================
+                # 🔥 PROFILE UPDATE
+                # =========================
                 profile = request.user.staffprofile
                 profile.group = new_group
                 profile.save()
 
-                # 9. Activate Subscription
+                # =========================
+                # 🔥 SUBSCRIPTION
+                # =========================
                 subscription = GroupSubscription.objects.create(
                     group=new_group,
                     plan=selected_plan
@@ -849,7 +878,7 @@ def create_group_view(request):
             return redirect('accounts:group_admin_dashboard')
 
         except ValueError:
-            messages.error(request, "Invalid input or date format. Please check your entries.")
+            messages.error(request, "Invalid input or date format.")
         except Exception as e:
             messages.error(request, f"System Error: {str(e)}")
 
