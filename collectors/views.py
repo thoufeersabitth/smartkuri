@@ -1,5 +1,6 @@
 from datetime import datetime, date, timedelta
 from decimal import Decimal
+from typing import Collection
 from django.db import transaction
 
 from django.shortcuts import render, redirect, get_object_or_404
@@ -7,6 +8,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Sum, Q, F
 from django.contrib.auth import logout
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 
 from members.models import Member
 from chitti.models import ChittiGroup, ChittiMember
@@ -195,6 +199,44 @@ def add_collection(request):
         'sent_amount': sent_amount,
         'draft_amount': draft_amount,
     })
+
+
+
+class HandoverPendingAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+
+        staff = request.user.staffprofile
+
+        # ✅ total collected (all successful payments)
+        total_collected = Payment.objects.filter(
+            collected_by=staff,
+            payment_status='success'
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        # ✅ total sent to admin
+        total_sent = Payment.objects.filter(
+            collected_by=staff,
+            payment_status='success',
+            sent_to_admin=True
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        # ✅ pending (not yet sent)
+        pending = Payment.objects.filter(
+            collected_by=staff,
+            payment_status='success',
+            sent_to_admin=False,
+            received_by_admin=False
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        return Response({
+            "total_collected": total_collected,
+            "total_sent": total_sent,
+            "handover_pending": pending,
+            "show_card": pending > 0
+        })
+    
 # ---------------------------------
 # -----------------------------
 # -----------------------------
