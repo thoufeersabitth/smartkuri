@@ -200,8 +200,10 @@ SIMPLE_JWT = {
 }
 
 # -----------------------------
-# CORS + CSRF (Flutter + ngrok)
 # -----------------------------
+# CORS + CSRF (Flutter + ngrok + Fly.io)
+# -----------------------------
+
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
@@ -217,11 +219,21 @@ CORS_ALLOW_HEADERS = [
     "x-requested-with",
 ]
 
-CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_SECURE = False
+# -----------------------------
+# CSRF SETTINGS
+# -----------------------------
+
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost",
     "http://127.0.0.1",
     "https://*.ngrok-free.dev",
+    "https://smartkuri.fly.dev",
 ]
+
+# -----------------------------
+# OPTIONAL (IMPORTANT FOR FLY.IO)
+# -----------------------------
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
