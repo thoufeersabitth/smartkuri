@@ -98,11 +98,13 @@ WSGI_APPLICATION = 'smartkuri.wsgi.application'
 
 import os
 import dj_database_url
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if DATABASE_URL:
-    # 🌐 PRODUCTION (Fly.io / Neon)
     DATABASES = {
         "default": dj_database_url.parse(
             DATABASE_URL,
@@ -111,18 +113,16 @@ if DATABASE_URL:
         )
     }
 else:
-    # 💻 LOCAL (PostgreSQL)
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
             "NAME": "smartkuri",
             "USER": "postgres",
-            "PASSWORD": os.getenv("DB_PASSWORD", "Pulikkal@123"),
+            "PASSWORD": "Pulikkal@123",
             "HOST": "localhost",
             "PORT": "5432",
         }
     }
-
 # -----------------------------
 # PASSWORD VALIDATION
 # -----------------------------

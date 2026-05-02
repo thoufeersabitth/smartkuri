@@ -4,8 +4,9 @@ app = "smartkuri"
   internal_port = 8000
   force_https = true
   auto_start_machines = true
-  auto_stop_machines = "stop"
+  auto_stop_machines = "off"
   min_machines_running = 1   
+
 [deploy]
   release_command = "python manage.py migrate --noinput"
 
