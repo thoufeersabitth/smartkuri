@@ -10,6 +10,15 @@ from datetime import datetime
 # ----------------------------
 # INSTALLMENT MODEL
 # ----------------------------
+from django.db import models, transaction
+from django.utils import timezone
+from accounts.models import StaffProfile
+from chitti.models import ChittiGroup
+from members.models import Member
+import uuid, random
+from datetime import datetime
+
+
 class Installment(models.Model):
     member = models.ForeignKey(Member, on_delete=models.CASCADE, related_name='installments')
     group = models.ForeignKey(ChittiGroup, on_delete=models.CASCADE)
@@ -59,8 +68,8 @@ class Payment(models.Model):
     paid_date = models.DateField(default=timezone.now)
     paid_time = models.TimeField(auto_now_add=True)
 
-    transaction_id = models.CharField(max_length=50, unique=True, blank=True)
-    invoice_number = models.CharField(max_length=50, unique=True, blank=True)
+    transaction_id = models.CharField(max_length=100, unique=True, blank=True)
+    invoice_number = models.CharField(max_length=100, unique=True, blank=True)
 
     # collector → admin flow
     sent_to_admin = models.BooleanField(default=False)
