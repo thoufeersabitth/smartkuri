@@ -40,7 +40,8 @@ urlpatterns = [
     path('auction/<int:auction_id>/assign_winner_ajax/', views.assign_winner_ajax, name='assign_winner_ajax'),
     path('groups/edit-dates/<int:group_id>/', views.edit_auction_dates, name='edit_auction_dates'),
     path('auction/<int:auction_id>/assign-all/', views.assign_all_winners_ajax, name='assign_all_winners_ajax'),
-
+    path('manual-auction-trigger/', views.manual_auction_trigger_list, name='manual_auction_trigger_list'), 
+    path('manual-auction-select/<int:group_id>/', views.manual_auction_select_winner, name='manual_auction_select_winner'),
     # -----------------------------
     # Admin Payments
     # -----------------------------
@@ -50,8 +51,6 @@ urlpatterns = [
     path('admin/payments/group/<int:group_id>/details/', views.group_payment_details, name='group_payment_details'),
     path('admin/payments/reject/<int:payment_id>/', views.admin_reject_payment, name='admin_reject_payment'),
     path('admin/payments/reject/group/<int:group_id>/', views.admin_reject_payment_group, name='admin_reject_payment_group'),
-
-
 
     # -----------------------------
     # Notifications

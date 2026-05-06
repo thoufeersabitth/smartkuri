@@ -1,0 +1,217 @@
+{% extends "chitti/group_admin_base.html" %}
+{% load static %}
+
+{% block title %}Manual Auction Management{% endblock %}
+
+{% block extra_head %}
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<style>
+    /* ===================== PREMIUM THEME VARIABLES ===================== */
+    :root {
+        --bg: #f9fafb;
+        --card-bg: #ffffff;
+        --text-main: #1f2937;
+        --text-secondary: #6b7280;
+        --primary: #4f46e5;
+        --secondary: #3b82f6;
+        --accent: #10b981;
+        --radius: 16px;
+        --shadow: 0 10px 25px rgba(0,0,0,0.05);
+    }
+
+    body {
+        font-family: 'Inter', sans-serif;
+        background: var(--bg);
+        color: var(--text-main);
+    }
+
+    /* ===================== HEADER SECTION ===================== */
+    .page-header {
+        margin-bottom: 2.5rem;
+        animation: fadeIn 0.8s ease;
+    }
+
+    .page-title {
+        font-size: 2rem;
+        font-weight: 800;
+        background: linear-gradient(120deg, var(--primary), var(--secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.5rem;
+    }
+
+    /* ===================== TABLE CARD ===================== */
+    .premium-card {
+        background: var(--card-bg);
+        border-radius: var(--radius);
+        border: 1px solid rgba(0,0,0,0.05);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        animation: fadeIn 1s ease;
+    }
+
+    .table thead th {
+        background: #f8fafc;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-secondary);
+        font-weight: 700;
+        border-bottom: 1px solid #f1f5f9;
+        padding: 1.2rem 1rem;
+    }
+
+    .table tbody tr {
+        transition: all 0.3s ease;
+        border-bottom: 1px solid #f8fafc;
+    }
+
+    .table tbody tr:hover {
+        background: rgba(79, 70, 229, 0.02);
+        transform: scale(1.002);
+    }
+
+    /* ===================== COMPONENTS ===================== */
+    .group-icon-box {
+        width: 45px;
+        height: 45px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        background: rgba(79, 70, 229, 0.1);
+        color: var(--primary);
+        font-size: 1.2rem;
+        transition: 0.3s;
+    }
+
+    tr:hover .group-icon-box {
+        background: var(--primary);
+        color: white;
+        transform: rotate(-10deg);
+    }
+
+    .installment-badge {
+        background: #eef2ff;
+        color: var(--primary);
+        font-weight: 700;
+        font-size: 0.8rem;
+        padding: 0.5rem 1rem;
+        border-radius: 100px;
+        border: 1px solid rgba(79, 70, 229, 0.1);
+    }
+
+    /* Status Badges */
+    .status-pill {
+        padding: 0.4rem 1rem;
+        border-radius: 100px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    .status-active { background: rgba(16, 163, 129, 0.1); color: var(--accent); }
+    .status-inactive { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+    /* Action Button */
+    .btn-select {
+        background: linear-gradient(90deg, var(--primary), var(--secondary));
+        color: white;
+        border: none;
+        padding: 0.6rem 1.5rem;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 0.85rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+    }
+
+    .btn-select:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+        color: white;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(15px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <!-- Header -->
+    <div class="page-header">
+        <h1 class="page-title">Manual Auction Entry</h1>
+        <p class="text-secondary fw-500">Ivide ninnu oru group select cheythu auction winners-ne record cheyyam.</p>
+    </div>
+
+    <!-- Table Container -->
+    <div class="premium-card">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-4">Group Identification</th>
+                        <th>Amount</th>
+                        <th>Installment Status</th>
+                        <th class="text-center">System Status</th>
+                        <th class="pe-4 text-end">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for group in groups %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="d-flex align-items-center py-2">
+                                <div class="group-icon-box me-3">
+                                    <i class="fas fa-layer-group"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-800 text-dark mb-0" style="font-size: 1rem;">{{ group.group_name }}</div>
+                                    <small class="text-secondary font-weight-600">
+                                        <i class="far fa-user me-1"></i> {{ group.total_members }} Members
+                                    </small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="fw-700 text-dark">₹{{ group.installment_amount }}</div>
+                            <small class="text-muted">per month</small>
+                        </td>
+                        <td>
+                            <span class="installment-badge">
+                                <i class="far fa-calendar-alt me-1"></i> 
+                                {{ group.current_installment_no|default:"1" }} <span class="opacity-50 mx-1">/</span> {{ group.duration_months }}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            {% if group.is_active %}
+                                <span class="status-pill status-active">Active</span>
+                            {% else %}
+                                <span class="status-pill status-inactive">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td class="pe-4 text-end">
+                            <a href="{% url 'chitti:manual_auction_select_winner' group.id %}" class="btn btn-select">
+                                <i class="fas fa-magic me-2"></i>Select Winner
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5">
+                            <div class="py-4">
+                                <i class="fas fa-inbox fa-3x mb-3 opacity-20" style="color: var(--primary);"></i>
+                                <h5 class="fw-700 text-dark">No Groups Available</h5>
+                                <p class="text-secondary">Manual auction thudangan active aaya groups onnum illa.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1053,7 +1053,103 @@ def assign_all_winners_ajax(request, auction_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
     except Exception as e:
         return JsonResponse({'success': False, 'error': "Unexpected error: " + str(e)}, status=500)
+    
 
+
+
+# chitti/views.py
+
+@login_required
+def manual_auction_trigger_list(request):
+    """
+    Shows a list of active groups where admin can manually trigger 
+    the Auction Royale spin wheel.
+    """
+    # Admin-te groups mathram edukku
+    groups = ChittiGroup.objects.filter(owner=request.user, is_active=True)
+    
+    return render(request, 'chitti/manual_auction_list.html', {
+        'groups': groups
+    })
+    
+
+
+@login_required
+def manual_auction_select_winner(request, group_id):
+
+    group = get_object_or_404(ChittiGroup, id=group_id, owner=request.user)
+
+    members = ChittiMember.objects.filter(group=group).select_related('member')
+
+    # ✅ last completed auction
+    last_auction = Auction.objects.filter(
+        group=group,
+        winner__isnull=False   # 🔥 FIXED
+    ).order_by('-month_no').first()
+
+    if last_auction:
+        current_installment = last_auction.month_no + 1
+    else:
+        current_installment = 1
+
+    # ✅ previous winners
+    previous_winner_ids = list(
+        Auction.objects.filter(
+            group=group,
+            winner__isnull=False   # 🔥 FIXED
+        ).values_list('winner_id', flat=True)
+    )
+
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            winner_list = data.get('winners', [])
+
+            if not winner_list:
+                return JsonResponse({'success': False, 'error': 'No data received'})
+
+            with transaction.atomic():
+
+                for item in winner_list:
+                    month_no = int(item['month'])
+                    member_id = item['id']
+
+                    # ✅ prevent duplicate
+                    if member_id in previous_winner_ids:
+                        raise ValueError("Member already won!")
+
+                    winner_member = ChittiMember.objects.get(id=member_id, group=group)
+
+                    auction, created = Auction.objects.get_or_create(
+                        group=group,
+                        month_no=month_no,
+                        defaults={
+                            'selection_type': 'manual',
+                            'auction_date': timezone.now()
+                        }
+                    )
+
+                    # ✅ prevent overwrite
+                    if auction.winner:
+                        raise ValueError(f"Month {month_no} already has winner!")
+
+                    auction.assign_winner(winner_member, bid_amount=0)
+
+            return JsonResponse({'success': True})
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+
+    context = {
+        'group': group,
+        'members': members,
+        'total_months': group.duration_months,  # 🔥 FIXED
+        'current_installment': current_installment,
+        'previous_winner_ids': previous_winner_ids,
+    }
+
+    return render(request, 'chitti/assign_winners.html', context)
+  
 
 def edit_auction_dates(request, group_id):
     group = get_object_or_404(ChittiGroup, id=group_id)

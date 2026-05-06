@@ -380,17 +380,13 @@ class Auction(models.Model):
     # AUTO WINNER (SPIN)
     # -----------------------------
     def auto_select_winner(self):
-        """
-        Automatically select winner (spin logic)
-        """
 
-        # 🔥 Already closed
         if self.is_closed:
             raise ValueError("Auction already closed!")
 
-        members = self.group.members.all()
+        # 🔥 FIXED HERE
+        members = self.group.chitti_members.all()
 
-        # 🔥 remove already winners
         previous_winners = Auction.objects.filter(
             group=self.group,
             winner__isnull=False
@@ -401,10 +397,8 @@ class Auction(models.Model):
         if not eligible_members.exists():
             raise ValueError("No eligible members left!")
 
-        # 🎯 Random select
         winner = random.choice(list(eligible_members))
 
-        # reuse existing logic
         self.assign_winner(winner)
 
         return winner

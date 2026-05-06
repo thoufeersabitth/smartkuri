@@ -37,7 +37,6 @@
         .form-control, .form-select { border-radius: 12px; padding: 12px; border: 1px solid #dee2e6; transition: 0.3s; font-weight: 500; }
         .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(67, 97, 238, 0.1); }
 
-        /* Pricing Cards */
         .pricing-grid { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; margin-bottom: 30px; }
         .pricing-card { flex: 1; min-width: 250px; max-width: 300px; position: relative; }
         .pricing-card input[type="radio"] { display: none; }
@@ -58,7 +57,6 @@
             box-shadow: 0 15px 25px rgba(67, 97, 238, 0.1); background: #f8faff;
         }
 
-        /* Confirmation Checkbox */
         .confirmation-wrapper {
             background: #fff; padding: 20px; border-radius: 18px; 
             margin-bottom: 25px; border: 2px solid #eaedf3;
@@ -132,6 +130,7 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label required-mark">Chitti Start (Registration) Date</label>
+                            <!-- Removed min attribute to allow back-dates -->
                             <input type="date" name="chitti_start_date" id="chitti_start" class="form-control" required>
                         </div>
                         <div class="col-md-6">
@@ -245,7 +244,7 @@
         }
     });
 
-    // 3. Dynamic Date Field Handling (Matches View loops)
+    // 3. Dynamic Date Field Handling
     document.getElementById('id_auc_count').addEventListener('change', function() {
         const count = parseInt(this.value);
         for (let i = 2; i <= 4; i++) {
@@ -254,7 +253,7 @@
             if (i <= count) {
                 div.style.display = 'block';
                 input.setAttribute('required', 'required');
-                input.setAttribute('name', 'date' + i); // Explicitly ensure name is set
+                input.setAttribute('name', 'date' + i);
             } else {
                 div.style.display = 'none';
                 input.removeAttribute('required');
@@ -263,21 +262,10 @@
         }
     });
 
-    // 4. Smart Date Constraints
-    const today = new Date().toISOString().split('T')[0];
-    document.querySelectorAll('input[type="date"]').forEach(d => d.setAttribute('min', today));
-
-    // Ensure Auctions happen on or after the Chitti Start Date
-    chittiStart.addEventListener('change', function() {
-        const selectedStart = this.value;
-        for (let i = 1; i <= 4; i++) {
-            const auctionInput = document.getElementById('date' + (i === 1 ? '1' : i));
-            auctionInput.setAttribute('min', selectedStart);
-            if (auctionInput.value && auctionInput.value < selectedStart) {
-                auctionInput.value = selectedStart;
-            }
-        }
-    });
+    /** 
+     * NOTE: 'min' attributes were removed from the HTML and JS 
+     * to allow selection of past dates (like May 1, 2, 3).
+     */
 </script>
 
 </body>

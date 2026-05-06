@@ -1,0 +1,349 @@
+{% extends 'chitti/group_admin_base.html' %}
+{% load static %}
+
+{% block extra_head %}
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+<style>
+    /* ===================== VARIABLES (Nee Thannathu Pole) ===================== */
+    :root {
+        --bg: #f9fafb;
+        --card-bg: #ffffff;
+        --text-main: #1f2937;
+        --text-secondary: #6b7280;
+
+        --primary: #4f46e5;
+        --secondary: #3b82f6;
+        --accent: #10b981;
+
+        --success: #16a34a;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+
+        --radius: 12px;
+        --spacing: 1rem;
+        --shadow: 0 10px 20px rgba(0,0,0,0.08);
+    }
+
+    /* ===================== BASE ===================== */
+    body {
+        font-family: 'Inter', sans-serif;
+        background: var(--bg);
+        color: var(--text-main);
+    }
+
+    .admin-wrapper {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        min-height: 100vh;
+    }
+
+    /* ===================== SIDEBAR (STYLED) ===================== */
+    .selection-sidebar {
+        background: var(--card-bg);
+        padding: 2.5rem 1.5rem;
+        border-right: 1px solid #e5e7eb;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        box-shadow: 4px 0 15px rgba(0,0,0,0.02);
+    }
+
+    .group-identity-box {
+        padding: 1.5rem;
+        background: #f3f4f6;
+        border-radius: var(--radius);
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+
+    /* Animated Border Top like your CSS */
+    .group-identity-box::before {
+        content:''; position:absolute; top:0; left:0; right:0; height:4px;
+        background: linear-gradient(90deg,var(--primary),var(--secondary),var(--accent));
+        background-size: 300% 100%;
+        animation: gradientMove 6s linear infinite;
+    }
+
+    .sidebar-stat {
+        display: flex;
+        justify-content: space-between;
+        padding: 1rem 0;
+        border-bottom: 1px solid #f3f4f6;
+    }
+
+    /* ===================== MAIN CONTENT ===================== */
+    .container-pro {
+        padding: 3rem;
+        max-width: 1200px;
+    }
+
+    h1.main-title {
+        font-size: 2.2rem;
+        font-weight: 800;
+        background: linear-gradient(120deg,var(--primary),var(--secondary),var(--accent));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 2rem;
+        animation: fadeIn 0.8s ease forwards;
+    }
+
+    /* ===================== PROGRESS TIMELINE ===================== */
+    .progress-card {
+        background: var(--card-bg);
+        padding: 1.5rem;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        margin-bottom: 3rem;
+    }
+
+    .timeline-flex {
+        display: flex;
+        gap: 8px;
+        height: 10px;
+    }
+
+    .timeline-seg {
+        flex: 1;
+        background: #e5e7eb;
+        border-radius: 10px;
+        transition: 0.5s ease;
+    }
+
+    .timeline-seg.done { background: var(--success); }
+    .timeline-seg.active { 
+        background: var(--primary); 
+        box-shadow: 0 0 15px rgba(79,70,229,0.3);
+        transform: scaleY(1.4);
+    }
+
+    /* ===================== MEMBER CARDS (STATS CARD STYLE) ===================== */
+    .member-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: var(--spacing);
+    }
+
+    .m-card {
+        background: var(--card-bg);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: var(--shadow);
+        position: relative;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        cursor: pointer;
+        border: 1px solid #f3f4f6;
+    }
+
+    .m-card:hover:not(.disabled) {
+        transform: translateY(-5px) scale(1.02);
+        box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+        border-color: var(--secondary);
+    }
+
+    .m-card::before {
+        content:''; position:absolute; top:0; left:0; right:0; height:4px;
+        border-radius: var(--radius) var(--radius) 0 0;
+        background: linear-gradient(90deg,var(--primary),var(--secondary),var(--accent));
+        background-size: 300% 100%;
+        opacity: 0;
+        transition: 0.3s;
+    }
+
+    .m-card.selected-session::before { opacity: 1; animation: gradientMove 6s linear infinite; }
+
+    .avatar-icon {
+        width: 60px; height: 60px;
+        background: rgba(79,70,229,0.1);
+        color: var(--primary);
+        border-radius: 14px;
+        display: flex; align-items:center; justify-content:center;
+        font-weight: 800; font-size: 1.4rem;
+        margin: 0 auto 1rem;
+    }
+
+    .m-name { font-weight: 700; color: var(--text-main); margin-bottom: 5px; }
+    .m-token { font-size: 0.85rem; color: var(--text-secondary); font-weight: 600; }
+
+    /* Selected state colors */
+    .m-card.selected-session {
+        background: #f8fafc;
+        border: 2px solid var(--primary);
+    }
+
+    /* ===================== BADGES & BUTTONS ===================== */
+    .status-badge-ui {
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        background: rgba(16,163,129,0.1);
+        color: var(--success);
+        display: none;
+        margin-top: 10px;
+    }
+    .m-card.selected-session .status-badge-ui { display: inline-block; }
+
+    .action-bar {
+        position: fixed;
+        bottom: 2rem;
+        left: 50%;
+        transform: translateX(-50%);
+        background: white;
+        padding: 1rem 2rem;
+        border-radius: 50px;
+        box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        display: flex;
+        gap: 15px;
+        z-index: 1000;
+        border: 1px solid #e5e7eb;
+    }
+
+    .btn-ui {
+        padding: 0.7rem 1.8rem;
+        border-radius: 12px;
+        font-weight: 700;
+        border: none;
+        cursor: pointer;
+        transition: 0.3s;
+    }
+
+    .btn-save-ui {
+        background: linear-gradient(90deg, var(--primary), var(--secondary));
+        color: white;
+    }
+
+    .btn-save-ui:hover { transform: scale(1.05); box-shadow: 0 5px 15px rgba(79,70,229,0.4); }
+
+    .disabled { opacity: 0.4; grayscale: 1; cursor: not-allowed; }
+
+    /* ===================== ANIMATIONS ===================== */
+    @keyframes gradientMove { 0%{background-position:0% 50%;} 50%{background-position:100% 50%;} 100%{background-position:0% 50%;} }
+    @keyframes fadeIn { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-wrapper">
+    <aside class="selection-sidebar">
+        <div class="group-identity-box">
+            <small style="color:var(--text-secondary); font-weight:700; text-transform:uppercase; font-size:10px;">Chit Group</small>
+            <h3 style="margin-top:5px; font-weight:800; color:var(--text-main);">{{ group.group_name }}</h3>
+        </div>
+
+        <div class="sidebar-stat">
+            <span style="color:var(--text-secondary); font-size:14px;">Installments</span>
+            <span style="font-weight:700;">{{ total_months }} Months</span>
+        </div>
+        <div class="sidebar-stat">
+            <span style="color:var(--text-secondary); font-size:14px;">Next Slot</span>
+            <span style="font-weight:700; color:var(--primary);">Month {{ current_installment }}</span>
+        </div>
+        <div class="sidebar-stat" style="border:none;">
+            <span style="color:var(--text-secondary); font-size:14px;">Remaining</span>
+            <span style="font-weight:800; color:var(--accent);" id="remCount">{{ total_months|add:"-current_installment"|add:"1" }}</span>
+        </div>
+
+        <div style="margin-top:auto; background:rgba(79,70,229,0.05); padding:1rem; border-radius:12px; border:1px dashed var(--primary);">
+            <p style="font-size:12px; color:var(--primary); font-weight:600; margin:0;">
+                💡 Tip: Winners-ne click cheythu select cheyyuka. Athu automatically month assign cheythoalam.
+            </p>
+        </div>
+    </aside>
+
+    <main class="container-pro">
+        <h1 class="main-title" id="mainHead">Manual Winner Assignment</h1>
+
+        <div class="progress-card">
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                <span style="font-size:12px; font-weight:700; color:var(--text-secondary);">TIMELINE PROGRESS</span>
+                <span style="font-size:12px; font-weight:700; color:var(--primary);" id="percentText">Month {{ current_installment }} of {{ total_months }}</span>
+            </div>
+            <div class="timeline-flex">
+                {% for _ in ""|center:total_months %}
+                    <div class="timeline-seg 
+                        {% if forloop.counter < current_installment %}done{% endif %}
+                        {% if forloop.counter == current_installment %}active{% endif %}" 
+                        id="seg-{{ forloop.counter }}">
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="member-grid">
+            {% for m in members %}
+                <div class="m-card {% if m.id in previous_winner_ids %}disabled{% endif %}"
+                     id="m-{{ m.id }}"
+                     onclick="markWinner(this, {{ m.id }})">
+                    
+                    <div class="avatar-icon">{{ m.member.name|slice:":1" }}</div>
+                    <div class="m-name">{{ m.member.name }}</div>
+                    <div class="m-token">Token #{{ m.token_no }}</div>
+                    <div class="status-badge-ui" id="badge-{{ m.id }}">Month 0</div>
+                </div>
+            {% endfor %}
+        </div>
+    </main>
+</div>
+
+<div class="action-bar">
+    <button class="btn-ui" style="background:#f3f4f6; color:var(--text-main);" onclick="location.reload()">Reset</button>
+    <button class="btn-ui btn-save-ui" id="finalBtn" onclick="submitWinners()">Confirm All Assignments</button>
+</div>
+
+<script>
+    let activeInstallment = Number("{{ current_installment }}");
+    const maxInstallments = Number("{{ total_months }}");
+    let selections = [];
+
+    function markWinner(el, id) {
+        if (el.classList.contains('disabled') || el.classList.contains('selected-session')) return;
+        if (activeInstallment > maxInstallments) return;
+
+        el.classList.add('selected-session');
+        const badge = document.getElementById(`badge-${id}`);
+        badge.innerText = `WINNER: MONTH ${activeInstallment}`;
+
+        selections.push({ month: activeInstallment, id: id });
+
+        // Timeline Update
+        document.getElementById(`seg-${activeInstallment}`).classList.remove('active');
+        document.getElementById(`seg-${activeInstallment}`).classList.add('done');
+
+        activeInstallment++;
+
+        if (activeInstallment <= maxInstallments) {
+            document.getElementById(`seg-${activeInstallment}`).classList.add('active');
+            document.getElementById('remCount').innerText = (maxInstallments - activeInstallment + 1);
+            document.getElementById('percentText').innerText = `Month ${activeInstallment} of ${maxInstallments}`;
+        } else {
+            document.getElementById('mainHead').innerText = "All Months Assigned!";
+            confetti({ particleCount: 150, spread: 70, origin: { y: 0.8 } });
+        }
+    }
+
+    function submitWinners() {
+        if (selections.length === 0) return alert("Aarkkum winner koduthilla!");
+
+        const btn = document.getElementById('finalBtn');
+        btn.innerText = "Saving...";
+        btn.disabled = true;
+
+        fetch("{% url 'chitti:manual_auction_select_winner' group.id %}", {
+            method: "POST",
+            headers: { "X-CSRFToken": "{{ csrf_token }}", "Content-Type": "application/json" },
+            body: JSON.stringify({ winners: selections })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) window.location.href = "{% url 'chitti:view_group' group.id %}";
+            else alert(data.error);
+        });
+    }
+</script>
+{% endblock %}

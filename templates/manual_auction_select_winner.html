@@ -1,0 +1,25 @@
+
+
+{% block content %}
+<div class="container mt-4">
+    <h3>Select Winner for {{ group.group_name }}</h3>
+    <p>Current Installment: {{ group.current_installment_no }}</p>
+
+    <div class="card shadow-sm border-0 rounded-4 p-4">
+        <form method="POST">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label fw-bold">Choose Member</label>
+                <select name="winner_id" class="form-select" required>
+                    <option value="">-- Select --</option>
+                    {% for member in members %}
+                        <option value="{{ member.id }}">{{ member.user.get_full_name }} ({{ member.membership_id }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-success rounded-pill px-4">Confirm Winner</button>
+            <a href="{% url 'chitti:manual_auction_trigger_list' %}" class="btn btn-light rounded-pill">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -4,13 +4,13 @@ app = "smartkuri"
   internal_port = 8000
   force_https = true
   auto_start_machines = true
-  auto_stop_machines = "off"
-  min_machines_running = 1   
+  auto_stop_machines = "stop"   
+  min_machines_running = 0      
 
 [deploy]
   release_command = "python manage.py migrate --noinput"
 
 [[vm]]
-  memory = "1gb"   
+  memory = "1gb"
   cpu_kind = "shared"
   cpus = 1

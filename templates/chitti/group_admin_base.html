@@ -19,11 +19,8 @@
     <meta name="theme-color" content="#4f46e5">
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
-
     <link rel="stylesheet" href="{% static 'group_admin/css/group_admin_base.css' %}">
 
     <style>
@@ -201,6 +198,72 @@
             background: #f9fafb;
             text-decoration: none;
         }
+
+        /* 🎡 SPIN WHEEL & MANUAL AUCTION CARDS */
+        .admin-controls-container {
+            margin: 20px 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .control-label {
+            font-size: 10px;
+            color: #94a3b8;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .option-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-radius: 15px;
+            text-decoration: none;
+            transition: 0.3s;
+            margin-bottom: 8px;
+        }
+
+        /* Spin Wheel Style */
+        .card-spin {
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%);
+            border: 1px solid rgba(251, 191, 36, 0.3);
+        }
+        .card-spin:hover { transform: translateX(5px); background: rgba(251, 191, 36, 0.2); }
+        
+        /* Manual Entry Style */
+        .card-manual {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(79, 70, 229, 0.05) 100%);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+        .card-manual:hover { transform: translateX(5px); background: rgba(99, 102, 241, 0.2); }
+
+        .icon-box {
+            width: 35px;
+            height: 35px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+        }
+
+        .spin-bg { background: #fbbf24; animation: rotate-slow 4s linear infinite; }
+        .manual-bg { background: #6366f1; }
+
+        .option-info h5 { margin: 0; color: #fff; font-size: 13px; font-weight: 600; }
+        .option-info p { margin: 0; color: #94a3b8; font-size: 10px; }
+
+        @keyframes rotate-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
     </style>
 
     {% block extra_head %}{% endblock %}
@@ -253,9 +316,32 @@
             </div>
         </div>
 
-        <a href="{% url 'chitti:auction_list' %}" class="sidebar-link">
-            <i class="fas fa-gavel"></i><span>Auction</span>
-        </a>
+        <!-- ⚡ DUAL AUCTION TOOLS SECTION -->
+        <div class="admin-controls-container">
+            <span class="control-label">Auction Management</span>
+            
+            <!-- 🎡 Option 1: Spin Wheel -->
+            <a href="{% url 'chitti:auction_list' %}" class="option-card card-spin">
+                <div class="icon-box spin-bg">
+                    <i class="fas fa-dharmachakra"></i>
+                </div>
+                <div class="option-info">
+                    <h5>Spin Wheel</h5>
+                    <p>Lucky Draw Auction</p>
+                </div>
+            </a>
+
+            <!-- 📝 Option 2: Manual Trigger -->
+            <a href="{% url 'chitti:manual_auction_trigger_list' %}" class="option-card card-manual">
+                <div class="icon-box manual-bg">
+                    <i class="fas fa-edit"></i>
+                </div>
+                <div class="option-info">
+                    <h5>Manual Entry</h5>
+                    <p>Direct Winner Selection</p>
+                </div>
+            </a>
+        </div>
 
         <a href="{% url 'accounts:logout' %}" class="sidebar-link logout-link">
             <i class="fas fa-sign-out-alt"></i>Logout
@@ -330,17 +416,12 @@
 </div>
 
 <script>
-// 🔥 AJAX CLEAR ALL NOTIFICATIONS
 function clearAllNotifications() {
-    // API Call to backend
     fetch("{% url 'chitti:clear_all_notifications' %}", {
         method: "GET",
-        headers: {
-            "X-Requested-With": "XMLHttpRequest"
-        }
+        headers: { "X-Requested-With": "XMLHttpRequest" }
     })
     .then(response => {
-        // UI Instant Update
         const body = document.getElementById('notifBody');
         const badge = document.getElementById('mainBadge');
         const pulse = document.getElementById('pulseDot');
@@ -348,7 +429,7 @@ function clearAllNotifications() {
 
         if (badge) badge.style.display = 'none';
         if (pulse) pulse.style.display = 'none';
-        if (clearBtn) clearBtn.innerHTML = ''; // Remove Clear All button
+        if (clearBtn) clearBtn.innerHTML = '';
 
         body.innerHTML = `
             <div style="padding: 30px; text-align: center; color: #9ca3af;">
@@ -360,7 +441,6 @@ function clearAllNotifications() {
     .catch(error => console.error('Error:', error));
 }
 
-// Function to visually remove single notification
 function dismissNotif(id) {
     const element = document.getElementById(id);
     if (element) {
@@ -384,16 +464,13 @@ function dismissNotif(id) {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-    // 1. Sidebar Submenu Logic
     const toggles = document.querySelectorAll('.toggle');
     toggles.forEach(toggle => {
         toggle.addEventListener('click', () => {
             const submenu = toggle.nextElementSibling;
             const isOpen = submenu.style.display === 'block';
-
             document.querySelectorAll('.submenu').forEach(sm => sm.style.display = 'none');
             document.querySelectorAll('.toggle').forEach(t => t.classList.remove('active'));
-
             if (!isOpen) {
                 submenu.style.display = 'block';
                 toggle.classList.add('active');
@@ -401,10 +478,8 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // 2. Notification Dropdown Toggle
     const bellBtn = document.getElementById('bellBtn');
     const notifDropdown = document.getElementById('notifDropdown');
-
     bellBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         notifDropdown.classList.toggle('show');
@@ -416,9 +491,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // 3. Highlight Active Sidebar Link
     const currentUrl = window.location.href;
-    const links = document.querySelectorAll('.sidebar-link, .submenu-link');
+    const links = document.querySelectorAll('.sidebar-link, .submenu-link, .option-card');
     links.forEach(link => {
         if (currentUrl.includes(link.getAttribute('href')) && link.getAttribute('href') !== "#") {
             link.classList.add('active');
