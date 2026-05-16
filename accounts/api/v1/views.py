@@ -34,9 +34,7 @@ from rest_framework.permissions import IsAuthenticated
 
 
 
-
 User = get_user_model()
-
 
 class LoginAPIView(APIView):
     permission_classes = []
@@ -75,23 +73,32 @@ class LoginAPIView(APIView):
             if staff and staff.user and staff.user.check_password(password):
                 user = staff.user
 
-        # 5️⃣ Final Response
+        # =====================================
+        # ✅ FINAL RESPONSE
+        # =====================================
         if user:
+
+            # 🚫 Disabled account
             if not user.is_active:
                 return Response(
                     {"error": "Your account is disabled"},
                     status=status.HTTP_403_FORBIDDEN
                 )
 
-            # ✅ JWT TOKEN GENERATION (FIXED)
+            # 🔐 Generate JWT tokens
             refresh = RefreshToken.for_user(user)
 
-            # 🔥 Role Logic
+            # Default values
             role = "member"
             redirect_to = "members:member_dashboard"
             group_setup_needed = False
+            first_login = False
 
+            # =====================================
+            # 👨‍💼 STAFF LOGIC
+            # =====================================
             if hasattr(user, 'staffprofile'):
+
                 profile = user.staffprofile
                 role = profile.role
 
@@ -102,24 +109,45 @@ class LoginAPIView(APIView):
                     redirect_to = "accounts:collector_dashboard"
 
                 elif role == 'group_admin':
+
                     if not profile.group:
                         group_setup_needed = True
                         redirect_to = "accounts:create_group"
+
                     else:
                         redirect_to = "accounts:group_admin_dashboard"
 
+            # =====================================
+            # 👤 MEMBER LOGIC
+            # =====================================
+            elif hasattr(user, 'member_profile'):
+
+                member = user.member_profile
+
+                # ✅ ONLY CHECK
+                if member.is_first_login:
+                    first_login = True
+                    redirect_to = "members:first_login_setup"
+
+                else:
+                    redirect_to = "members:member_dashboard"
+
+            # =====================================
+            # ✅ SUCCESS RESPONSE
+            # =====================================
             return Response({
                 "status": "success",
-                "access": str(refresh.access_token),   
-                "refresh": str(refresh),              
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
                 "user_id": user.id,
                 "email": user.email,
                 "role": role,
                 "redirect_to": redirect_to,
-                "group_setup_needed": group_setup_needed
+                "group_setup_needed": group_setup_needed,
+                "first_login": first_login
             }, status=status.HTTP_200_OK)
 
-        # ❌ Login failed
+        # ❌ Invalid login
         return Response(
             {"error": "Invalid login details"},
             status=status.HTTP_401_UNAUTHORIZED
@@ -573,44 +601,97 @@ class FirstLoginChangePasswordAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+
+        # =====================================
+        # 👤 Get member
+        # =====================================
         member = Member.objects.filter(user=request.user).first()
 
         if not member:
             return Response(
-                {"detail": "Member not found."},
+                {
+                    "status": "error",
+                    "detail": "Member not found."
+                },
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        # =====================================
+        # 🚫 Already changed password
+        # =====================================
         if not member.is_first_login:
             return Response(
-                {"detail": "Password already changed."},
+                {
+                    "status": "error",
+                    "detail": "Password already changed."
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # =====================================
+        # 🔑 Get passwords
+        # =====================================
         new_password = request.data.get("new_password")
         confirm_password = request.data.get("confirm_password")
 
+        # =====================================
+        # ⚠️ Validation
+        # =====================================
         if not new_password or not confirm_password:
             return Response(
-                {"detail": "Password required."},
+                {
+                    "status": "error",
+                    "detail": "Both password fields are required."
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Minimum password length
+        if len(new_password) < 8:
+            return Response(
+                {
+                    "status": "error",
+                    "detail": "Password must be at least 8 characters."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Password mismatch
         if new_password != confirm_password:
             return Response(
-                {"detail": "Passwords do not match."},
+                {
+                    "status": "error",
+                    "detail": "Passwords do not match."
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # =====================================
+        # 🔐 Change password
+        # =====================================
         user = request.user
+
         user.set_password(new_password)
         user.save()
 
+        # Keep user logged in
         update_session_auth_hash(request, user)
 
+        # =====================================
+        # ✅ First login completed
+        # =====================================
         member.is_first_login = False
         member.save()
 
-        return Response({
-            "detail": "Password changed successfully."
-        })
+        # =====================================
+        # ✅ Success response
+        # =====================================
+        return Response(
+            {
+                "status": "success",
+                "detail": "Password changed successfully.",
+                "redirect_to": "members:member_dashboard",
+                "first_login": False
+            },
+            status=status.HTTP_200_OK
+        )

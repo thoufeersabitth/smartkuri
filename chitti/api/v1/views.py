@@ -38,7 +38,7 @@ from .serializers import (
 
 
 from django.db.models import Count
-
+from datetime import datetime, timedelta
 
 from datetime import datetime, date
 from decimal import Decimal
@@ -59,9 +59,14 @@ class CreateGroupAPIView(APIView):
 
     @transaction.atomic
     def post(self, request):
+
+        print("NEW API RUNNING")
+
         user = request.user
 
-        # 🔒 Block if already created group
+        # =========================
+        # 🔒 BLOCK MULTIPLE GROUPS
+        # =========================
         if hasattr(user, 'staffprofile') and user.staffprofile.group:
             return Response(
                 {"error": "You already created a group."},
@@ -71,12 +76,15 @@ class CreateGroupAPIView(APIView):
         try:
             data = request.data
 
+            print("REQUEST DATA => ", data)
+
             # =========================
-            # 🔥 PLAN
+            # 🔥 PLAN (MANDATORY)
             # =========================
             plan_id = data.get("plan_id")
+
             if not plan_id:
-                raise ValueError("Plan ID missing")
+                raise ValueError("Plan ID is required")
 
             plan = get_object_or_404(
                 SubscriptionPlan,
@@ -85,46 +93,98 @@ class CreateGroupAPIView(APIView):
             )
 
             # =========================
-            # 🔥 BASIC FIELDS
+            # 🔥 BASIC DATA
             # =========================
             name = data.get("name")
+
+            if not name:
+                raise ValueError("Group name missing")
 
             if not hasattr(user, 'staffprofile'):
                 raise ValueError("Staff profile missing")
 
-            phone = user.staffprofile.phone
+            profile = user.staffprofile
+
+            phone = profile.phone
             email = user.email
 
-            monthly_amount = Decimal(str(data.get("monthly_amount", "0")))
-            duration_months = int(data.get("duration_months", 0))
+            monthly_amount = Decimal(
+                str(data.get("monthly_amount", 0))
+            )
 
-            auction_type = data.get("auction_type", "monthly")
-            auctions_per_month = int(data.get("auctions_per_month", 1))
-            auction_interval_months = data.get("auction_interval_months")
+            duration_months = int(
+                data.get("duration_months", 0)
+            )
+
+            if monthly_amount <= 0:
+                raise ValueError(
+                    "Monthly amount must be greater than 0"
+                )
+
+            if duration_months <= 0:
+                raise ValueError(
+                    "Duration months invalid"
+                )
+
+            # =========================
+            # 🔥 AUCTION CONFIG
+            # =========================
+            auction_type = data.get(
+                "auction_type",
+                "monthly"
+            )
+
+            auctions_per_month = int(
+                data.get("auctions_per_month", 1)
+            )
+
+            auction_interval_months = data.get(
+                "auction_interval_months"
+            )
 
             if auction_type == "interval":
-                auction_interval_months = int(auction_interval_months or 0)
+
+                auction_interval_months = int(
+                    auction_interval_months or 0
+                )
+
                 if auction_interval_months <= 0:
-                    raise ValueError("Invalid interval months")
+                    raise ValueError(
+                        "Invalid interval months"
+                    )
+
             else:
                 auction_interval_months = None
 
             # =========================
-            # 📅 DATES
+            # 📅 REGISTRATION DATE
             # =========================
-            registration_start = data.get("registration_start_date")
+            registration_start = data.get(
+                "registration_start_date"
+            )
+
             if not registration_start:
-                raise ValueError("Registration date missing")
+                raise ValueError(
+                    "Registration date missing"
+                )
 
             registration_date = datetime.strptime(
                 registration_start,
                 "%Y-%m-%d"
             ).date()
 
-            first_date = data.get("first_auction_date") or data.get("start_date")
+            # =========================
+            # 📅 AUCTION DATE
+            # =========================
+            first_date = (
+                data.get("first_auction_date")
+                or data.get("start_date")
+            )
 
             if not first_date:
-                raise ValueError("First auction date missing")
+                raise ValueError(
+                    "First auction date missing"
+                )
 
             auction_start_date = datetime.strptime(
                 first_date,
@@ -133,16 +193,19 @@ class CreateGroupAPIView(APIView):
 
             if auction_start_date < registration_date:
                 return Response(
-                    {"error": "Auction date must be after registration date"},
+                    {
+                        "error":
+                        "Auction date must be after registration date"
+                    },
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            if not name or monthly_amount <= 0 or duration_months <= 0:
-                raise ValueError("Invalid basic data")
-
         except Exception as e:
             return Response(
-                {"error": f"Invalid input data: {str(e)}"},
+                {
+                    "error":
+                    f"Invalid input data: {str(e)}"
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -165,38 +228,50 @@ class CreateGroupAPIView(APIView):
         )
 
         # =========================
-        # 🔥 FIXED AUCTION CREATION (IMPORTANT)
+        # 🔥 CREATE AUCTIONS
         # =========================
         base_dates = []
+
         current_date = auction_start_date
 
-        for month in range(1, duration_months + 1):
+        for _ in range(duration_months):
+
             base_dates.append(current_date)
-            current_date = current_date + relativedelta(months=1)
+
+            current_date += relativedelta(months=1)
+
+        print("BASE DATES => ", base_dates)
 
         group.create_auctions(base_dates=base_dates)
 
         # =========================
         # 🔥 UPDATE PROFILE
         # =========================
-        profile = user.staffprofile
         profile.group = group
         profile.save()
 
         # =========================
-        # 🔥 SUBSCRIPTION
+        # 🔥 CREATE SUBSCRIPTION
         # =========================
         subscription = GroupSubscription.objects.create(
             group=group,
-            plan=plan
+            plan=plan,
+            is_active=True,
+            start_date=registration_date,
+            end_date=registration_date + timedelta(
+                days=plan.duration_days
+            )
         )
-        subscription.activate(start_date=registration_date)
+
+        print("SUBSCRIPTION CREATED => ", subscription.id)
 
         # =========================
         # ✅ RESPONSE
         # =========================
         return Response({
-            "message": "Group created successfully ✅",
+
+            "message":
+            "Group created successfully ✅",
 
             "group": {
                 "id": group.id,
@@ -214,18 +289,23 @@ class CreateGroupAPIView(APIView):
             },
 
             "subscription": {
+                "id": subscription.id,
                 "is_active": subscription.is_active,
                 "start_date": subscription.start_date,
-                "end_date": subscription.end_date
+                "end_date": subscription.end_date,
+                "plan": subscription.plan.name
             },
 
             "admin": {
-                "name": user.get_full_name() or user.username,
+                "name":
+                user.get_full_name() or user.username,
+
                 "email": user.email,
-                "phone": user.staffprofile.phone
+
+                "phone": profile.phone
             }
+
         }, status=status.HTTP_201_CREATED)
-    
     
 class GroupAdminProfileAPIView(APIView):
     permission_classes = [IsAuthenticated]
