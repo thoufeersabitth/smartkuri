@@ -220,10 +220,12 @@ class MemberDetailAPIView(APIView):
                 allocated = target
                 temp_balance -= target
                 status = "Paid"
+
             elif temp_balance > 0:
                 allocated = temp_balance
                 temp_balance = 0
                 status = "Partial"
+
             else:
                 status = "Pending"
 
@@ -233,8 +235,28 @@ class MemberDetailAPIView(APIView):
                 "paid": allocated,
                 "balance": target - allocated,
                 "status": status,
-                "is_advance": month > current_grp_month and allocated > 0
+                "is_advance": (
+                    month > current_grp_month
+                    and allocated > 0
+                )
             })
+
+        # -----------------------------
+        # CURRENT MONTH DUE
+        # -----------------------------
+        current_month_data = next(
+            (
+                m for m in month_wise
+                if m["month"] == current_grp_month
+            ),
+            None
+        )
+
+        current_month_due = (
+            current_month_data["balance"]
+            if current_month_data
+            else 0
+        )
 
         # -----------------------------
         # RESPONSE
@@ -253,8 +275,11 @@ class MemberDetailAPIView(APIView):
 
             "financial_summary": {
                 "total_paid": total_paid,
-                "total_due": max(0, (current_grp_month * monthly_amount) - total_paid),
-                "months_paid": sum(1 for m in month_wise if m["status"] == "Paid"),
+                "total_due": current_month_due,
+                "months_paid": sum(
+                    1 for m in month_wise
+                    if m["status"] == "Paid"
+                ),
                 "duration_months": duration
             },
 
@@ -266,13 +291,13 @@ class MemberDetailAPIView(APIView):
                     "paid_date": p.paid_date,
                     "collector": (
                         p.collected_by.user.get_full_name()
-                        if p.collected_by else "Admin"
+                        if p.collected_by
+                        else "Admin"
                     )
                 }
                 for p in payments
             ]
         })
-
 
 
 
