@@ -205,9 +205,16 @@ class MemberDetailAPIView(APIView):
         )
 
         # -----------------------------
-        # CALCULATION (ADVANCED)
+        # CALCULATION
         # -----------------------------
         total_paid = float(sum(p.amount for p in payments))
+
+        # Total subscription amount
+        total_amount = duration * monthly_amount
+
+        # Remaining total due
+        total_due = max(0, total_amount - total_paid)
+
         temp_balance = total_paid
 
         month_wise = []
@@ -242,23 +249,6 @@ class MemberDetailAPIView(APIView):
             })
 
         # -----------------------------
-        # CURRENT MONTH DUE
-        # -----------------------------
-        current_month_data = next(
-            (
-                m for m in month_wise
-                if m["month"] == current_grp_month
-            ),
-            None
-        )
-
-        current_month_due = (
-            current_month_data["balance"]
-            if current_month_data
-            else 0
-        )
-
-        # -----------------------------
         # RESPONSE
         # -----------------------------
         return Response({
@@ -274,8 +264,9 @@ class MemberDetailAPIView(APIView):
             },
 
             "financial_summary": {
+                "total_amount": total_amount,
                 "total_paid": total_paid,
-                "total_due": current_month_due,
+                "total_due": total_due,
                 "months_paid": sum(
                     1 for m in month_wise
                     if m["status"] == "Paid"
