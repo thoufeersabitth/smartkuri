@@ -17,6 +17,8 @@ urlpatterns = [
     path('resend-group-otp/', views.resend_group_otp, name='resend_group_otp'),
     path('password-reset/', views.password_reset_request, name='password_reset'),
     path('password-reset-confirm/', views.password_reset_confirm, name='password_reset_verify'),
+    path('resend-password-reset-otp/', views.resend_password_reset_otp, name='resend_password_reset_otp'),
+    path('get-user-kuris/', views.get_user_kuris, name='get_user_kuris'),
     path('create-group/', views.create_group_view, name='create_group'),
     path(
     'collector/dashboard/',

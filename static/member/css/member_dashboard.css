@@ -1,34 +1,18 @@
-/* member/css/member_dashboard.css - Ultra Pro Max Glassmorphism + Money Green Theme 🔥 */
+/* member/css/member_dashboard.css — Pro Max Dashboard Cards */
 
 :root {
-  --primary: #10b981;           /* Money green – emerald success */
-  --primary-dark: #059669;
   --indigo: #6366f1;
   --indigo-dark: #4f46e5;
   --danger: #ef4444;
+  --primary: #10b981;
   --warning: #f59e0b;
-  --light: #f8fafc;
-  --dark: #0f172a;
   --gray: #64748b;
-  --glass-bg: rgba(255, 255, 255, 0.65);
-  --glass-border: rgba(255, 255, 255, 0.25);
-  --shadow-sm: 0 8px 32px rgba(31, 38, 135, 0.15);
-  --shadow-md: 0 15px 40px rgba(0, 0, 0, 0.18);
+  --glass-bg: rgba(255,255,255,0.75);
+  --glass-border: rgba(255,255,255,0.3);
+  --shadow-sm: 0 8px 32px rgba(31,38,135,0.12);
+  --shadow-md: 0 15px 40px rgba(0,0,0,0.14);
   --radius-lg: 20px;
-  --radius-md: 16px;
-  --transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  color: var(--dark);
+  --transition: all 0.35s cubic-bezier(0.34,1.56,0.64,1);
 }
 
 /* Dashboard Header */
@@ -128,11 +112,17 @@ body {
 }
 
 .summary-card.paid h3 {
-  color: var(--primary);
+  background: linear-gradient(90deg, #10b981, #34d399);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .summary-card.remaining h3 {
-  color: var(--danger);
+  background: linear-gradient(90deg, #ef4444, #f87171);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 /* Winner Card – Grand Prize Look */

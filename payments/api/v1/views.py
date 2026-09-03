@@ -46,8 +46,36 @@ class GroupPaymentListAPI(APIView):
 
         # ✅ Fetch payments
         payments_qs = Payment.objects.filter(group_id__in=group_ids) \
-            .select_related('member', 'collected_by', 'group') \
-            .order_by('-paid_date')
+            .select_related('member', 'collected_by', 'group')
+
+        # =====================================================
+        # 🔥 ADVANCED FILTERS (DATE RANGE, METHOD, SEARCH)
+        # =====================================================
+        from_date = request.GET.get('from_date')
+        to_date = request.GET.get('to_date')
+        if from_date:
+            payments_qs = payments_qs.filter(paid_date__gte=from_date)
+        if to_date:
+            payments_qs = payments_qs.filter(paid_date__lte=to_date)
+
+        payment_method = request.GET.get('payment_method')
+        if payment_method and payment_method != 'all':
+            payments_qs = payments_qs.filter(payment_method__icontains=payment_method)
+
+        filter_group_id = request.GET.get('group_id')
+        if filter_group_id:
+            payments_qs = payments_qs.filter(group_id=filter_group_id)
+
+        query = request.GET.get('q', '').strip()
+        if query:
+            from django.db.models import Q
+            payments_qs = payments_qs.filter(
+                Q(member__name__icontains=query) |
+                Q(collected_by__user__username__icontains=query) |
+                Q(payment_method__icontains=query)
+            )
+
+        payments_qs = payments_qs.order_by('-paid_date', '-id')
 
         # =====================================================
         # 🔥 TOTALS
@@ -62,11 +90,12 @@ class GroupPaymentListAPI(APIView):
         ).aggregate(total=Sum('amount'))['total'] or 0
 
         # =====================================================
-        # 🔥 PAGINATION (FIXED)
+        # 🔥 PAGINATION
         # =====================================================
         page_number = request.GET.get('page', 1)
+        page_size = int(request.GET.get('page_size', 50))
 
-        paginator = Paginator(payments_qs, 10)  # ✅ FIXED
+        paginator = Paginator(payments_qs, page_size)
         page_obj = paginator.get_page(page_number)
 
         # =====================================================
@@ -360,7 +389,6 @@ class AdminPendingPaymentsAPI(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-
         staff = getattr(request.user, "staffprofile", None)
 
         if not staff:
@@ -369,12 +397,11 @@ class AdminPendingPaymentsAPI(APIView):
         # 🔹 Role-based group access
         if staff.role == 'admin':
             groups = ChittiGroup.objects.all()
-
-        elif staff.role == 'group_admin':
-            main_groups = ChittiGroup.objects.filter(owner=staff.user)
-            sub_groups = ChittiGroup.objects.filter(parent_group__in=main_groups)
-            groups = (main_groups | sub_groups).distinct()
-
+        elif staff.role in ['group_admin', 'collector']:
+            from django.db.models import Q
+            groups = ChittiGroup.objects.filter(
+                Q(owner=request.user) | Q(collector=staff) | Q(parent_group__owner=request.user)
+            ).distinct()
         else:
             return Response({"error": "Not authorized"}, status=403)
 
@@ -382,7 +409,6 @@ class AdminPendingPaymentsAPI(APIView):
             payment_status='success',
             group__in=groups,
             collected_by__isnull=False,
-            collected_by__role='collector',
             sent_to_admin=True
         ).select_related('member', 'group', 'collected_by') \
          .order_by('-paid_date', '-id')
@@ -404,9 +430,9 @@ class AdminPendingPaymentsAPI(APIView):
                 "group_id": group.id,
                 "group_name": group.name,
 
-                "total_pending": sum(p.amount for p in pending),
-                "total_approved": sum(p.amount for p in approved),
-                "total_rejected": sum(p.amount for p in rejected),
+                "total_pending": float(sum(p.amount for p in pending)),
+                "total_approved": float(sum(p.amount for p in approved)),
+                "total_rejected": float(sum(p.amount for p in rejected)),
 
                 "count_pending": len(pending),
                 "count_approved": len(approved),
@@ -415,11 +441,20 @@ class AdminPendingPaymentsAPI(APIView):
                 "pending_payments": [
                     {
                         "id": p.id,
-                        "member": p.member.name,
-                        "amount": p.amount,
-                        "date": p.paid_date
+                        "member": p.member.name if p.member else "Member",
+                        "amount": float(p.amount),
+                        "date": str(p.paid_date),
+                        "collected_by": p.collected_by.user.username if p.collected_by else "Staff"
                     } for p in pending
                 ],
+                "approved_payments": [
+                    {
+                        "id": p.id,
+                        "member": p.member.name if p.member else "Member",
+                        "amount": float(p.amount),
+                        "date": str(p.paid_date),
+                    } for p in approved
+                ]
             })
 
         return Response({"groups": group_list})
@@ -432,7 +467,7 @@ class GroupPaymentDetailsAPI(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, group_id):
-
+        from django.db.models import Q
         staff = getattr(request.user, "staffprofile", None)
 
         if not staff:
@@ -440,21 +475,17 @@ class GroupPaymentDetailsAPI(APIView):
 
         if staff.role == 'admin':
             group = get_object_or_404(ChittiGroup, id=group_id)
-
-        elif staff.role == 'group_admin':
+        else:
             group = get_object_or_404(
                 ChittiGroup,
-                id=group_id,
-                owner=staff.user
+                Q(id=group_id),
+                Q(owner=request.user) | Q(collector=staff)
             )
-        else:
-            return Response({"error": "Not allowed"}, status=403)
 
         payments = Payment.objects.filter(
             group=group,
             payment_status='success',
             collected_by__isnull=False,
-            collected_by__role='collector',
             sent_to_admin=True
         ).select_related('member', 'collected_by__user') \
          .order_by('-paid_date')

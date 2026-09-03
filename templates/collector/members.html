@@ -9,17 +9,36 @@
 
 <div class="members-page">
 
-    <h4 class="members-title">Assigned Members</h4>
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+        <h4 class="members-title" style="margin:0;">Assigned Members</h4>
 
-    <form method="get" class="members-search-form">
-        <input type="text" name="q"
-               placeholder="Search by name or phone"
-               value="{{ request.GET.q }}"
-               class="members-search-input">
-        <button type="submit" class="members-search-btn">
-            Search
-        </button>
-    </form>
+        <form method="get" class="members-search-form" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0;">
+            {% if available_groups|length > 1 %}
+            <select name="group" class="form-select" onchange="this.form.submit()" style="padding:8px 14px;border-radius:10px;border:1px solid #cbd5e1;font-size:13px;font-weight:600;min-width:180px;background:#fff;cursor:pointer;">
+                <option value="">-- All Assigned Kuris --</option>
+                {% for g in available_groups %}
+                    <option value="{{ g.id }}" {% if selected_group_id == g.id|stringformat:"s" %}selected{% endif %}>
+                        {{ g.name }} ({{ g.code }})
+                    </option>
+                {% endfor %}
+            </select>
+            {% endif %}
+
+            <input type="text" name="q"
+                   placeholder="Search by name or phone"
+                   value="{{ q }}"
+                   class="members-search-input"
+                   style="margin:0;">
+            <button type="submit" class="members-search-btn">
+                Search
+            </button>
+            {% if q or selected_group_id %}
+            <a href="{% url 'collector:members' %}" class="btn btn-sm btn-light border" style="border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;text-decoration:none;">
+                Reset
+            </a>
+            {% endif %}
+        </form>
+    </div>
 
     <div class="members-box">
         <table class="members-table">

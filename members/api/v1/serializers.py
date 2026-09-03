@@ -42,7 +42,14 @@ class MemberSerializer(serializers.ModelSerializer):
 class MemberCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True,
-        min_length=6
+        required=False,
+        allow_blank=True,
+        allow_null=True
+    )
+    existing_user_id = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        write_only=True
     )
 
     class Meta:
@@ -55,6 +62,7 @@ class MemberCreateSerializer(serializers.ModelSerializer):
             "aadhaar_no",
             "assigned_chitti_group",
             "password",
+            "existing_user_id",
         ]
 
     def validate_assigned_chitti_group(self, group):
@@ -65,6 +73,7 @@ class MemberCreateSerializer(serializers.ModelSerializer):
                 "You can add members only to your own groups"
             )
         return group
+
 class MemberUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Member

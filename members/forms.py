@@ -4,13 +4,20 @@ from chitti.models import ChittiGroup
 from subscriptions.utils import can_add_member
 
 class MemberAddForm(forms.ModelForm):
-    # Password field
-    password = forms.CharField(widget=forms.PasswordInput(attrs={'placeholder': 'Enter password'}))
+    # Password field - optional if existing user selected
+    password = forms.CharField(required=False, widget=forms.PasswordInput(attrs={'placeholder': 'Enter password for new user'}))
+    existing_user_id = forms.CharField(required=False, widget=forms.HiddenInput())
     
     # Email field - explicitly set as required
     email = forms.EmailField(
         required=True, 
         widget=forms.EmailInput(attrs={'placeholder': 'example@gmail.com'})
+    )
+
+    # Phone field - explicitly set as required
+    phone = forms.CharField(
+        required=True, 
+        widget=forms.TextInput(attrs={'placeholder': '10-digit mobile number'})
     )
 
     # Address field - TextArea for better UX
@@ -24,7 +31,7 @@ class MemberAddForm(forms.ModelForm):
 
     class Meta:
         model = Member
-        fields = ['name', 'email', 'phone', 'address', 'aadhaar_no', 'assigned_chitti_group', 'password']
+        fields = ['name', 'email', 'phone', 'address', 'aadhaar_no', 'assigned_chitti_group', 'password', 'existing_user_id']
 
     def __init__(self, *args, admin_user=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -55,6 +62,35 @@ class MemberAddForm(forms.ModelForm):
             # If no groups are available, update the placeholder text
             if not available_groups:
                 self.fields['assigned_chitti_group'].empty_label = "No groups available (limit reached)"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        phone = cleaned_data.get('phone')
+        email = cleaned_data.get('email')
+        existing_user_id = cleaned_data.get('existing_user_id')
+
+        if existing_user_id or (phone and Member.objects.filter(phone=phone).exists()) or (email and Member.objects.filter(email=email).exists()):
+            if 'phone' in self._errors:
+                del self._errors['phone']
+            if 'email' in self._errors:
+                del self._errors['email']
+
+        return cleaned_data
+
+    def validate_unique(self):
+        phone = self.cleaned_data.get('phone') if hasattr(self, 'cleaned_data') else None
+        email = self.cleaned_data.get('email') if hasattr(self, 'cleaned_data') else None
+        existing_user_id = self.cleaned_data.get('existing_user_id') if hasattr(self, 'cleaned_data') else None
+
+        is_existing = existing_user_id or (phone and Member.objects.filter(phone=phone).exists()) or (email and Member.objects.filter(email=email).exists())
+        
+        super().validate_unique()
+
+        if is_existing:
+            if 'phone' in self._errors:
+                del self._errors['phone']
+            if 'email' in self._errors:
+                del self._errors['email']
 
 
 class MemberEditForm(forms.ModelForm):

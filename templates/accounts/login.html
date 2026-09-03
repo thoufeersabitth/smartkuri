@@ -64,6 +64,12 @@
                     <label for="identifier">Email or Phone Number</label>
                 </div>
 
+                <div id="kuri_group_wrapper" class="form-floating-group" style="display: none; margin-bottom: 20px;">
+                    <select id="kuri_id" name="kuri_id" class="form-control" style="width: 100%; padding: 12px 16px; border-radius: 10px; border: 1px solid #cbd5e1; background: #ffffff; color: #1e293b; font-size: 14px; font-weight: 500; appearance: auto; cursor: pointer;">
+                        <option value="">-- Select Kuri Group --</option>
+                    </select>
+                </div>
+
                 <div class="form-floating-group password-group">
                     <input 
                         type="password" 
@@ -114,6 +120,68 @@
                 icon.classList.replace('fa-eye-slash', 'fa-eye');
             }
         }
+
+        // 🔄 Dynamic Kuri & Multi-Role Selection (Hidden by default for pure Group Admins)
+        document.getElementById('identifier').addEventListener('input', function() {
+            const identifier = this.value.trim();
+            const kuriWrapper = document.getElementById('kuri_group_wrapper');
+            const kuriSelect = document.getElementById('kuri_id');
+
+            if (identifier.length >= 3) {
+                fetch("{% url 'accounts:get_user_kuris' %}?identifier=" + encodeURIComponent(identifier))
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.show_kuri_select) {
+                            kuriSelect.innerHTML = '';
+                            const defaultOpt = document.createElement('option');
+                            defaultOpt.value = '';
+                            defaultOpt.textContent = '-- Select Login Role / Kuri Group --';
+                            kuriSelect.appendChild(defaultOpt);
+
+                            // 👑 If user is also a Group Admin
+                            if (data.has_admin_role) {
+                                const adminOpt = document.createElement('option');
+                                adminOpt.value = 'admin_portal';
+                                adminOpt.textContent = '👑 Group Admin Dashboard (Admin Portal)';
+                                adminOpt.style.fontWeight = 'bold';
+                                adminOpt.style.color = '#4f46e5';
+                                kuriSelect.appendChild(adminOpt);
+                            }
+
+                            // 💵 If user has Collector access
+                            if (data.has_collector_role) {
+                                const colOpt = document.createElement('option');
+                                colOpt.value = 'collector_portal';
+                                colOpt.textContent = '💵 Cash Collector Portal';
+                                colOpt.style.fontWeight = 'bold';
+                                colOpt.style.color = '#059669';
+                                kuriSelect.appendChild(colOpt);
+                            }
+
+                            // 💳 Member Kuris List
+                            if (data.kuris && data.kuris.length > 0) {
+                                data.kuris.forEach(kuri => {
+                                    const opt = document.createElement('option');
+                                    opt.value = kuri.id;
+                                    opt.textContent = `💳 ${kuri.name} (${kuri.code})`;
+                                    kuriSelect.appendChild(opt);
+                                });
+                            }
+
+                            kuriWrapper.style.display = 'block'; // Show dropdown for multi-role / multi-kuri users
+                        } else {
+                            kuriSelect.innerHTML = '';
+                            kuriWrapper.style.display = 'none';
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Error loading Kuri groups:", err);
+                        kuriWrapper.style.display = 'none';
+                    });
+            } else {
+                kuriWrapper.style.display = 'none';
+            }
+        });
     </script>
 
 </body>

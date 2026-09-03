@@ -532,6 +532,7 @@ class AdminGroupListAPIView(APIView):
                 "name": group.name,
                 "monthly_amount": group.monthly_amount,
                 "duration_months": group.duration_months,
+                "current_month": group.current_month,
                 "total_amount": group.total_amount,
 
                 "start_date": group.start_date,
@@ -776,8 +777,9 @@ class GroupDetailAPIView(APIView):
 
         completed_months = completed_auctions.values('month_no').distinct().count()
 
-        current_month = completed_months + 1
-        remaining_months = max(0, (group.duration_months or 0) - completed_months)
+        dur = int(group.duration_months or 0)
+        current_month = min(completed_months + 1, dur) if (dur > 0 and completed_months < dur) else (completed_months if completed_months > 0 else 1)
+        remaining_months = max(0, dur - completed_months)
 
         # 6️⃣ Prize Calculation
         auction_list = []
@@ -857,7 +859,8 @@ class GroupDetailAPIView(APIView):
             # 🔹 MEMBERS
             "members": [
                 {
-                    "id": cm.id,
+                    "id": cm.member.id,
+                    "chitti_member_id": cm.id,
                     "name": cm.member.name,
                     "phone": cm.member.phone,
                     "token_no": cm.token_no,
@@ -916,7 +919,9 @@ class CashCollectorCreateAPIView(APIView):
 
         username = data["username"]
         email = data["email"]
+        phone = data["phone"]
         group = data.get("group")
+        existing_user_id = data.get("existing_user_id")
 
         # ✅ Group Required
         if not group:
@@ -932,7 +937,7 @@ class CashCollectorCreateAPIView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # 🔥 NEW CHECK: Already has collector?
+        # 🔥 CHECK: Already has collector?
         if group.collector:
             return Response(
                 {
@@ -941,50 +946,88 @@ class CashCollectorCreateAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # ✅ Username exists
-        if User.objects.filter(username=username).exists():
-            return Response(
-                {"error": "Username already exists"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # ✅ Email exists
-        if User.objects.filter(email=email).exists():
-            return Response(
-                {"error": "Email already exists"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
         try:
-            user = User.objects.create_user(
-                username=username,
-                email=email,
-                password=data["password"]
-            )
+            if existing_user_id:
+                # ── Existing User Branch ──
+                try:
+                    user = User.objects.get(id=existing_user_id)
+                except User.DoesNotExist:
+                    return Response(
+                        {"error": "Selected user does not exist"},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
 
-            collector = StaffProfile.objects.create(
-                user=user,
-                phone=data["phone"],
-                role="collector"
-            )
+                collector, created = StaffProfile.objects.get_or_create(
+                    user=user,
+                    defaults={"phone": phone, "role": "collector"}
+                )
+                if not created:
+                    collector.role = "collector"
+                    if phone:
+                        collector.phone = phone
+                    collector.save()
 
-            group.collector = collector
-            group.save()
+                group.collector = collector
+                group.save()
+
+                return Response(
+                    {
+                        "message": f"'{user.username}' successfully assigned as Cash Collector for '{group.name}'",
+                        "collector_id": collector.id,
+                        "group": group.name,
+                    },
+                    status=status.HTTP_201_CREATED
+                )
+            else:
+                # ── Fresh New User Branch ──
+                password = data.get("password")
+                if not password:
+                    return Response(
+                        {"error": "Password is required for new user creation"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                if User.objects.filter(username=username).exists():
+                    return Response(
+                        {"error": "Username already exists"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                if User.objects.filter(email=email).exists():
+                    return Response(
+                        {"error": "Email already exists"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                    password=password
+                )
+
+                collector = StaffProfile.objects.create(
+                    user=user,
+                    phone=phone,
+                    role="collector"
+                )
+
+                group.collector = collector
+                group.save()
+
+                return Response(
+                    {
+                        "message": "Cash collector created and assigned successfully",
+                        "collector_id": collector.id,
+                        "group": group.name,
+                    },
+                    status=status.HTTP_201_CREATED
+                )
 
         except IntegrityError:
             return Response(
-                {"error": "User creation failed"},
+                {"error": "Failed to create or assign cash collector"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-
-        return Response(
-            {
-                "message": "Cash collector created successfully",
-                "collector_id": collector.id,
-                "group": group.name,
-            },
-            status=status.HTTP_201_CREATED
-        )
 
     
 # LIST CASH COLLECTORS (Group Admin)
@@ -1134,6 +1177,7 @@ class AddAuctionAPIView(APIView):
     def post(self, request):
         group_id = request.data.get("group_id")
         auction_date_str = request.data.get("auction_date")
+        month_no_input = request.data.get("month_no")
 
         if not group_id or not auction_date_str:
             return Response(
@@ -1141,13 +1185,17 @@ class AddAuctionAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        try:
-            auction_date = datetime.strptime(
-                auction_date_str, "%d/%m/%Y"
-            ).date()
-        except ValueError:
+        auction_date = None
+        for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
+            try:
+                auction_date = datetime.strptime(auction_date_str, fmt).date()
+                break
+            except ValueError:
+                pass
+
+        if not auction_date:
             return Response(
-                {"error": "Use DD/MM/YYYY format"},
+                {"error": "Invalid date format. Use DD/MM/YYYY or YYYY-MM-DD"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -1168,12 +1216,37 @@ class AddAuctionAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 🔥 Month calculation (same as web)
-        month_no = (
-            (auction_date.year - group.start_date.year) * 12
-            + (auction_date.month - group.start_date.month)
-            + 1
-        )
+        # 🔥 Month calculation
+        if month_no_input:
+            try:
+                month_no = int(month_no_input)
+            except (ValueError, TypeError):
+                month_no = (
+                    (auction_date.year - group.start_date.year) * 12
+                    + (auction_date.month - group.start_date.month)
+                    + 1
+                )
+        else:
+            month_no = (
+                (auction_date.year - group.start_date.year) * 12
+                + (auction_date.month - group.start_date.month)
+                + 1
+            )
+
+        # Check if an auction without winner exists for this month and update it
+        existing_auction = group.auctions.filter(
+            month_no=month_no,
+            winner__isnull=True
+        ).first()
+
+        if existing_auction:
+            existing_auction.auction_date = auction_date
+            existing_auction.save()
+            return Response({
+                "message": f"Auction date updated for Month {month_no}",
+                "month_no": month_no,
+                "auction_no": existing_auction.auction_no
+            }, status=status.HTTP_200_OK)
 
         # 🔹 Monthly limit
         monthly_count = group.auctions.filter(
@@ -1188,8 +1261,9 @@ class AddAuctionAPIView(APIView):
 
         # 🔹 Total limit
         total = group.auctions.count()
+        total_limit = getattr(group, 'total_auctions', (group.duration_months or 12) * (group.auctions_per_month or 1))
 
-        if total >= group.total_auctions:
+        if total >= total_limit:
             return Response(
                 {"error": "Total auction limit reached"},
                 status=status.HTTP_400_BAD_REQUEST
@@ -1284,7 +1358,18 @@ class AssignWinnerAPIView(APIView):
         if not eligible.exists():
             return Response({"error": "No eligible members"}, status=400)
 
-        winner = random.choice(list(eligible))
+        member_id = request.data.get("member_id")
+
+        if member_id:
+            try:
+                winner = eligible.get(id=member_id)
+            except ChittiMember.DoesNotExist:
+                return Response(
+                    {"error": "Selected member is not eligible or already won"},
+                    status=400
+                )
+        else:
+            winner = random.choice(list(eligible))
 
         auction.assign_winner(winner, bid_amount=0)
 
@@ -1353,20 +1438,19 @@ class AssignAllWinnersAPIView(APIView):
                 ).values_list('winner_id', flat=True)
             )
 
-            # 🔥 Last completed month
-            last_month = Auction.objects.filter(
-                group=group,
-                winner__isnull=False
-            ).aggregate(Max('month_no'))['month_no__max'] or 0
-
             for item in winners_list:
                 month_no = int(item.get("month"))
                 member_id = item.get("id")
 
-                # ❌ Restrict past months
-                if month_no <= last_month:
+                # ❌ Check if that specific month is already won
+                month_already_won = group.auctions.filter(
+                    month_no=month_no,
+                    winner__isnull=False
+                ).exists()
+
+                if month_already_won:
                     return Response({
-                        "error": f"You can only add winners after month {last_month}"
+                        "error": f"Month {month_no} already has a winner assigned"
                     }, status=400)
 
                 # ❌ Already winner check (global)
@@ -1397,16 +1481,19 @@ class AssignAllWinnersAPIView(APIView):
                 else:
                     next_auction_no = 1
 
-                # 🔥 Create auction always (multi-slot support)
-                auction_date = group.start_date + relativedelta(months=month_no - 1)
-
-                auction = Auction.objects.create(
-                    group=group,
-                    month_no=month_no,
-                    auction_no=next_auction_no,
-                    auction_date=auction_date,
-                    selection_type="manual"
-                )
+                # 🔥 Use existing pending auction or create new one
+                existing_pending = monthly_auctions.filter(winner__isnull=True).first()
+                if existing_pending:
+                    auction = existing_pending
+                else:
+                    auction_date = group.start_date + relativedelta(months=month_no - 1)
+                    auction = Auction.objects.create(
+                        group=group,
+                        month_no=month_no,
+                        auction_no=next_auction_no,
+                        auction_date=auction_date,
+                        selection_type="manual"
+                    )
 
                 # 🔥 Assign winner
                 auction.assign_winner(winner_member, bid_amount=0)

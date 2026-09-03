@@ -11,7 +11,9 @@ from .views import (
     member_edit,
     member_delete,
     member_details,        # full details / statement
-    group_admin_profile
+    group_admin_profile,
+    switch_kuri,
+    search_existing_user
 )
 
 app_name = "members"
@@ -22,6 +24,7 @@ urlpatterns = [
     path('profile/', member_profile, name='member_profile'),
     path("payments/", member_payment_history, name="member_payment_history"),
     path('auctions/', member_auction_list, name='member_auction_list'),
+    path('switch-kuri/<int:group_id>/', switch_kuri, name='switch_kuri'),
 
     # ---------------- Group Admin Profile ----------------
     path('group-admin/profile/', group_admin_profile, name='group_admin_profile'),
@@ -29,6 +32,7 @@ urlpatterns = [
         # ---------------- Group Admin: Member CRUD ----------------
         path('admin/list/', member_list, name='member_list'),
         path('admin/create/', member_create, name='member_create'),
+        path('admin/search-user/', search_existing_user, name='search_existing_user'),
         path('admin/edit/<int:pk>/', member_edit, name='member_edit'),
         path('admin/delete/<int:pk>/', member_delete, name='member_delete'),
 

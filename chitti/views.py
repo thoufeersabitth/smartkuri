@@ -25,7 +25,7 @@ from dateutil.relativedelta import relativedelta
 from subscriptions.utils import can_create_group, get_effective_subscription
 from datetime import date
 from payments.models import Payment 
-from django.db.models import Sum
+from django.db.models import Q, Sum, Count
 from datetime import timedelta
 
 
@@ -541,38 +541,53 @@ def create_cash_collector(request):
             username = form.cleaned_data['username']
             email = form.cleaned_data['email']
             phone = form.cleaned_data['phone']
-            password = form.cleaned_data['password']
+            password = form.cleaned_data.get('password')
             group = form.cleaned_data['group']
+            existing_user_id = form.cleaned_data.get('existing_user_id')
 
-            # 🔥 NEW CHECK: Group already has collector?
+            # 🔥 Check if Group already has collector
             if group.collector:
                 messages.error(
                     request,
-                    f"Collector already created for group '{group.name}'."
+                    f"Collector already assigned for group '{group.name}'."
                 )
                 return redirect('chitti:create_cash_collector')
 
-            # 🔹 Create Django User
-            user = User.objects.create_user(
-                username=username,
-                email=email,
-                password=password
-            )
+            user = None
+            if existing_user_id:
+                user = User.objects.filter(id=existing_user_id).first()
 
-            # 🔹 Create StaffProfile
-            collector = StaffProfile.objects.create(
-                user=user,
-                phone=phone,
-                role='collector'
-            )
+            if not user:
+                user = User.objects.filter(Q(email=email) | Q(username=username)).first()
 
-            # 🔹 Assign collector to ChittiGroup
+            if not user:
+                user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                    password=password or '123456'
+                )
+
+            # Get or create StaffProfile for collector
+            collector = StaffProfile.objects.filter(user=user).first()
+            if not collector:
+                collector = StaffProfile.objects.create(
+                    user=user,
+                    phone=phone,
+                    role='collector'
+                )
+            else:
+                collector.role = 'collector'
+                if phone and not collector.phone:
+                    collector.phone = phone
+                collector.save()
+
+            # Assign collector to ChittiGroup
             group.collector = collector
             group.save()
 
             messages.success(
                 request,
-                f"Cash Collector '{username}' created in group '{group.name}'!"
+                f"Cash Collector '{user.get_full_name() or user.username}' assigned to group '{group.name}'!"
             )
             return redirect('chitti:cash_collector_list')
 
@@ -1208,12 +1223,10 @@ def admin_pending_payments(request):
 
     if staff.role == 'admin':
         groups = ChittiGroup.objects.all()
-
-    elif staff.role == 'group_admin':
-        main_groups = ChittiGroup.objects.filter(owner=staff.user)
-        sub_groups = ChittiGroup.objects.filter(parent_group__in=main_groups)
-        groups = (main_groups | sub_groups).distinct()
-
+    elif staff.role in ['group_admin', 'collector']:
+        groups = ChittiGroup.objects.filter(
+            Q(owner=request.user) | Q(collector=staff) | Q(parent_group__owner=request.user)
+        ).distinct()
     else:
         messages.error(request, "You are not authorized")
         return redirect('home')
@@ -1222,7 +1235,6 @@ def admin_pending_payments(request):
         payment_status='success',
         group__in=groups,
         collected_by__isnull=False,
-        collected_by__role='collector',
         sent_to_admin=True
     ).select_related('member', 'group', 'collected_by') \
      .order_by('-paid_date', '-id')
@@ -1244,15 +1256,15 @@ def admin_pending_payments(request):
             'group': group,
             'pending_payments': pending,
             'approved_payments': approved,
-            'rejected_payments': rejected,   # 🔥 ADDED
+            'rejected_payments': rejected,
 
             'total_pending': sum(p.amount for p in pending),
             'total_approved': sum(p.amount for p in approved),
-            'total_rejected': sum(p.amount for p in rejected),  # 🔥 ADDED
+            'total_rejected': sum(p.amount for p in rejected),
 
             'count_pending': len(pending),
             'count_approved': len(approved),
-            'count_rejected': len(rejected),  # 🔥 ADDED
+            'count_rejected': len(rejected),
         })
 
     return render(request, 'chitti/admin_pending_payments.html', {
@@ -1268,19 +1280,17 @@ def group_payment_details(request, group_id):
 
     if staff.role == 'admin':
         group = get_object_or_404(ChittiGroup, id=group_id)
-
-    elif staff.role == 'group_admin':
-        group = get_object_or_404(ChittiGroup, id=group_id, owner=staff.user)
-
     else:
-        messages.error(request, "Not allowed")
-        return redirect('home')
+        group = get_object_or_404(
+            ChittiGroup,
+            Q(id=group_id),
+            Q(owner=request.user) | Q(collector=staff)
+        )
 
     payments = Payment.objects.filter(
         group=group,
         payment_status='success',
         collected_by__isnull=False,
-        collected_by__role='collector',
         sent_to_admin=True
     ).select_related('member', 'collected_by__user') \
      .order_by('-paid_date')

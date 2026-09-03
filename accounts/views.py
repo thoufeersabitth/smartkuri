@@ -11,6 +11,7 @@ import razorpay
 from dateutil.relativedelta import relativedelta
 from datetime import date, datetime, timedelta
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import JsonResponse
 from django.contrib.auth import login, logout, authenticate
 from django.contrib import messages
 from django.contrib.auth.models import User
@@ -53,41 +54,136 @@ from .forms import GroupSignUpForm
 from .models import User, StaffProfile
 
 
-# ✅ SIGNUP VIEW
+# ---------------------------------------
+# PRO MAX STYLED HTML EMAIL DISPATCHER
+# ---------------------------------------
+def send_professional_otp_email(recipient_email, otp_code, action_type="reset", target_name="", subject=None, title_text=None, body_text=None):
+    """
+    Sends an ultra-professional HTML Email for Password Reset or Registration OTP.
+    """
+    if not subject:
+        subject = "SmartKuri - Password Reset Verification OTP" if action_type == "reset" else "SmartKuri - Account Registration Verification OTP"
+    if not title_text:
+        title_text = "Password Reset Request" if action_type == "reset" else "Account Registration"
+    if not body_text:
+        body_text = "We received a request to reset your password. Use the verification OTP below to proceed." if action_type == "reset" else "Welcome to SmartKuri! Please use the verification OTP below to complete your registration."
+    badge_title = "Target Account / Kuri Group" if action_type == "reset" else "Registration Scope"
+
+    account_badge_html = ""
+    if target_name:
+        account_badge_html = f"""
+        <div style="background-color: #f8fafc; border-left: 4px solid #6366f1; padding: 14px 18px; border-radius: 12px; margin-bottom: 24px; text-align: left;">
+            <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 0.8px; display: block; margin-bottom: 4px;">{badge_title}</span>
+            <span style="font-size: 16px; font-weight: 800; color: #1e293b;">{target_name}</span>
+        </div>
+        """
+
+    html_message = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 40px 12px;">
+            <tr>
+                <td align="center">
+                    <table role="presentation" width="100%" style="max-width: 520px; background: #ffffff; border-radius: 28px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.08); overflow: hidden; border: 1px solid #e2e8f0;" cellspacing="0" cellpadding="0">
+                        
+                        <!-- HEADER -->
+                        <tr>
+                            <td style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 36px 30px; text-align: center;">
+                                <div style="width: 56px; height: 56px; background: rgba(255,255,255,0.2); border-radius: 18px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
+                                    <span style="font-size: 28px; color: #ffffff;">💼</span>
+                                </div>
+                                <h1 style="color: #ffffff; margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.5px;">SmartKuri</h1>
+                                <p style="color: rgba(255,255,255,0.85); margin: 4px 0 0 0; font-size: 13px; font-weight: 600;">Digital Chitty Management Platform</p>
+                            </td>
+                        </tr>
+
+                        <!-- BODY -->
+                        <tr>
+                            <td style="padding: 40px 36px;">
+                                <h2 style="color: #0f172a; margin: 0 0 12px 0; font-size: 22px; font-weight: 800; text-align: center;">{title_text}</h2>
+                                <p style="color: #475569; margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; text-align: center;">
+                                    {body_text}
+                                </p>
+
+                                {account_badge_html}
+
+                                <!-- OTP BOX -->
+                                <div style="background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 20px; padding: 24px; text-align: center; margin-bottom: 24px;">
+                                    <span style="font-size: 12px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 1px; display: block; margin-bottom: 8px;">Verification Code (OTP)</span>
+                                    <div style="font-size: 40px; font-weight: 900; color: #4f46e5; letter-spacing: 10px; font-family: 'Courier New', Courier, monospace;">{otp_code}</div>
+                                    <span style="font-size: 12px; color: #ef4444; font-weight: 700; margin-top: 8px; display: block;">⏱ Valid for 5 minutes only</span>
+                                </div>
+
+                                <div style="background-color: #fffbeb; border: 1px solid #fef3c7; border-radius: 14px; padding: 14px 16px; margin-bottom: 20px;">
+                                    <p style="color: #b45309; margin: 0; font-size: 13px; line-height: 1.5; font-weight: 600;">
+                                        <strong>🔒 Security Note:</strong> If you did not request this OTP, please ignore this email. Never share your verification code with anyone.
+                                    </p>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- FOOTER -->
+                        <tr>
+                            <td style="background-color: #f8fafc; padding: 24px 36px; text-align: center; border-top: 1px solid #f1f5f9;">
+                                <p style="color: #64748b; margin: 0 0 4px 0; font-size: 12px; font-weight: 700;">SmartKuri Security System</p>
+                                <p style="color: #94a3b8; margin: 0; font-size: 11px;">Automated verification message &bull; Do not reply</p>
+                            </td>
+                        </tr>
+
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+    """
+
+    plain_message = f"SmartKuri OTP Verification: {otp_code}. Valid for 5 minutes. Scope: {target_name or 'SmartKuri'}"
+
+    try:
+        send_mail(
+            subject=subject,
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[recipient_email],
+            html_message=html_message,
+            fail_silently=False
+        )
+    except Exception as e:
+        print("OTP Email send error:", e)
+
+
 # ✅ SIGNUP VIEW
 def group_signup(request):
     if request.method == 'POST':
-        # ⚠️ Note: Make sure GroupSignUpForm ONLY has phone, email, password1, password2
         form = GroupSignUpForm(request.POST)
 
         if form.is_valid():
             data = form.cleaned_data
 
-            # ✅ check existing email
             if User.objects.filter(email=data['email']).exists():
                 form.add_error('email', "This email is already registered.")
             else:
                 otp = str(random.randint(100000, 999999))
 
-                # ✅ session save (Simplified)
                 request.session['pending_group_data'] = {
                     'phone': data['phone'],
                     'email': data['email'],
-                    'password': data['password1'], # Store password to hash later
+                    'password': data['password1'],
                     'otp': otp
                 }
 
-                # ✅ debug
-                print(f"OTP for {data['email']}: {otp}")
-
-                # ✅ send email
                 try:
-                    send_mail(
-                        "OTP Verification",
-                        f"Your OTP is {otp}",
-                        settings.DEFAULT_FROM_EMAIL,
-                        [data['email']],
-                        fail_silently=True
+                    send_professional_otp_email(
+                        recipient_email=data['email'],
+                        otp_code=otp,
+                        action_type="registration",
+                        target_name="Group Admin Account Registration"
                     )
                     return redirect('accounts:verify_group_otp')
                 except Exception as e:
@@ -459,67 +555,217 @@ def resend_group_otp(request):
 
 User = get_user_model()
 
+
+def get_user_kuris(request):
+    """
+    AJAX Endpoint: Returns role, admin status, and Kuris list for a given email/phone identifier.
+    Supports Unified Selection:
+    - Pure Group Admins: show_kuri_select = False (stays hidden)
+    - Multi-Role Users (Admin + Member): show_kuri_select = True with 'Admin Portal' option + Member Kuris list
+    - Pure Members / Collectors: show_kuri_select = True with Member Kuris list
+    """
+    identifier = request.GET.get('identifier', '').strip()
+    kuris_list = []
+    has_admin_role = False
+    is_member = False
+    is_collector = False
+
+    if identifier:
+        # 1. Check Staff Profile (Group Admin / Super Admin / Collector)
+        staff = StaffProfile.objects.filter(
+            Q(user__email=identifier) | Q(user__username=identifier) | Q(phone=identifier)
+        ).first()
+
+        if staff:
+            if staff.role in ['group_admin', 'admin']:
+                has_admin_role = True
+                is_collector = True  # Group Admins can also manage collections
+
+            elif staff.role == 'collector':
+                is_collector = True
+                groups = staff.assigned_chitti_groups.filter(is_active=True)
+                for g in groups:
+                    kuris_list.append({
+                        'id': g.id,
+                        'name': g.name,
+                        'code': g.code
+                    })
+
+        # 2. Check Members
+        members = Member.objects.filter(
+            Q(email=identifier) | Q(phone=identifier) | Q(user__email=identifier) | Q(user__username=identifier)
+        )
+
+        if members.exists():
+            is_member = True
+            group_ids = set()
+            for m in members:
+                if m.assigned_chitti_group_id:
+                    group_ids.add(m.assigned_chitti_group_id)
+                for cm in m.chitti_memberships.all():
+                    group_ids.add(cm.group_id)
+
+            if group_ids:
+                groups = ChittiGroup.objects.filter(id__in=group_ids, is_active=True)
+                for g in groups:
+                    if not any(k['id'] == g.id for k in kuris_list):
+                        kuris_list.append({
+                            'id': g.id,
+                            'name': g.name,
+                            'code': g.code
+                        })
+
+    # Show selector if multi-role or multiple Kuris exist
+    show_kuri_select = False
+    if has_admin_role and (len(kuris_list) > 0 or is_collector):
+        show_kuri_select = True
+    elif is_collector and (has_admin_role or len(kuris_list) > 0):
+        show_kuri_select = True
+    elif (is_member or is_collector) and (len(kuris_list) > 0):
+        show_kuri_select = True
+
+    return JsonResponse({
+        'has_admin_role': has_admin_role,
+        'has_collector_role': is_collector,
+        'kuris': kuris_list,
+        'show_kuri_select': show_kuri_select
+    })
+
+
 def login_view(request):
     if request.method == 'POST':
-        identifier = request.POST.get('identifier')
-        password = request.POST.get('password')
-        user = None
+        identifier = request.POST.get('identifier', '').strip()
+        password = request.POST.get('password', '')
+        kuri_id = request.POST.get('kuri_id')
 
-        # 1️⃣ Authenticate by standard username
-        user = authenticate(request, username=identifier, password=password)
+        # 🟢 CASE A: User explicitly selected "Admin Portal"
+        if kuri_id == 'admin_portal':
+            staff = StaffProfile.objects.filter(
+                Q(user__email=identifier) | Q(user__username=identifier) | Q(phone=identifier),
+                role__in=['group_admin', 'admin']
+            ).first()
 
-        # 2️⃣ Authenticate by email
-        if user is None:
-            u = User.objects.filter(email=identifier).first()
-            if u and u.check_password(password):
-                user = u
-
-        # 3️⃣ Authenticate member by phone
-        if user is None:
-            member = Member.objects.filter(phone=identifier).first()
-            if member and member.user and member.user.check_password(password):
-                user = member.user
-
-        # 4️⃣ Authenticate staff by phone
-        if user is None:
-            staff = StaffProfile.objects.filter(phone=identifier).first()
             if staff and staff.user and staff.user.check_password(password):
-                user = staff.user
+                if not staff.user.is_active:
+                    messages.error(request, "Access denied. Your account has been disabled.")
+                    return redirect('accounts:login')
 
-        # 5️⃣ Final Login & Redirects
-        if user:
-            # Check if account is active
-            if not user.is_active:
-                messages.error(request, "Access denied. Your account has been disabled.")
-                return redirect('accounts:login')
-
-            login(request, user)
-
-            # --- STAFF REDIRECTS ---
-            if hasattr(user, 'staffprofile'):
-                profile = user.staffprofile
-                role = profile.role
-
-                if role == 'admin':
+                login(request, staff.user, backend='django.contrib.auth.backends.ModelBackend')
+                if staff.role == 'admin':
                     return redirect('adminpanel:dashboard')
-                
-                elif role == 'collector':
-                    return redirect('accounts:collector_dashboard')
-                
-                elif role == 'group_admin':
-                    # Check if group is created
-                    if not profile.group:
+                else:
+                    if not staff.group:
                         messages.info(request, "Welcome! Please set up your group details to get started.")
                         return redirect('accounts:create_group')
-                    
-                    # Check if subscription is active
-
                     return redirect('accounts:group_admin_dashboard')
+            else:
+                messages.error(request, "Invalid Group Admin credentials.")
+                return redirect('accounts:login')
 
-            # --- MEMBER REDIRECT ---
-            return redirect('members:member_dashboard')
+        # 💵 CASE B: User explicitly selected "Collector Portal"
+        elif kuri_id == 'collector_portal':
+            staff = StaffProfile.objects.filter(
+                Q(user__email=identifier) | Q(user__username=identifier) | Q(phone=identifier),
+                role__in=['collector', 'group_admin', 'admin']
+            ).first()
 
-        # Authentication failed
+            if staff and staff.user and staff.user.check_password(password):
+                if not staff.user.is_active:
+                    messages.error(request, "Access denied. Your account has been disabled.")
+                    return redirect('accounts:login')
+
+                login(request, staff.user, backend='django.contrib.auth.backends.ModelBackend')
+                return redirect('accounts:collector_dashboard')
+            else:
+                messages.error(request, "Invalid Collector credentials.")
+                return redirect('accounts:login')
+
+        # 🔵 CASE B: User explicitly selected a Member Kuri ID
+        elif kuri_id and kuri_id != 'admin_portal':
+            try:
+                selected_group_id = int(kuri_id)
+            except ValueError:
+                selected_group_id = None
+
+            if selected_group_id:
+                cm = ChittiMember.objects.filter(
+                    group_id=selected_group_id
+                ).filter(
+                    Q(member__email=identifier) | Q(member__phone=identifier) | Q(member__user__email=identifier) | Q(member__user__username=identifier)
+                ).select_related('member__user').first()
+
+                member = cm.member if cm else None
+
+                if not member:
+                    member = Member.objects.filter(
+                        assigned_chitti_group_id=selected_group_id
+                    ).filter(
+                        Q(email=identifier) | Q(phone=identifier) | Q(user__email=identifier) | Q(user__username=identifier)
+                    ).first()
+
+                if member:
+                    # Ensure member has a dedicated User object (isolated from staff user)
+                    if not member.user:
+                        username = f"mem_{member.id}_{member.phone or member.email or 'user'}"
+                        new_user, _ = User.objects.get_or_create(username=username, defaults={'email': member.email or ''})
+                        member.user = new_user
+                        member.save(update_fields=['user'])
+
+                    if member.user and member.user.check_password(password):
+                        if not member.user.is_active:
+                            messages.error(request, "Access denied. Your account has been disabled.")
+                            return redirect('accounts:login')
+
+                        login(request, member.user, backend='django.contrib.auth.backends.ModelBackend')
+                        request.session['active_group_id'] = selected_group_id
+                        return redirect('members:member_dashboard')
+                    else:
+                        messages.error(request, "Invalid password for selected Kuri account.")
+                        return redirect('accounts:login')
+                else:
+                    messages.error(request, "No member record found for selected Kuri.")
+                    return redirect('accounts:login')
+
+        # 🟡 CASE C: Default Login (No Kuri selected)
+        else:
+            user = authenticate(request, username=identifier, password=password)
+
+            if user is None:
+                u = User.objects.filter(email=identifier).first()
+                if u and u.check_password(password):
+                    user = u
+
+            if user is None:
+                member = Member.objects.filter(phone=identifier).first()
+                if member and member.user and member.user.check_password(password):
+                    user = member.user
+
+            if user is None:
+                staff = StaffProfile.objects.filter(phone=identifier).first()
+                if staff and staff.user and staff.user.check_password(password):
+                    user = staff.user
+
+            if user:
+                if not user.is_active:
+                    messages.error(request, "Access denied. Your account has been disabled.")
+                    return redirect('accounts:login')
+
+                login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+
+                if hasattr(user, 'staffprofile'):
+                    profile = user.staffprofile
+                    if profile.role == 'admin':
+                        return redirect('adminpanel:dashboard')
+                    elif profile.role == 'collector':
+                        return redirect('accounts:collector_dashboard')
+                    elif profile.role == 'group_admin':
+                        if not profile.group:
+                            messages.info(request, "Welcome! Please set up your group details to get started.")
+                            return redirect('accounts:create_group')
+                        return redirect('accounts:group_admin_dashboard')
+
+                return redirect('members:member_dashboard')
+
         messages.error(request, "Invalid login details. Please check your credentials and try again.")
         return redirect('accounts:login')
 
@@ -528,11 +774,20 @@ def login_view(request):
 
 @login_required
 def change_password(request):
-    member = Member.objects.filter(user=request.user).first()
+    member = Member.objects.filter(
+        Q(user=request.user) | Q(email=request.user.email) | Q(phone=request.user.username)
+    ).first()
+
     if not member:
+        if hasattr(request.user, 'staffprofile'):
+            return redirect('accounts:group_admin_dashboard')
         return redirect('accounts:login')
 
-    # Already changed
+    if not member.user:
+        member.user = request.user
+        member.save(update_fields=['user'])
+
+    # Already changed password
     if not member.is_first_login:
         return redirect('members:member_dashboard')
 
@@ -540,23 +795,27 @@ def change_password(request):
         new_password = request.POST.get('new_password')
         confirm_password = request.POST.get('confirm_password')
 
-        if new_password != confirm_password:
-            messages.error(request, "Passwords do not match")
+        if not new_password or not confirm_password:
+            messages.error(request, "Please enter both password fields.")
+        elif len(new_password) < 4:
+            messages.error(request, "Password must be at least 4 characters long.")
+        elif new_password != confirm_password:
+            messages.error(request, "Passwords do not match.")
         else:
             user = request.user
             user.set_password(new_password)
             user.save()
 
-            # ✅ KEEP SESSION
+            # KEEP SESSION ACTIVE
             update_session_auth_hash(request, user)
 
             member.is_first_login = False
             member.save()
 
-            messages.success(request, "Password changed successfully")
+            messages.success(request, "Password updated successfully! Welcome to SmartKuri.")
             return redirect('members:member_dashboard')
 
-    return render(request, 'member/change_password.html')
+    return render(request, 'member/change_password.html', {'member': member})
 
 # ------------------------
 # LOGOUT
@@ -568,52 +827,105 @@ def logout_view(request):
 # ---------------------------------------
 # PASSWORD RESET REQUEST
 # ---------------------------------------
+# PASSWORD RESET REQUEST (Unified Single Password Reset)
+# ---------------------------------------
 def password_reset_request(request):
     if request.method == "POST":
-        identifier = request.POST.get("identifier")
-        user = None
+        identifier = request.POST.get("identifier", "").strip()
 
-        # Try email
-        try:
-            user = User.objects.get(email=identifier)
-        except User.DoesNotExist:
-            pass
+        if not identifier:
+            messages.error(request, "Please enter your registered Email Address.")
+            return redirect("accounts:password_reset")
 
-        # Try member phone
-        if not user:
-            try:
-                member = Member.objects.get(phone=identifier)
-                user = member.user
-            except Member.DoesNotExist:
-                pass
+        # 🔍 Find all User objects associated with this email
+        target_users = []
+        recipient_email = ""
 
-        # Try staff phone
-        if not user:
-            try:
-                profile = StaffProfile.objects.get(phone=identifier)
-                user = profile.user
-            except StaffProfile.DoesNotExist:
-                pass
+        # 1. Staff profile matching
+        staff = StaffProfile.objects.filter(
+            Q(user__email__iexact=identifier) | Q(user__username__iexact=identifier)
+        ).first()
+        if staff and staff.user:
+            target_users.append(staff.user)
+            if staff.user.email:
+                recipient_email = staff.user.email
 
-        if user:
+        # 2. Member records matching
+        members = Member.objects.filter(
+            Q(email__iexact=identifier) | Q(user__email__iexact=identifier) | Q(user__username__iexact=identifier)
+        )
+        for m in members:
+            if m.user and m.user not in target_users:
+                target_users.append(m.user)
+            if not recipient_email and m.email:
+                recipient_email = m.email
+
+        # 3. Direct Django User matching
+        direct_users = User.objects.filter(
+            Q(email__iexact=identifier) | Q(username__iexact=identifier)
+        )
+        for u in direct_users:
+            if u not in target_users:
+                target_users.append(u)
+            if not recipient_email and u.email:
+                recipient_email = u.email
+
+        if not recipient_email and '@' in identifier:
+            recipient_email = identifier
+
+        if target_users:
+            primary_user = target_users[0]
             otp = random.randint(100000, 999999)
-            request.session['password_reset_user_id'] = user.id
+
+            # Store user IDs list in session for synchronized password reset across all linked entities
+            user_ids = [u.id for u in target_users]
+            request.session['password_reset_user_ids'] = user_ids
+            request.session['password_reset_user_id'] = primary_user.id
             request.session['password_reset_otp'] = otp
             request.session['otp_created_at'] = time.time()
+            request.session['password_reset_recipient_email'] = recipient_email
+            request.session['password_reset_target_name'] = "SmartKuri Account"
 
-            send_mail(
-                "SmartKuri - Password Reset OTP",
-                f"Your OTP for password reset is: {otp}",
-                settings.DEFAULT_FROM_EMAIL,
-                [user.email],
-                fail_silently=False,
+            send_professional_otp_email(
+                recipient_email=recipient_email,
+                otp_code=otp,
+                action_type="reset",
+                target_name="SmartKuri Account"
             )
-            messages.success(request, "OTP sent to your email.")
+
+            messages.success(request, f"OTP verification code sent to {recipient_email}. Please check your inbox.")
             return redirect("accounts:password_reset_verify")
         else:
-            messages.error(request, "No user found with this email or phone.")
+            messages.error(request, "No user account found with this email address.")
 
     return render(request, "accounts/password_reset.html")
+
+
+# ---------------------------------------
+# RESEND PASSWORD RESET OTP
+# ---------------------------------------
+def resend_password_reset_otp(request):
+    user_id = request.session.get('password_reset_user_id')
+    if not user_id:
+        messages.error(request, "Password reset session has expired. Please enter your email or phone again.")
+        return redirect("accounts:password_reset")
+
+    user = get_object_or_404(User, id=user_id)
+    new_otp = random.randint(100000, 999999)
+    request.session['password_reset_otp'] = new_otp
+    request.session['otp_created_at'] = time.time()
+
+    recipient_email = request.session.get('password_reset_recipient_email') or user.email
+
+    send_professional_otp_email(
+        recipient_email=recipient_email,
+        otp_code=new_otp,
+        action_type="reset",
+        target_name="SmartKuri Account"
+    )
+
+    messages.success(request, f"New OTP sent to {recipient_email}! Please check your email.")
+    return redirect("accounts:password_reset_verify")
 
 
 # ---------------------------------------
@@ -622,37 +934,58 @@ def password_reset_request(request):
 def password_reset_confirm(request):
     user_id = request.session.get('password_reset_user_id')
     if not user_id:
-        messages.error(request, "Session expired. Try again.")
+        messages.error(request, "Session expired. Please request a new OTP.")
         return redirect("accounts:password_reset")
 
     user = get_object_or_404(User, id=user_id)
+    recipient_email = request.session.get('password_reset_recipient_email') or user.email
 
     if request.method == "POST":
-        otp_entered = request.POST.get("otp")
-        password1 = request.POST.get("password1")
-        password2 = request.POST.get("password2")
+        otp_entered = request.POST.get("otp", "").strip()
+        password1 = request.POST.get("password1", "")
+        password2 = request.POST.get("password2", "")
 
         otp_saved = request.session.get('password_reset_otp')
         otp_time = request.session.get('otp_created_at')
 
         if not otp_saved or (time.time() - otp_time) > 300:
-            messages.error(request, "OTP expired. Please try again.")
-            return redirect("accounts:password_reset")
+            messages.error(request, "OTP has expired. Please click 'Resend OTP' to get a new code.")
+            return redirect("accounts:password_reset_verify")
 
         if str(otp_entered) != str(otp_saved):
-            messages.error(request, "Invalid OTP.")
+            messages.error(request, "Invalid OTP code. Please enter the 6-digit code sent to your email.")
+        elif not password1 or not password2:
+            messages.error(request, "Please fill in both password fields.")
+        elif len(password1) < 4:
+            messages.error(request, "Password must be at least 4 characters long.")
         elif password1 != password2:
             messages.error(request, "Passwords do not match.")
         else:
-            user.set_password(password1)
-            user.save()
+            # Synchronize new password across all linked User records for this person
+            user_ids = request.session.get('password_reset_user_ids', [user.id])
+            users_to_update = User.objects.filter(id__in=user_ids)
+            for u in users_to_update:
+                u.set_password(password1)
+                u.save()
+
+            # Clean up all reset session data
             request.session.pop('password_reset_user_id', None)
+            request.session.pop('password_reset_user_ids', None)
+            request.session.pop('password_reset_kuri_id', None)
             request.session.pop('password_reset_otp', None)
             request.session.pop('otp_created_at', None)
-            messages.success(request, "Password reset successful! You can now login.")
+            request.session.pop('password_reset_target_name', None)
+            request.session.pop('password_reset_recipient_email', None)
+
+            messages.success(request, "🎉 Password reset successful! You can now log in with your new password.")
             return redirect("accounts:login")
 
-    return render(request, "accounts/password_reset_verify.html", {"user": user})
+    context = {
+        "user": user,
+        "recipient_email": recipient_email,
+        "target_name": "SmartKuri Unified Account"
+    }
+    return render(request, "accounts/password_reset_verify.html", context)
 
 
 
@@ -709,15 +1042,25 @@ from django.db.models import Sum
 def collector_dashboard(request):
     collector = request.user.staffprofile
 
+    assigned_groups = collector.assigned_chitti_groups.filter(is_active=True)
+    if not assigned_groups.exists() and collector.group:
+        assigned_groups = ChittiGroup.objects.filter(id=collector.group_id, is_active=True)
+    if not assigned_groups.exists() and collector.role in ['group_admin', 'admin']:
+        active_id = request.session.get('active_group_id')
+        if active_id:
+            assigned_groups = ChittiGroup.objects.filter(id=active_id, is_active=True)
+        else:
+            assigned_groups = ChittiGroup.objects.filter(owner=request.user, is_active=True)
+
     # Recent 10 payments
     recent_payments = Payment.objects.filter(
-        collected_by=collector,
+        group__in=assigned_groups,
         payment_status='success'
     ).order_by('-paid_date', '-paid_time')[:10]
 
     # Today collection (non-cash or cash received by admin)
     today_collection = Payment.objects.filter(
-        collected_by=collector,
+        group__in=assigned_groups,
         paid_date=date.today(),
         payment_status='success'
     ).filter(
@@ -726,7 +1069,7 @@ def collector_dashboard(request):
 
     # Monthly collection
     monthly_collection = Payment.objects.filter(
-        collected_by=collector,
+        group__in=assigned_groups,
         paid_date__month=date.today().month,
         paid_date__year=date.today().year,
         payment_status='success'
@@ -736,7 +1079,7 @@ def collector_dashboard(request):
 
     # Total collection
     total_collection = Payment.objects.filter(
-        collected_by=collector,
+        group__in=assigned_groups,
         payment_status='success'
     ).filter(
         ~Q(payment_method='cash') | Q(received_by_admin=True)
@@ -744,7 +1087,7 @@ def collector_dashboard(request):
 
     # Active members
     active_members = Member.objects.filter(
-        collections__collected_by=collector
+        Q(assigned_chitti_group__in=assigned_groups) | Q(chitti_memberships__group__in=assigned_groups)
     ).distinct().count()
 
     context = {

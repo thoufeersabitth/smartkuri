@@ -138,6 +138,10 @@ class ChittiGroup(models.Model):
             return self.monthly_collection_target / self.auctions_per_month
         return 0
 
+    @property
+    def total_auctions(self):
+        return len(self.generate_auctions_structure())
+
     from calendar import monthrange
 
 

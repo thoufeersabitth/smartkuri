@@ -28,38 +28,125 @@ def generate_random_password(length=8):
 
 
 # -----------------------------
+# Helper: Get all Kuris for Member
+# -----------------------------
+def get_user_member_kuris(user):
+    if not user or not user.is_authenticated:
+        return []
+
+    kuris_list = []
+    members = Member.objects.filter(Q(user=user) | Q(email=user.email) | Q(phone=user.username))
+    group_ids = set()
+    for m in members:
+        if m.assigned_chitti_group_id:
+            group_ids.add(m.assigned_chitti_group_id)
+        for cm in m.chitti_memberships.all():
+            group_ids.add(cm.group_id)
+
+    if group_ids:
+        groups = ChittiGroup.objects.filter(id__in=group_ids)
+        for g in groups:
+            kuris_list.append(g)
+
+    return kuris_list
+
+
+# -----------------------------
+# VIEW: Switch Active Kuri
+# -----------------------------
+@login_required
+def switch_kuri(request, group_id):
+    group = get_object_or_404(ChittiGroup, id=group_id)
+    request.session['active_group_id'] = group.id
+    messages.success(request, f"Switched active Kuri to '{group.name}'.")
+    return redirect('members:member_dashboard')
+
+
+# -----------------------------
+# GET CURRENT MEMBER (ACTIVE KURI)
+# -----------------------------
+def get_current_member(request):
+    if not request.user or not request.user.is_authenticated:
+        return None
+
+    user = request.user
+    active_group_id = request.session.get('active_group_id')
+
+    if active_group_id:
+        m = Member.objects.filter(
+            Q(user=user) | Q(email=user.email) | Q(phone=user.username),
+            assigned_chitti_group_id=active_group_id
+        ).first()
+        if not m:
+            cm = ChittiMember.objects.filter(
+                Q(member__user=user) | Q(member__email=user.email) | Q(member__phone=user.username),
+                group_id=active_group_id
+            ).select_related('member').first()
+            if cm:
+                m = cm.member
+        if m:
+            return m
+
+    m = Member.objects.filter(Q(user=user) | Q(email=user.email) | Q(phone=user.username)).first()
+    if m and not active_group_id and m.assigned_chitti_group_id:
+        request.session['active_group_id'] = m.assigned_chitti_group_id
+    return m
+
+
+# -----------------------------
 # MEMBER DASHBOARD (FINAL)
 # -----------------------------
-
-
-
-
 @login_required
 def member_dashboard(request):
-    try:
-        member = Member.objects.get(user=request.user)
-    except Member.DoesNotExist:
+    member = get_current_member(request)
+
+    if not member:
+        if hasattr(request.user, 'staffprofile'):
+            role = request.user.staffprofile.role
+            if role == 'admin':
+                return redirect('adminpanel:dashboard')
+            elif role == 'collector':
+                return redirect('accounts:collector_dashboard')
+            elif role == 'group_admin':
+                return redirect('accounts:group_admin_dashboard')
+
         return render(request, 'member/error.html', {
-            'message': 'Member profile not found.'
+            'message': 'Member profile not found for this account.'
         })
 
-    payments = Payment.objects.filter(member=member)
+    # 🔒 FIRST LOGIN PASSWORD CHANGE CHECK
+    if getattr(member, 'is_first_login', False):
+        return redirect('accounts:change_password')
+
+    active_group_id = request.session.get('active_group_id')
+    group = None
+
+    if active_group_id:
+        group = ChittiGroup.objects.filter(id=active_group_id, is_active=True).first()
+
+    if not group:
+        group = member.assigned_chitti_group
+        if not group:
+            cm = ChittiMember.objects.filter(member=member).first()
+            if cm:
+                group = cm.group
+
+    if not group:
+        if hasattr(request.user, 'staffprofile'):
+            return redirect('accounts:group_admin_dashboard')
+        return render(request, 'member/error.html', {
+            'message': 'No group assigned to this member account.'
+        })
+
+    payments = Payment.objects.filter(member=member, group=group)
     total_paid = payments.aggregate(total=Sum('amount'))['total'] or 0
 
-    group = member.assigned_chitti_group
-
-    # ✅ safety check
-    if not group:
-        return render(request, 'member/error.html', {
-            'message': 'No group assigned.'
-        })
-
     total_amount = getattr(group, 'total_amount', 0)
-    remaining = total_amount - total_paid
+    remaining = max(0, total_amount - total_paid)
 
     today = timezone.now().date()
 
-    # ✅ All completed auctions
+    # All completed auctions for this group
     auctions = (
         Auction.objects
         .filter(group=group, winner__isnull=False)
@@ -67,7 +154,6 @@ def member_dashboard(request):
         .order_by('auction_date')
     )
 
-    # 🔥 ✅ CURRENT MONTH WINNER (IMPORTANT FIX)
     latest_auction = (
         Auction.objects
         .filter(
@@ -79,56 +165,87 @@ def member_dashboard(request):
         .first()
     )
 
-    # ✅ Logged-in member winner check
+    cm = ChittiMember.objects.filter(member=member, group=group).first()
+    token_no = cm.token_no if cm else getattr(member, 'token_no', None)
     is_winner = auctions.filter(winner__member=member).exists()
+
+    my_kuris = get_user_member_kuris(request.user)
+    is_group_admin = hasattr(request.user, 'staffprofile') or StaffProfile.objects.filter(Q(user=request.user) | Q(user__email=request.user.email) | Q(phone=request.user.username)).exists()
 
     context = {
         'member': member,
+        'group': group,
+        'token_no': token_no,
         'total_paid': total_paid,
         'total_amount': total_amount,
         'remaining': remaining,
+        'my_kuris': my_kuris,
+        'is_group_admin': is_group_admin,
 
         'auctions': auctions,
-        'latest_auction': latest_auction,  # ✅ current month winner
+        'latest_auction': latest_auction,
         'is_winner': is_winner,
     }
 
     return render(request, 'member/member_dashboard.html', context)
+
+
 # -----------------------------
 # MEMBER PROFILE
 # -----------------------------
-@member_required
+@login_required
 def member_profile(request):
-    try:
-        member_profile = Member.objects.get(user=request.user)
-    except Member.DoesNotExist:
+    member = get_current_member(request)
+
+    if not member:
+        if hasattr(request.user, 'staffprofile'):
+            return redirect('accounts:group_admin_dashboard')
         return render(request, 'member/error.html', {'message': 'Member profile not found.'})
 
-    return render(request, 'member/member_profile.html', {'member': member_profile})
+    if getattr(member, 'is_first_login', False):
+        return redirect('accounts:change_password')
+
+    return render(request, 'member/member_profile.html', {'member': member})
 
 
-
+# -----------------------------
+# MEMBER PAYMENT HISTORY
+# -----------------------------
 @login_required
 def member_payment_history(request):
-    # 1. Get the logged-in member profile
-    member = get_object_or_404(Member, user=request.user)
+    member = get_current_member(request)
 
-    # 2. Get the ChittiMember record with group details
-    member_record = ChittiMember.objects.filter(member=member).select_related('group').first()
-    
-    if not member_record:
+    if not member:
+        if hasattr(request.user, 'staffprofile'):
+            return redirect('accounts:group_admin_dashboard')
+        return render(request, 'member/error.html', {'message': 'Member profile not found.'})
+
+    if getattr(member, 'is_first_login', False):
+        return redirect('accounts:change_password')
+
+    active_group_id = request.session.get('active_group_id')
+    group = None
+
+    if active_group_id:
+        group = ChittiGroup.objects.filter(id=active_group_id, is_active=True).first()
+
+    if not group:
+        group = member.assigned_chitti_group
+        if not group:
+            cm = ChittiMember.objects.filter(member=member).first()
+            if cm:
+                group = cm.group
+
+    if not group:
         return render(request, "member/no_subscriptions.html")
-
-    group = member_record.group
     
-    # 3. Fetch successful payments, optimized with select_related
+    # Fetch successful payments
     all_payments_qs = Payment.objects.filter(
         member=member,
         group=group,
         payment_status="success"
     ).select_related('collected_by__user').order_by("paid_date", "created_at")
 
-    # 4. Calculation Logic
     monthly_amount = float(group.monthly_amount)
     duration = int(group.duration_months)
     current_grp_month = int(group.current_month)
@@ -146,25 +263,21 @@ def member_payment_history(request):
         month_transactions = []
 
         while target > 0:
-            # If no overflow remains, get the next payment from the list
             if overflow_cash <= 0:
                 if payments_list:
                     active_payment = payments_list.pop(0)
                     overflow_cash = float(active_payment.amount)
                 else:
-                    break # No more payments available
+                    break
 
-            # Calculate the portion of payment to apply to this month
             take = min(overflow_cash, target)
             allocated_for_month += take
             
-            # Logic to get collector name (Full Name fallback to Username)
             collector_display = "Admin"
             if active_payment.collected_by:
                 user_obj = active_payment.collected_by.user
                 collector_display = user_obj.get_full_name() or user_obj.username
 
-            # Record this specific transaction slice
             month_transactions.append({
                 "amount": take,
                 "date": active_payment.paid_date,
@@ -174,7 +287,6 @@ def member_payment_history(request):
             overflow_cash -= take
             target -= take
 
-        # Determine Payment Status for the month
         if allocated_for_month >= monthly_amount:
             status = "Paid"
         elif allocated_for_month > 0:
@@ -192,9 +304,12 @@ def member_payment_history(request):
             "is_advance": month > current_grp_month and allocated_for_month > 0
         })
 
-    # 5. Financial Summary
-    total_due = max(0.0, (current_grp_month * monthly_amount) - total_paid)
+    total_kuri_amount = float(group.total_amount or (duration * monthly_amount))
+    total_due = max(0.0, total_kuri_amount - total_paid)
     collections_paid = sum(1 for p in payment_rows if p["status"] == "Paid")
+
+    my_kuris = get_user_member_kuris(request.user)
+    is_group_admin = hasattr(request.user, 'staffprofile') or StaffProfile.objects.filter(Q(user=request.user) | Q(user__email=request.user.email) | Q(phone=request.user.username)).exists()
 
     context = {
         "group": group,
@@ -202,25 +317,44 @@ def member_payment_history(request):
         "total_paid": total_paid,
         "total_due": total_due,
         "collections_paid": collections_paid,
-        "member_record": member_record,
+        "member": member,
+        "my_kuris": my_kuris,
+        "is_group_admin": is_group_admin,
     }
 
     return render(request, "member/member_payment_list.html", context)
+
+
+# -----------------------------
+# MEMBER AUCTION LIST
+# -----------------------------
 @login_required
 def member_auction_list(request):
-    try:
-        # Get the profile of the logged-in user
-        member = Member.objects.select_related('assigned_chitti_group').get(user=request.user)
-    except Member.DoesNotExist:
+    member = get_current_member(request)
+
+    if not member:
+        if hasattr(request.user, 'staffprofile'):
+            return redirect('accounts:group_admin_dashboard')
         return render(request, "member/error.html", {"message": "Member profile not found"})
 
-    if not member.assigned_chitti_group:
+    if getattr(member, 'is_first_login', False):
+        return redirect('accounts:change_password')
+
+    active_group_id = request.session.get('active_group_id')
+    group = None
+
+    if active_group_id:
+        group = ChittiGroup.objects.filter(id=active_group_id).first()
+
+    if not group:
+        group = member.assigned_chitti_group
+
+    if not group:
         return render(request, "member/error.html", {"message": "You are not assigned to any group"})
 
-    # Fetching auctions - Joins Winner -> Member -> User
     auctions = (
         Auction.objects
-        .filter(group=member.assigned_chitti_group)
+        .filter(group=group)
         .select_related('group', 'winner__member__user') 
         .order_by('auction_date')
     )
@@ -230,7 +364,7 @@ def member_auction_list(request):
         "member/member_auction_list.html",
         {
             "member": member,
-            "group": member.assigned_chitti_group,
+            "group": group,
             "auctions": auctions,
             "today": timezone.now().date()
         }
@@ -321,25 +455,82 @@ def member_list(request):
         'q': q,
     })
 # -----------------------------
+# AJAX SEARCH EXISTING USER
+# -----------------------------
+def search_existing_user(request):
+    """
+    AJAX Endpoint: Searches for existing SmartKuri users by Phone, Email, or Name.
+    Returns list of matching users for live autocomplete dropdown.
+    """
+    from django.http import JsonResponse
+    identifier = request.GET.get('identifier', '').strip()
+    if not identifier or len(identifier) < 2:
+        return JsonResponse({'exists': False, 'results': []})
+
+    # Search Members matching query
+    members_qs = Member.objects.filter(
+        Q(email__icontains=identifier) | Q(phone__icontains=identifier) | Q(name__icontains=identifier)
+    ).select_related('user')[:5]
+
+    results = []
+    seen_user_ids = set()
+
+    for m in members_qs:
+        uid = m.user_id if m.user else None
+        if uid and uid in seen_user_ids:
+            continue
+        if uid:
+            seen_user_ids.add(uid)
+        
+        results.append({
+            'user_id': uid,
+            'name': m.name,
+            'email': m.email or '',
+            'phone': m.phone or ''
+        })
+
+    if len(results) < 5:
+        users_qs = User.objects.filter(
+            Q(email__icontains=identifier) | Q(username__icontains=identifier) | Q(first_name__icontains=identifier)
+        ).exclude(id__in=seen_user_ids)[:5]
+
+        for u in users_qs:
+            results.append({
+                'user_id': u.id,
+                'name': u.get_full_name() or u.username,
+                'email': u.email or '',
+                'phone': u.username
+            })
+
+    first_match = results[0] if results else None
+
+    return JsonResponse({
+        'exists': len(results) > 0,
+        'results': results,
+        'user_id': first_match['user_id'] if first_match else None,
+        'name': first_match['name'] if first_match else '',
+        'email': first_match['email'] if first_match else '',
+        'phone': first_match['phone'] if first_match else ''
+    })
+
+
+# -----------------------------
 # MEMBER CREATE
 # -----------------------------
-
-
 @group_admin_required
 def member_create(request):
     if request.method == 'POST':
         form = MemberAddForm(request.POST, admin_user=request.user)
         
         if form.is_valid():
-            # Extract data from cleaned_data
             email = form.cleaned_data.get('email')
             phone = form.cleaned_data.get('phone')
             assigned_group = form.cleaned_data.get('assigned_chitti_group')
             password = form.cleaned_data.get('password')
+            existing_user_id = form.cleaned_data.get('existing_user_id')
 
-            # 1. CHECK: Does a member with this Email or Phone already exist IN THIS GROUP?
+            # 1. CHECK: Duplicate in this group
             if assigned_group:
-                # We check the ChittiMember table for duplicates within the specific group
                 duplicate_exists = ChittiMember.objects.filter(
                     group=assigned_group
                 ).filter(
@@ -347,32 +538,51 @@ def member_create(request):
                 ).exists()
 
                 if duplicate_exists:
-                    # Fixed AttributeError: Using {assigned_group} directly calls the model's __str__
-                    messages.error(request, f"A member with this Email or Phone already exists in the group: {assigned_group}")
+                    messages.warning(request, f"Member '{email or phone}' is ALREADY enrolled in group '{assigned_group.name}'. Please select a different Chitti Group to enroll them.")
                     return render(request, 'chitti/add_member.html', {'form': form})
 
-                # 2. CHECK: Group capacity/limit
                 if not can_add_member(assigned_group):
                     messages.error(request, "Cannot add member: Group limit reached or subscription expired.")
                     return render(request, 'chitti/add_member.html', {'form': form})
 
             try:
-                # Create the Auth User (Username will be phone or email)
-                # Note: This will fail if the User already exists globally in the system
-                username = phone or email
-                user = User.objects.create_user(
-                    username=username,
-                    password=password,
-                    email=email
-                )
+                user = None
+                if existing_user_id:
+                    user = User.objects.filter(id=existing_user_id).first()
 
-                # Save the Member object
-                member = form.save(commit=False)
-                member.user = user
-                member.is_first_login = True
-                member.save()
+                if not user:
+                    user = User.objects.filter(
+                        Q(email=email) | Q(username=phone) | Q(username=email)
+                    ).first()
 
-                # Assign to ChittiMember table with Token Logic
+                if not user:
+                    if not password:
+                        messages.error(request, "Password is required for new member registration.")
+                        return render(request, 'chitti/add_member.html', {'form': form})
+
+                    username = phone or email
+                    user = User.objects.create_user(
+                        username=username,
+                        password=password,
+                        email=email
+                    )
+
+                member = Member.objects.filter(user=user).first()
+                if not member:
+                    member = form.save(commit=False)
+                    member.user = user
+                    member.is_first_login = True
+                    member.save()
+                else:
+                    if form.cleaned_data.get('name'):
+                        member.name = form.cleaned_data.get('name')
+                    if form.cleaned_data.get('address'):
+                        member.address = form.cleaned_data.get('address')
+                    if form.cleaned_data.get('aadhaar_no'):
+                        member.aadhaar_no = form.cleaned_data.get('aadhaar_no')
+                    member.assigned_chitti_group = assigned_group
+                    member.save()
+
                 if assigned_group:
                     existing_tokens = ChittiMember.objects.filter(
                         group=assigned_group
@@ -386,15 +596,12 @@ def member_create(request):
                         token_no=next_token
                     )
 
-                messages.success(request, f"Member '{member.name}' added successfully!")
-                # Reset form for a fresh entry on the same page
+                messages.success(request, f"Member '{member.name}' added successfully to group '{assigned_group.name}'!")
                 form = MemberAddForm(admin_user=request.user)
                 
             except Exception as e:
-                # Catching global uniqueness errors (e.g., username already exists in Django User table)
                 messages.error(request, f"An error occurred: {str(e)}")
         else:
-            # Form-level errors (like global unique constraints on the Member model)
             messages.error(request, "Please correct the errors shown below.")
             
     else:

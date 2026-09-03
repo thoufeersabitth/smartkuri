@@ -154,13 +154,17 @@ class CashCollectorCreateSerializer(serializers.Serializer):
     username = serializers.CharField()
     email = serializers.EmailField()
     phone = serializers.CharField()
-    password = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    existing_user_id = serializers.IntegerField(required=False, allow_null=True)
     group = serializers.PrimaryKeyRelatedField(
         queryset=ChittiGroup.objects.all(),
-        required=False
+        required=False,
+        allow_null=True
     )
 
     def validate_group(self, group):
+        if not group:
+            return group
         request = self.context["request"]
         if group.owner != request.user:
             raise serializers.ValidationError(

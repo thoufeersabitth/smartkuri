@@ -33,8 +33,8 @@ def role_required(*allowed_roles):
 
 
 admin_required = role_required('admin')
-collector_required = role_required('collector')
-group_admin_required = role_required('group_admin')
+collector_required = role_required('collector', 'group_admin', 'admin')
+group_admin_required = role_required('group_admin', 'admin')
 
 
 # -----------------------------

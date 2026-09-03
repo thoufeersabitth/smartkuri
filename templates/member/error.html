@@ -1,0 +1,29 @@
+{% extends 'member/member_base.html' %}
+{% load static %}
+
+{% block title %}Notice | SmartKuri{% endblock %}
+
+{% block content %}
+<div class="container py-5 text-center" style="max-width: 600px;">
+    <div class="card border-0 shadow-lg p-4" style="border-radius: 20px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);">
+        <div class="mb-4">
+            <div class="d-inline-flex align-items-center justify-content-center bg-light text-primary rounded-circle" style="width: 80px; height: 80px; font-size: 36px;">
+                <i class="fa-solid fa-circle-exclamation text-warning"></i>
+            </div>
+        </div>
+        <h3 class="fw-bold text-dark mb-2">Notice</h3>
+        <p class="text-muted mb-4 fs-5">{{ message|default:"Information or group detail not found." }}</p>
+        
+        <div class="d-flex justify-content-center gap-3">
+            <a href="{% url 'accounts:login' %}" class="btn btn-outline-secondary px-4 py-2 rounded-pill">
+                <i class="fa-solid fa-arrow-left me-2"></i>Back to Login
+            </a>
+            {% if user.is_authenticated and user.staffprofile %}
+                <a href="{% url 'accounts:group_admin_dashboard' %}" class="btn btn-primary px-4 py-2 rounded-pill" style="background: linear-gradient(135deg, #4f46e5, #6366f1); border: none;">
+                    <i class="fa-solid fa-gauge me-2"></i>Admin Dashboard
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

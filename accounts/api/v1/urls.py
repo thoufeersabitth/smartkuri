@@ -12,15 +12,21 @@ from accounts.api.v1.views import (
     ResendGroupOTPAPIView,
     LogoutAPIView,
     PasswordResetRequestAPIView,
+    ResendPasswordResetOTPAPIView,
     PasswordResetConfirmAPIView,
     FirstLoginChangePasswordAPIView,
     SubscriptionPlanListAPIView,
     VerifyGroupOTPAPIView,
+    UserKurisAPIView,
+    UserLookupAPIView,
+    ChangePasswordAPIView,
 )
 
 urlpatterns = [
     # JWT Auth
     path('login/', LoginAPIView.as_view(), name='api_login'),
+    path('auth/lookup/', UserLookupAPIView.as_view(), name='api_user_lookup'),
+    path('user-kuris/', UserKurisAPIView.as_view(), name='api_user_kuris'),
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
@@ -39,8 +45,10 @@ urlpatterns = [
     # Logout
     path('logout/', LogoutAPIView.as_view(), name='api_logout'),
 
-    # Password Reset
+    # Password Management
+    path('change-password/', ChangePasswordAPIView.as_view(), name='api_change_password'),
     path('password-reset/request/', PasswordResetRequestAPIView.as_view(), name='password_reset_request'),
+    path('password-reset/resend-otp/', ResendPasswordResetOTPAPIView.as_view(), name='password_reset_resend_otp'),
     path('password-reset/confirm/', PasswordResetConfirmAPIView.as_view(), name='password_reset_confirm'),
 
     # First login change password

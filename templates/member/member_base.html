@@ -5,29 +5,118 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <!-- ✅ TITLE WITH ₹ -->
-    <title>₹ {% block title %}SmartKuri | Ultra Pro Max{% endblock %}</title>
+    <title>₹ {% block title %}SmartKuri Member{% endblock %}</title>
 
-    <!-- 🔥 FULL FAVICON SETUP -->
+    <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="{% static 'images/favicon.ico' %}">
     <link rel="shortcut icon" href="{% static 'images/favicon.ico' %}">
-
     <link rel="icon" type="image/png" sizes="32x32" href="{% static 'images/favicon-32x32.png' %}">
     <link rel="icon" type="image/png" sizes="16x16" href="{% static 'images/favicon-16x16.png' %}">
-    
     <link rel="apple-touch-icon" href="{% static 'images/apple-touch-icon.png' %}">
     <link rel="manifest" href="{% static 'images/site.webmanifest' %}">
 
     <meta name="theme-color" content="#4f46e5">
 
-    <!-- Icons -->
+    <!-- FontAwesome & Fonts -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
 
     <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
-    <!-- Custom CSS -->
+    <!-- Pro Max Member Base CSS -->
     <link rel="stylesheet" href="{% static 'member/css/memebr_bases.css' %}">
+
+    <style>
+        /* ⚡ PRO MAX PORTAL SWITCHER DROPDOWN STYLES */
+        .portal-switcher-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        .portal-switcher-btn {
+            background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+            color: #ffffff !important;
+            border: none;
+            border-radius: 50px;
+            padding: 8px 18px;
+            font-weight: 700;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+            transition: all 0.2s ease;
+            text-decoration: none !important;
+        }
+
+        .portal-switcher-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+        }
+
+        .portal-switcher-menu {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            width: 280px;
+            background: #ffffff;
+            border-radius: 18px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.22);
+            border: 1px solid #cbd5e1;
+            padding: 12px;
+            z-index: 999999;
+            display: none;
+            list-style: none !important;
+            margin: 0;
+        }
+
+        .portal-section-title {
+            font-size: 10px;
+            font-weight: 800;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            padding: 6px 10px 4px 10px;
+            margin: 0;
+        }
+
+        .portal-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            color: #1e293b !important;
+            text-decoration: none !important;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.2s;
+            background: transparent;
+        }
+
+        .portal-menu-item:hover {
+            background: #f1f5f9;
+            color: #4f46e5 !important;
+        }
+
+        .portal-menu-item.active {
+            background: #eef2ff;
+            color: #4f46e5 !important;
+        }
+
+        .portal-icon-bubble {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+    </style>
 
     {% block extra_css %}{% endblock %}
 </head>
@@ -39,85 +128,115 @@
 </div>
 
 <nav class="pro-max-nav" id="mainNav">
-    <div class="nav-glass">
-        <a href="{% url 'members:member_dashboard' %}" class="brand-box">
-            <div class="brand-icon">
+    <div class="nav-glass" style="display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:space-between!important;flex-wrap:nowrap!important;gap:12px;padding:8px 20px;background:rgba(255,255,255,0.88);backdrop-filter:blur(24px);border:1px solid rgba(226,232,240,0.9);border-radius:18px;box-shadow:0 6px 24px rgba(0,0,0,0.06);">
+
+        <!-- Brand -->
+        <a href="{% url 'members:member_dashboard' %}" class="brand-box text-decoration-none" style="display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none!important;">
+            <div class="brand-icon" style="width:36px;height:36px;background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:1rem;box-shadow:0 4px 12px rgba(99,102,241,0.4);flex-shrink:0;">
                 <i class="fa-solid fa-compass"></i>
             </div>
-            <div class="brand-text">
-                <span class="t-1">Smart</span><span class="t-2">Kuri</span>
+            <div style="font-weight:800;font-size:1.25rem;color:#0f172a;line-height:1;white-space:nowrap;">
+                Smart<span style="color:#6366f1;">Kuri</span>
             </div>
         </a>
 
-        <div class="nav-links-wrap d-none d-lg-flex">
-            <a href="{% url 'members:member_dashboard' %}" class="pro-max-link {% if request.resolver_match.url_name == 'member_dashboard' %}active{% endif %}">
-                <i class="fa-solid fa-house-user"></i> <span>Dashboard</span>
+        <!-- Nav Links — inline forced horizontal -->
+        <div style="display:flex!important;flex-direction:row!important;align-items:center!important;gap:2px;flex:1;justify-content:center;flex-wrap:nowrap!important;">
+            <a href="{% url 'members:member_dashboard' %}" style="display:flex;align-items:center;gap:6px;text-decoration:none;color:{% if request.resolver_match.url_name == 'member_dashboard' %}#6366f1{% else %}#64748b{% endif %};font-weight:700;font-size:0.83rem;padding:7px 13px;border-radius:10px;background:{% if request.resolver_match.url_name == 'member_dashboard' %}rgba(99,102,241,0.1){% else %}transparent{% endif %};white-space:nowrap;transition:all 0.2s;">
+                <i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span>
             </a>
-            <a href="{% url 'members:member_payment_history' %}" class="pro-max-link {% if 'payment' in request.path %}active{% endif %}">
+            <a href="{% url 'members:member_payment_history' %}" style="display:flex;align-items:center;gap:6px;text-decoration:none;color:{% if 'payment' in request.path %}#6366f1{% else %}#64748b{% endif %};font-weight:700;font-size:0.83rem;padding:7px 13px;border-radius:10px;background:{% if 'payment' in request.path %}rgba(99,102,241,0.1){% else %}transparent{% endif %};white-space:nowrap;transition:all 0.2s;">
                 <i class="fa-solid fa-wallet"></i> <span>Payments</span>
             </a>
-            <a href="{% url 'members:member_auction_list' %}" class="pro-max-link {% if 'auction' in request.path %}active{% endif %}">
+            <a href="{% url 'members:member_auction_list' %}" style="display:flex;align-items:center;gap:6px;text-decoration:none;color:{% if 'auction' in request.path %}#6366f1{% else %}#64748b{% endif %};font-weight:700;font-size:0.83rem;padding:7px 13px;border-radius:10px;background:{% if 'auction' in request.path %}rgba(99,102,241,0.1){% else %}transparent{% endif %};white-space:nowrap;transition:all 0.2s;">
                 <i class="fa-solid fa-gavel"></i> <span>Auctions</span>
             </a>
         </div>
 
-        <div class="nav-controls">
-            <div class="dropdown">
-                <div class="profile-trigger" data-bs-toggle="dropdown">
-                    <div class="avatar-ring">
-                        <img src="https://ui-avatars.com/api/?name={{ user.username }}&background=6366f1&color=fff" alt="User">
-                    </div>
-                    <div class="user-info d-none d-md-block">
-                        <span class="u-name">{{ user.username|title }}</span>
-                        <span class="u-meta">Verified Member</span>
-                    </div>
-                    <i class="fa-solid fa-chevron-down ms-2"></i>
+        <!-- Right Controls -->
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <!-- Portal Switcher -->
+            <div class="portal-switcher-wrapper">
+                <button type="button" id="portalSwitcherBtn" style="background:linear-gradient(135deg,#4f46e5,#3730a3);color:#fff;border:none;border-radius:50px;padding:7px 14px;font-weight:700;font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;box-shadow:0 4px 14px rgba(79,70,229,0.35);white-space:nowrap;">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                    <span>Switch Portal</span>
+                    {% if group %}
+                        <span style="background:rgba(255,255,255,0.25);color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:50px;letter-spacing:0.3px;">{{ group.code }}</span>
+                    {% endif %}
+                    <i class="fa-solid fa-chevron-down" style="font-size:9px;"></i>
+                </button>
+                <div class="portal-switcher-menu" id="portalSwitcherMenu">
+                    <div class="portal-section-title">Available Portals</div>
+
+                    {% if is_group_admin %}
+                        <a class="portal-menu-item" href="{% url 'accounts:group_admin_dashboard' %}">
+                            <div class="portal-icon-bubble" style="background:rgba(245,158,11,0.15);color:#d97706;"><i class="fa-solid fa-crown"></i></div>
+                            <span>Group Admin Portal</span>
+                        </a>
+                    {% endif %}
+
+                    {% if is_collector %}
+                        <a class="portal-menu-item" href="{% url 'accounts:collector_dashboard' %}">
+                            <div class="portal-icon-bubble" style="background:rgba(16,185,129,0.15);color:#059669;"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+                            <span>Collector Portal</span>
+                        </a>
+                    {% endif %}
+
+                    <div style="height:1px;background:#e2e8f0;margin:8px 0;"></div>
+                    <div class="portal-section-title">My Kuri Memberships</div>
+                    {% for k in user_kuris %}
+                        <a class="portal-menu-item {% if group and group.id == k.id %}active{% endif %}" href="{% url 'members:switch_kuri' k.id %}">
+                            <div class="portal-icon-bubble" style="background:rgba(79,70,229,0.15);color:#4f46e5;"><i class="fa-solid fa-wallet"></i></div>
+                            <div style="display:flex;flex-direction:column;">
+                                <span style="font-weight:600;">{{ k.name }}</span>
+                                <span style="font-size:10px;color:#64748b;">Code: {{ k.code }}</span>
+                            </div>
+                        </a>
+                    {% empty %}
+                        {% for k in my_kuris %}
+                            <a class="portal-menu-item {% if group and group.id == k.id %}active{% endif %}" href="{% url 'members:switch_kuri' k.id %}">
+                                <div class="portal-icon-bubble" style="background:rgba(79,70,229,0.15);color:#4f46e5;"><i class="fa-solid fa-wallet"></i></div>
+                                <div style="display:flex;flex-direction:column;">
+                                    <span style="font-weight:600;">{{ k.name }}</span>
+                                    <span style="font-size:10px;color:#64748b;">Code: {{ k.code }}</span>
+                                </div>
+                            </a>
+                        {% endfor %}
+                    {% endfor %}
                 </div>
-                
-                <ul class="dropdown-menu dropdown-menu-end pro-max-menu">
-                    <li class="px-3 py-2"><small class="text-muted fw-bold">PREFERENCES</small></li>
-                    <li><a class="dropdown-item" href="{% url 'members:member_profile' %}"><i class="fa-solid fa-circle-user"></i> My Profile</a></li>
-                    
-                    <li><a class="dropdown-item" href="{% url 'accounts:password_reset' %}"><i class="fa-solid fa-shield-halved"></i> Forgot Password?</a></li>
-                    
+            </div>
+
+            <!-- Profile Dropdown -->
+            <div class="dropdown">
+                <div class="profile-trigger" data-bs-toggle="dropdown" style="cursor:pointer;background:#fff;padding:4px 11px 4px 4px;border-radius:50px;display:flex;align-items:center;gap:7px;box-shadow:0 2px 8px rgba(0,0,0,0.06);border:1px solid rgba(226,232,240,0.9);">
+                    <div style="width:28px;height:28px;border-radius:50%;border:2px solid rgba(99,102,241,0.3);display:flex;align-items:center;justify-content:center;background:#eef2ff;">
+                        <i class="fa-solid fa-user text-primary" style="font-size:13px;"></i>
+                    </div>
+                </div>
+                <ul class="dropdown-menu dropdown-menu-end shadow-lg rounded-4 p-2" style="min-width:200px;">
+                    <li class="px-3 py-2 border-bottom">
+                        <div class="fw-bold text-dark">{{ user.get_full_name|default:user.username }}</div>
+                        <small class="text-muted">{{ user.email }}</small>
+                    </li>
+                    <li><a class="dropdown-item rounded-3 py-2 px-3 mt-1" href="{% url 'members:member_profile' %}"><i class="fa-solid fa-user me-2 text-primary"></i> Profile Settings</a></li>
+                    <li><a class="dropdown-item rounded-3 py-2 px-3" href="{% url 'accounts:password_reset' %}"><i class="fa-solid fa-key me-2 text-warning"></i> Forgot Password</a></li>
                     <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item logout" href="{% url 'accounts:logout' %}"><i class="fa-solid fa-power-off"></i> Logout</a></li>
+                    <li><a class="dropdown-item rounded-3 py-2 px-3 text-danger" href="{% url 'accounts:logout' %}"><i class="fa-solid fa-right-from-bracket me-2"></i> Logout</a></li>
                 </ul>
             </div>
-            
-            <button class="mobile-toggle d-lg-none" data-bs-toggle="offcanvas" data-bs-target="#mobileNav">
-                <i class="fa-solid fa-bars-staggered"></i>
-            </button>
         </div>
     </div>
 </nav>
 
-<div class="offcanvas offcanvas-start mobile-sidebar" id="mobileNav">
-    <div class="offcanvas-header border-bottom">
-        <h5 class="offcanvas-title fw-bold">SmartKuri</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
-    </div>
-    <div class="offcanvas-body">
-        <div class="mobile-nav-list">
-            <a href="{% url 'members:member_dashboard' %}" class="m-link active">Dashboard</a>
-            <a href="{% url 'members:member_payment_history' %}" class="m-link">Payments</a>
-            <a href="{% url 'members:member_auction_list' %}" class="m-link">Auctions</a>
-            <hr>
-            <a href="{% url 'members:member_profile' %}" class="m-link">Profile Settings</a>
-            <a href="{% url 'accounts:password_reset' %}" class="m-link">Forgot Password?</a>
-            <a href="{% url 'accounts:logout' %}" class="m-link text-danger">Logout</a>
-        </div>
-    </div>
-</div>
+<main class="viewport" style="padding-top:90px;">
 
-<main class="viewport">
     {% if messages %}
         <div class="alert-stack">
             {% for message in messages %}
-                <div class="pro-max-alert alert-{{ message.tags }} animate-in">
-                    <i class="fa-solid {% if message.tags == 'success' %}fa-circle-check{% else %}fa-circle-exclamation{% endif %}"></i>
+                <div class="pro-max-alert alert-{{ message.tags }} animate-in" id="msg-{{ forloop.counter }}">
+                    <i class="fa-solid {% if 'success' in message.tags %}fa-circle-check text-success{% elif 'error' in message.tags or 'danger' in message.tags %}fa-circle-xmark text-danger{% else %}fa-circle-info text-primary{% endif %} me-1"></i>
                     <span>{{ message }}</span>
-                    <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+                    <button type="button" class="btn-close ms-auto" onclick="this.closest('.pro-max-alert').remove()"></button>
                 </div>
             {% endfor %}
         </div>
@@ -128,26 +247,64 @@
     </div>
 </main>
 
+<!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-    // Navbar Blur on Scroll
-    window.addEventListener('scroll', () => {
-        const nav = document.getElementById('mainNav');
+// Member side portal switcher — fixed position, body-injected
+(function() {
+    var btn = document.getElementById('portalSwitcherBtn');
+    var menu = document.getElementById('portalSwitcherMenu');
+    if (btn && menu) {
+        // Move menu to body to escape all overflow clipping
+        document.body.appendChild(menu);
+        menu.style.position = 'fixed';
+        menu.style.zIndex = '2147483647';
+        menu.style.display = 'none';
+
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            e.preventDefault();
+            if (menu.style.display === 'block') {
+                menu.style.display = 'none';
+            } else {
+                var rect = btn.getBoundingClientRect();
+                menu.style.top  = (rect.bottom + 8) + 'px';
+                menu.style.left = Math.max(8, rect.right - 280) + 'px';
+                menu.style.display = 'block';
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!btn.contains(e.target) && !menu.contains(e.target)) {
+                menu.style.display = 'none';
+            }
+        });
+    }
+})();
+
+// Auto-dismiss alerts after 4 seconds
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.pro-max-alert').forEach(function(alert) {
+        setTimeout(function() {
+            alert.style.transition = 'opacity 0.4s, transform 0.4s';
+            alert.style.opacity = '0';
+            alert.style.transform = 'translateX(20px)';
+            setTimeout(function() { alert.remove(); }, 400);
+        }, 4000);
+    });
+});
+
+window.addEventListener('scroll', () => {
+    const nav = document.getElementById('mainNav');
+    if (nav) {
         if (window.scrollY > 40) {
             nav.classList.add('nav-sticky');
         } else {
             nav.classList.remove('nav-sticky');
         }
-    });
-
-    // Auto-dismiss Alerts
-    document.querySelectorAll('.pro-max-alert').forEach(a => {
-        setTimeout(() => {
-            a.classList.add('animate-out');
-            setTimeout(() => a.remove(), 400);
-        }, 5000);
-    });
+    }
+});
 </script>
 
 </body>

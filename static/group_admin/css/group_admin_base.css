@@ -173,6 +173,7 @@ body {
     padding: 30px;
     transition: var(--transition);
     width: calc(100% - 280px);
+    overflow: visible;
 }
 
 .main-header {
@@ -182,6 +183,9 @@ body {
     margin-bottom: 32px;
     padding-bottom: 20px;
     border-bottom: 1px solid var(--gray-200);
+    overflow: visible;
+    position: relative;
+    z-index: 100;
 }
 
 .welcome-section h2 {

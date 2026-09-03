@@ -8,7 +8,8 @@ from members.api.v1.views import (
     MemberDashboardAPIView,
     MemberProfileAPIView,
     MemberPaymentsAPIView,
-    MemberAuctionsAPIView
+    MemberAuctionsAPIView,
+    SearchExistingMemberAPIView
 )
 
 urlpatterns = [
@@ -16,6 +17,7 @@ urlpatterns = [
     # grup admin
     # -----------------------------
     path("members/", MemberListAPIView.as_view(), name="member-list"),
+    path("members/search-existing/", SearchExistingMemberAPIView.as_view(), name="member-search-existing"),
     path("members/create/", MemberCreateAPIView.as_view(), name="member-create"),
     path("members/<int:pk>/", MemberDetailAPIView.as_view(), name="member-detail"),
     path("members/<int:pk>/update/", MemberUpdateAPIView.as_view(), name="member-update"),

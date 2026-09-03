@@ -25,16 +25,107 @@
 
     <style>
         /* 🔔 NOTIFICATION SYSTEM STYLES */
-        .header-container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            width: 100%;
+        /* ⚡ PORTAL SWITCHER PRO MAX STYLES */
+        .portal-switcher-wrapper {
+            position: relative;
+            display: inline-block;
         }
 
-        .notif-wrapper {
-            position: relative;
-            margin-right: 20px;
+        .portal-switcher-btn {
+            background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+            color: #ffffff !important;
+            border: none;
+            border-radius: 50px;
+            padding: 8px 18px;
+            font-weight: 700;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+            transition: all 0.2s ease;
+            text-decoration: none !important;
+        }
+
+        .portal-switcher-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+        }
+
+        .portal-switcher-menu {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            width: 270px;
+            background: #ffffff;
+            border-radius: 18px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.18);
+            border: 1px solid #e2e8f0;
+            padding: 12px;
+            z-index: 999999;
+            display: none;
+            list-style: none !important;
+            margin: 0;
+        }
+
+        .portal-switcher-menu.show {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            animation: portalMenuFadeIn 0.2s ease-out;
+        }
+
+        .portal-section-title {
+            font-size: 10px;
+            font-weight: 800;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            padding: 6px 10px 4px 10px;
+            margin: 0;
+            list-style: none !important;
+        }
+
+        .portal-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            color: #1e293b !important;
+            text-decoration: none !important;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.2s;
+            list-style: none !important;
+            background: transparent;
+        }
+
+        .portal-menu-item:hover {
+            background: #f1f5f9;
+            color: #4f46e5 !important;
+        }
+
+        .portal-menu-item.active {
+            background: #eef2ff;
+            color: #4f46e5 !important;
+        }
+
+        .portal-icon-bubble {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        @keyframes portalMenuFadeIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .notif-bell-btn {
@@ -229,14 +320,12 @@
             margin-bottom: 8px;
         }
 
-        /* Spin Wheel Style */
         .card-spin {
             background: linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%);
             border: 1px solid rgba(251, 191, 36, 0.3);
         }
         .card-spin:hover { transform: translateX(5px); background: rgba(251, 191, 36, 0.2); }
         
-        /* Manual Entry Style */
         .card-manual {
             background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(79, 70, 229, 0.05) 100%);
             border: 1px solid rgba(99, 102, 241, 0.3);
@@ -259,6 +348,163 @@
 
         .option-info h5 { margin: 0; color: #fff; font-size: 13px; font-weight: 600; }
         .option-info p { margin: 0; color: #94a3b8; font-size: 10px; }
+
+        .switch-member-btn {
+            font-size: 13px;
+            border: 1.5px solid #4f46e5;
+            color: #4f46e5;
+            background: #ffffff;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            white-space: nowrap;
+            padding: 6px 16px;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .switch-member-btn:hover {
+            background: #4f46e5;
+            color: #ffffff;
+        }
+
+        /* 🎡 SIDEBAR UPGRADE: Pro Max Dark Style */
+        .sidebar {
+            background: linear-gradient(180deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%) !important;
+        }
+
+        .sidebar-header {
+            border-bottom: 1px solid rgba(99,102,241,0.3) !important;
+            background: rgba(79,70,229,0.08);
+        }
+
+        .sidebar-header h1 {
+            background: linear-gradient(135deg, #a5b4fc, #818cf8) !important;
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+            background-clip: text !important;
+        }
+
+        .logo-icon {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
+            box-shadow: 0 0 20px rgba(79,70,229,0.5) !important;
+        }
+
+        /* Sidebar nav links */
+        .sidebar-link {
+            color: rgba(255,255,255,0.75) !important;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            padding: 13px 24px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+            gap: 14px;
+        }
+        .sidebar-link:hover {
+            background: rgba(255,255,255,0.06) !important;
+            color: #fff !important;
+            border-left-color: #6366f1;
+        }
+        .sidebar-link.active {
+            background: rgba(99,102,241,0.15) !important;
+            color: #fff !important;
+            border-left-color: #6366f1;
+        }
+        .sidebar-link i { width: 20px; text-align: center; font-size: 16px; opacity: 0.85; }
+
+        /* Sidebar items with submenu */
+        .sidebar-item { display: block; }
+
+        .sidebar-item > .toggle {
+            color: rgba(255,255,255,0.75);
+            background: none;
+            border: none;
+            border-left: 3px solid transparent;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 13px 24px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+        }
+        .sidebar-item > .toggle::after {
+            content: "\f054";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            margin-left: auto;
+            font-size: 11px;
+            transition: transform 0.3s;
+        }
+        .sidebar-item > .toggle.active::after {
+            transform: rotate(90deg);
+        }
+        .sidebar-item > .toggle:hover {
+            background: rgba(255,255,255,0.06);
+            color: #fff;
+            border-left-color: #6366f1;
+        }
+        .sidebar-item > .toggle i { width: 20px; text-align: center; font-size: 16px; opacity: 0.85; }
+
+        .submenu {
+            display: none;
+            flex-direction: column;
+            background: rgba(0,0,0,0.2);
+            border-left: 3px solid rgba(99,102,241,0.5);
+        }
+        .submenu-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 11px 24px 11px 52px;
+            color: rgba(255,255,255,0.65);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .submenu-link:hover {
+            background: rgba(255,255,255,0.06);
+            color: #c7d2fe;
+        }
+        .submenu-link i { font-size: 12px; width: 16px; }
+
+        /* Pro Max Header Strip */
+        .main-header {
+            background: linear-gradient(135deg, #f8faff 0%, #f1f5ff 100%);
+            border-radius: 20px;
+            padding: 20px 28px;
+            margin-bottom: 28px;
+            box-shadow: 0 4px 20px rgba(79,70,229,0.08);
+            border: 1px solid rgba(79,70,229,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            overflow: visible;
+            position: relative;
+            z-index: 100;
+        }
+        .welcome-section h2 {
+            font-size: 22px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #1e293b, #4f46e5);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 0 0 4px;
+        }
+        .welcome-section p {
+            color: #64748b;
+            font-size: 13px;
+            margin: 0;
+        }
 
         @keyframes rotate-slow {
             from { transform: rotate(0deg); }
@@ -343,19 +589,31 @@
             </a>
         </div>
 
+        <a href="{% url 'members:member_dashboard' %}" class="sidebar-link" style="color: #818cf8; background: rgba(99, 102, 241, 0.1); margin-bottom: 8px;">
+            <i class="fas fa-wallet"></i><span>Switch to Member View</span>
+        </a>
+
         <a href="{% url 'accounts:logout' %}" class="sidebar-link logout-link">
-            <i class="fas fa-sign-out-alt"></i>Logout
+            <i class="fas fa-sign-out-alt"></i><span>Logout</span>
         </a>
     </div>
 </div>
 
 <div class="main">
-
     <div class="main-header">
-        <div class="header-container">
-            <div class="welcome-section">
-                <h2>Welcome back, {{ request.user.get_full_name|default:request.user.username }}</h2>
-                <p>System is running smooth today</p>
+        <div class="welcome-section">
+            <h2>Welcome back, {{ request.user.get_full_name|default:request.user.username }}</h2>
+            <p>System is running smooth today</p>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <!-- 🔄 Custom Pro Max Portal Switcher Dropdown -->
+            <div class="portal-switcher-wrapper" style="position: relative;">
+                <button type="button" class="portal-switcher-btn" id="portalSwitcherBtn">
+                    <i class="fas fa-sync-alt"></i>
+                    <span>Switch Portal</span>
+                    <i class="fas fa-chevron-down" style="font-size: 10px; margin-left: 4px;"></i>
+                </button>
             </div>
 
             <div class="notif-wrapper">
@@ -408,11 +666,10 @@
         </div>
     </div>
 
-    <div class="content-body" style="padding: 25px;">
+    <div class="content-body">
         {% block content %}
         {% endblock %}
     </div>
-
 </div>
 
 <script>
@@ -442,66 +699,126 @@ function clearAllNotifications() {
 }
 
 function dismissNotif(id) {
-    const element = document.getElementById(id);
-    if (element) {
-        element.classList.add('animate__animated', 'animate__fadeOutRight');
-        setTimeout(() => {
-            element.remove();
-            const body = document.getElementById('notifBody');
-            if (!body.querySelector('.notif-item')) {
-                const badge = document.getElementById('mainBadge');
-                const pulse = document.getElementById('pulseDot');
-                const clearBtn = document.getElementById('clearAllContainer');
-                
-                if (badge) badge.style.display = 'none';
-                if (pulse) pulse.style.display = 'none';
-                if (clearBtn) clearBtn.innerHTML = '';
-
-                body.innerHTML = '<div style="padding: 30px; text-align: center; color: #9ca3af;"><i class="fas fa-check-circle" style="font-size: 30px; margin-bottom: 10px;"></i><p>No pending approvals</p></div>';
-            }
-        }, 500);
-    }
+    const item = document.getElementById(id);
+    if (item) item.remove();
 }
 
-document.addEventListener('DOMContentLoaded', function () {
-    const toggles = document.querySelectorAll('.toggle');
-    toggles.forEach(toggle => {
-        toggle.addEventListener('click', () => {
-            const submenu = toggle.nextElementSibling;
-            const isOpen = submenu.style.display === 'block';
-            document.querySelectorAll('.submenu').forEach(sm => sm.style.display = 'none');
-            document.querySelectorAll('.toggle').forEach(t => t.classList.remove('active'));
-            if (!isOpen) {
-                submenu.style.display = 'block';
-                toggle.classList.add('active');
+(function() {
+    // Build portal menu HTML once and append to body
+    var menuHTML = `
+    <div id="portalSwitcherMenu" style="
+        position: fixed;
+        width: 280px;
+        background: #ffffff;
+        border-radius: 18px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.22);
+        border: 1px solid #cbd5e1;
+        padding: 12px;
+        z-index: 2147483647;
+        display: none;
+        margin: 0;
+    ">
+        <div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;padding:6px 10px 4px;margin:0;">Available Portals</div>
+
+        <a href="{% url 'accounts:group_admin_dashboard' %}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;color:#1e293b;text-decoration:none;font-weight:600;font-size:13px;transition:background 0.2s;"
+           onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#eef2ff'">
+            <div style="width:34px;height:34px;border-radius:10px;background:rgba(245,158,11,0.15);color:#d97706;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">
+                <i class="fas fa-crown"></i>
+            </div>
+            <span>Group Admin Portal</span>
+        </a>
+
+        {% if is_collector %}
+        <a href="{% url 'accounts:collector_dashboard' %}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;color:#1e293b;text-decoration:none;font-weight:600;font-size:13px;transition:background 0.2s;"
+           onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+            <div style="width:34px;height:34px;border-radius:10px;background:rgba(16,185,129,0.15);color:#059669;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">
+                <i class="fas fa-hand-holding-usd"></i>
+            </div>
+            <span>Collector Portal</span>
+        </a>
+        {% endif %}
+
+        <a href="{% url 'members:member_dashboard' %}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;color:#1e293b;text-decoration:none;font-weight:600;font-size:13px;transition:background 0.2s;"
+           onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+            <div style="width:34px;height:34px;border-radius:10px;background:rgba(79,70,229,0.15);color:#4f46e5;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">
+                <i class="fas fa-wallet"></i>
+            </div>
+            <span>Member View</span>
+        </a>
+
+        {% if user_kuris %}
+        <div style="height:1px;background:#e2e8f0;margin:8px 0;"></div>
+        <div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;padding:6px 10px 4px;margin:0;">My Enrolled Kuris</div>
+        {% for k in user_kuris %}
+        <a href="{% url 'members:switch_kuri' k.id %}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;color:#1e293b;text-decoration:none;font-weight:600;font-size:13px;transition:background 0.2s;"
+           onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+            <div style="width:34px;height:34px;border-radius:10px;background:rgba(79,70,229,0.15);color:#4f46e5;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">
+                <i class="fas fa-layer-group"></i>
+            </div>
+            <div style="display:flex;flex-direction:column;">
+                <span style="font-weight:600;">{{ k.name }}</span>
+                <span style="font-size:10px;color:#64748b;">Code: {{ k.code }}</span>
+            </div>
+        </a>
+        {% endfor %}
+        {% endif %}
+    </div>`;
+
+    document.body.insertAdjacentHTML('beforeend', menuHTML);
+
+    var btn = document.getElementById('portalSwitcherBtn');
+    var menu = document.getElementById('portalSwitcherMenu');
+
+    if (btn && menu) {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (menu.style.display === 'block') {
+                menu.style.display = 'none';
+            } else {
+                // Position below the button
+                var rect = btn.getBoundingClientRect();
+                menu.style.top = (rect.bottom + 8) + 'px';
+                menu.style.left = (rect.right - 280) + 'px';
+                menu.style.display = 'block';
             }
         });
-    });
 
-    const bellBtn = document.getElementById('bellBtn');
-    const notifDropdown = document.getElementById('notifDropdown');
-    bellBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        notifDropdown.classList.toggle('show');
-    });
-
-    document.addEventListener('click', (e) => {
-        if (!notifDropdown.contains(e.target) && e.target !== bellBtn) {
-            notifDropdown.classList.remove('show');
-        }
-    });
-
-    const currentUrl = window.location.href;
-    const links = document.querySelectorAll('.sidebar-link, .submenu-link, .option-card');
-    links.forEach(link => {
-        if (currentUrl.includes(link.getAttribute('href')) && link.getAttribute('href') !== "#") {
-            link.classList.add('active');
-            const parentSubmenu = link.closest('.submenu');
-            if (parentSubmenu) {
-                parentSubmenu.style.display = 'block';
-                parentSubmenu.previousElementSibling.classList.add('active');
+        document.addEventListener('click', function(e) {
+            if (!btn.contains(e.target) && !menu.contains(e.target)) {
+                menu.style.display = 'none';
             }
-        }
+        });
+    }
+})();
+
+document.addEventListener('DOMContentLoaded', function() {
+    const bellBtn = document.getElementById('bellBtn');
+    const dropdown = document.getElementById('notifDropdown');
+
+    if (bellBtn && dropdown) {
+        bellBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            dropdown.classList.toggle('show');
+        });
+
+        document.addEventListener('click', function() {
+            dropdown.classList.remove('show');
+        });
+    }
+
+    // Toggle submenus
+    const toggles = document.querySelectorAll('.sidebar-item > .toggle');
+    toggles.forEach(toggle => {
+        toggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            this.classList.toggle('active');
+            const submenu = this.nextElementSibling;
+            if (submenu) {
+                const isVisible = window.getComputedStyle(submenu).display !== 'none';
+                submenu.style.display = isVisible ? 'none' : 'flex';
+                submenu.style.flexDirection = 'column';
+            }
+        });
     });
 });
 </script>

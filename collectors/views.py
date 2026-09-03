@@ -26,11 +26,46 @@ from django.utils import timezone
 @collector_required
 def assigned_members(request):
     staff = request.user.staffprofile
-    members = Member.objects.filter(assigned_chitti_group__collector=staff)
-    q = request.GET.get('q')
+    q = request.GET.get('q', '').strip()
+    selected_group_id = request.GET.get('group', '').strip()
+
+    # 🔒 Strictly get ONLY the specific groups assigned to this collector
+    assigned_groups = staff.assigned_chitti_groups.filter(is_active=True)
+    if not assigned_groups.exists() and staff.group:
+        assigned_groups = ChittiGroup.objects.filter(id=staff.group_id, is_active=True)
+    if not assigned_groups.exists() and staff.role in ['group_admin', 'admin']:
+        active_id = request.session.get('active_group_id')
+        if active_id:
+            assigned_groups = ChittiGroup.objects.filter(id=active_id, is_active=True)
+        else:
+            assigned_groups = ChittiGroup.objects.filter(owner=request.user, is_active=True)
+
+    available_groups = assigned_groups.distinct()
+
+    if selected_group_id:
+        target_group = available_groups.filter(id=selected_group_id).first()
+        if target_group:
+            members = Member.objects.filter(
+                Q(assigned_chitti_group=target_group) | Q(chitti_memberships__group=target_group)
+            ).distinct()
+        else:
+            members = Member.objects.filter(
+                Q(assigned_chitti_group__in=available_groups) | Q(chitti_memberships__group__in=available_groups)
+            ).distinct()
+    else:
+        members = Member.objects.filter(
+            Q(assigned_chitti_group__in=available_groups) | Q(chitti_memberships__group__in=available_groups)
+        ).distinct()
+
     if q:
         members = members.filter(Q(name__icontains=q) | Q(phone__icontains=q))
-    return render(request, 'collector/members.html', {'members': members})
+
+    return render(request, 'collector/members.html', {
+        'members': members,
+        'available_groups': available_groups,
+        'selected_group_id': selected_group_id,
+        'q': q
+    })
 
 
 # ---------------------------------
@@ -45,9 +80,16 @@ def add_collection(request):
     staff = request.user.staffprofile
     today = timezone.now().date()
 
+    # 🔒 Strictly get ONLY the specific groups assigned to this collector
+    assigned_groups = staff.assigned_chitti_groups.filter(is_active=True)
+    if not assigned_groups.exists() and staff.group:
+        assigned_groups = ChittiGroup.objects.filter(id=staff.group_id, is_active=True)
+    if not assigned_groups.exists() and staff.role in ['group_admin', 'admin']:
+        assigned_groups = ChittiGroup.objects.filter(owner=request.user, is_active=True)
+
     # ---------------- SUMMARY ----------------
     all_payments = Payment.objects.filter(
-        group__collector=staff,   # ✅ FIX
+        group__in=assigned_groups,
         payment_status='success'
     )
 
@@ -58,55 +100,91 @@ def add_collection(request):
 
     # ---------------- MEMBERS ----------------
     members = Member.objects.filter(
-        assigned_chitti_group__collector=staff
-    ).select_related('assigned_chitti_group')
+        Q(assigned_chitti_group__in=assigned_groups) | Q(chitti_memberships__group__in=assigned_groups)
+    ).distinct()
 
     member_data = []
 
     for member in members:
         group = member.assigned_chitti_group
         if not group:
+            cm = member.chitti_memberships.first()
+            if cm:
+                group = cm.group
+        if not group:
             continue
 
-        monthly_rate = Decimal(group.monthly_amount)
-        current_month_no = int(group.current_month or 0)
+        monthly_rate = Decimal(group.monthly_amount or 0)
+        duration_months = int(group.duration_months or 1)
+        full_total_amount = Decimal(group.total_amount or (monthly_rate * duration_months))
+
+        # Calculate current month based on start_date
+        current_date = timezone.now().date()
+        start_date = group.start_date if group.start_date else current_date
+        current_month_no = (
+            (current_date.year - start_date.year) * 12
+            + (current_date.month - start_date.month)
+            + 1
+        )
+        current_month_no = max(1, min(current_month_no, duration_months))
 
         total_expected_to_date = current_month_no * monthly_rate
 
-        actual_paid = Payment.objects.filter(   # ✅ FIX (fresh query)
+        actual_paid = Payment.objects.filter(
             member=member,
             group=group,
             payment_status='success'
         ).aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
 
-        months_covered = int(actual_paid // monthly_rate) if monthly_rate else 0
-        next_installment = months_covered + 1
+        months_covered = int(actual_paid // monthly_rate) if monthly_rate > 0 else 0
+        next_installment = min(months_covered + 1, duration_months)
 
         pending = max(Decimal('0'), total_expected_to_date - actual_paid)
         advance = max(Decimal('0'), actual_paid - total_expected_to_date)
+        is_completed = actual_paid >= full_total_amount
 
-        full_total_amount = Decimal(group.total_amount)
+        progress_percent = min(100, int((actual_paid / full_total_amount) * 100)) if full_total_amount > 0 else 0
 
-        if actual_paid >= full_total_amount:
-            status_label = "Completed ✅"
-            is_advance_mode = False
+        # Next payment note / target
+        if is_completed:
+            status_type = "completed"
+            status_text = "Completed (100% Paid) 🎉"
+            next_action_text = "All months fully settled"
+            suggested_amount = Decimal('0')
         elif pending > 0:
-            status_label = f"Due: ₹{pending}"
-            is_advance_mode = False
+            status_type = "due"
+            status_text = f"Pending Due: ₹{pending:,.0f}"
+            next_action_text = f"Paying for Month {months_covered + 1} (Due)"
+            suggested_amount = monthly_rate
+        elif advance > 0:
+            status_type = "advance"
+            status_text = f"Advance Paid: ₹{advance:,.0f}"
+            next_action_text = f"Next payment for Month {months_covered + 1} of {duration_months}"
+            suggested_amount = monthly_rate
         else:
-            status_label = f"Advance: ₹{advance} (Month {next_installment})"
-            is_advance_mode = True
+            status_type = "current"
+            status_text = "Up-to-Date ✅"
+            next_action_text = f"Month {months_covered + 1} of {duration_months}"
+            suggested_amount = monthly_rate
 
         member_data.append({
             "member_obj": member,
-            "monthly_target": monthly_rate,
-            "total_paid": actual_paid,
-            "pending": pending,
-            "advance": advance,
-            "status_label": status_label,
-            "is_advance_mode": is_advance_mode,
             "group_name": group.name,
-            "is_completed": actual_paid >= full_total_amount
+            "group_code": group.code,
+            "monthly_target": float(monthly_rate),
+            "suggested_amount": float(suggested_amount),
+            "total_paid": float(actual_paid),
+            "full_total_amount": float(full_total_amount),
+            "months_covered": months_covered,
+            "duration_months": duration_months,
+            "current_installment": next_installment,
+            "progress_percent": progress_percent,
+            "pending": float(pending),
+            "advance": float(advance),
+            "status_type": status_type,
+            "status_text": status_text,
+            "next_action_text": next_action_text,
+            "is_completed": is_completed,
         })
 
     # ---------------- POST ----------------
@@ -118,20 +196,35 @@ def add_collection(request):
             try:
                 member_id = request.POST.get('member')
                 amount_input = Decimal(request.POST.get('amount') or 0)
-                payment_method = request.POST.get('payment_method')
+                payment_method = request.POST.get('payment_method', 'cash')
                 paid_date = request.POST.get('paid_date')
 
-                member = get_object_or_404(
-                    Member,
-                    id=member_id,
-                    assigned_chitti_group__collector=staff
-                )
+                if staff.role in ['group_admin', 'admin']:
+                    member = get_object_or_404(
+                        Member,
+                        Q(id=member_id),
+                        Q(assigned_chitti_group__collector=staff) | Q(assigned_chitti_group__owner=request.user) | Q(chitti_memberships__group__owner=request.user) | Q(chitti_memberships__group__collector=staff)
+                    )
+                else:
+                    member = get_object_or_404(
+                        Member,
+                        Q(id=member_id),
+                        Q(assigned_chitti_group__collector=staff) | Q(chitti_memberships__group__collector=staff)
+                    )
 
                 group = member.assigned_chitti_group
+                if not group:
+                    cm = member.chitti_memberships.first()
+                    if cm:
+                        group = cm.group
+
+                if not group:
+                    messages.error(request, "No active Kuri group assigned to this member.")
+                    return redirect('collector:add')
 
                 full_total_amount = Decimal(group.monthly_amount) * group.duration_months
 
-                actual_paid = Payment.objects.filter(   # ✅ FIX
+                actual_paid = Payment.objects.filter(
                     member=member,
                     group=group,
                     payment_status='success'
@@ -163,11 +256,11 @@ def add_collection(request):
                     payment_method=payment_method.lower(),
                     payment_status='success',
                     sent_to_admin=False,
-                    received_by_admin=False,   # correct flow
+                    received_by_admin=False,
                     admin_status='pending'
                 )
 
-                messages.success(request, f"₹{amount_input} collected from {member.name}")
+                messages.success(request, f"₹{amount_input} collected from {member.name} ✅")
                 return redirect('collector:add')
 
             except Exception as e:
@@ -176,7 +269,7 @@ def add_collection(request):
         # ---------------- SEND TO ADMIN ----------------
         elif form_type == 'send_to_admin':
             draft_payments = Payment.objects.filter(
-                group__collector=staff,   # ✅ FIX
+                group__in=assigned_groups,
                 sent_to_admin=False,
                 payment_status='success'
             )
@@ -257,8 +350,18 @@ def all_collections(request):
     staff = request.user.staffprofile
     today = date.today()
 
+    assigned_groups = staff.assigned_chitti_groups.filter(is_active=True)
+    if not assigned_groups.exists() and staff.group:
+        assigned_groups = ChittiGroup.objects.filter(id=staff.group_id, is_active=True)
+    if not assigned_groups.exists() and staff.role in ['group_admin', 'admin']:
+        active_id = request.session.get('active_group_id')
+        if active_id:
+            assigned_groups = ChittiGroup.objects.filter(id=active_id, is_active=True)
+        else:
+            assigned_groups = ChittiGroup.objects.filter(owner=request.user, is_active=True)
+
     payments = Payment.objects.filter(
-        collected_by=staff,
+        group__in=assigned_groups,
         payment_status='success'
     ).select_related('member', 'group').order_by('-paid_date')
 
@@ -345,8 +448,18 @@ def pending_members(request):
 
     status = request.GET.get('status', 'pending')  # pending / success
 
+    assigned_groups = staff.assigned_chitti_groups.filter(is_active=True)
+    if not assigned_groups.exists() and staff.group:
+        assigned_groups = ChittiGroup.objects.filter(id=staff.group_id, is_active=True)
+    if not assigned_groups.exists() and staff.role in ['group_admin', 'admin']:
+        active_id = request.session.get('active_group_id')
+        if active_id:
+            assigned_groups = ChittiGroup.objects.filter(id=active_id, is_active=True)
+        else:
+            assigned_groups = ChittiGroup.objects.filter(owner=request.user, is_active=True)
+
     chitti_members = ChittiMember.objects.filter(
-        group__collector=staff,
+        group__in=assigned_groups,
         group__is_active=True
     ).select_related('member', 'group')
 
@@ -355,14 +468,15 @@ def pending_members(request):
     for cm in chitti_members:
         group = cm.group
 
+        start_date = group.start_date if group.start_date else today
         current_month = (
-            (today.year - group.start_date.year) * 12
-            + (today.month - group.start_date.month)
+            (today.year - start_date.year) * 12
+            + (today.month - start_date.month)
             + 1
         )
 
         if current_month < 1 or current_month > group.duration_months:
-            continue
+            current_month = min(max(1, current_month), group.duration_months)
 
         paid_amount = Payment.objects.filter(
             member=cm.member,
@@ -411,7 +525,14 @@ def pending_members(request):
 @collector_required
 def receipt(request, payment_id):
     staff = request.user.staffprofile
-    payment = get_object_or_404(Payment, id=payment_id, collected_by=staff)
+    if staff.role in ['group_admin', 'admin']:
+        payment = get_object_or_404(
+            Payment,
+            Q(id=payment_id),
+            Q(collected_by=staff) | Q(group__owner=request.user)
+        )
+    else:
+        payment = get_object_or_404(Payment, id=payment_id, collected_by=staff)
     return render(request, 'collector/receipt.html', {'payment': payment})
 
 
@@ -423,17 +544,33 @@ def receipt(request, payment_id):
 @collector_required
 def edit_payment(request, payment_id):
     staff = request.user.staffprofile
-    payment = get_object_or_404(Payment, id=payment_id, collected_by=staff)
-
-    # ✅ Get only members assigned to this collector
-    members = Member.objects.filter(assigned_chitti_group__collector=staff)
+    if staff.role in ['group_admin', 'admin']:
+        payment = get_object_or_404(
+            Payment,
+            Q(id=payment_id),
+            Q(collected_by=staff) | Q(group__owner=request.user)
+        )
+        members = Member.objects.filter(
+            Q(assigned_chitti_group__collector=staff) | Q(assigned_chitti_group__owner=request.user)
+        )
+    else:
+        payment = get_object_or_404(Payment, id=payment_id, collected_by=staff)
+        members = Member.objects.filter(assigned_chitti_group__collector=staff)
 
     if request.method == 'POST':
-        member = get_object_or_404(
-            Member,
-            id=request.POST.get('member'),
-            assigned_chitti_group__collector=staff
-        )
+        member_id = request.POST.get('member')
+        if staff.role in ['group_admin', 'admin']:
+            member = get_object_or_404(
+                Member,
+                Q(id=member_id),
+                Q(assigned_chitti_group__collector=staff) | Q(assigned_chitti_group__owner=request.user)
+            )
+        else:
+            member = get_object_or_404(
+                Member,
+                id=member_id,
+                assigned_chitti_group__collector=staff
+            )
 
         amount = request.POST.get('amount')
         paid_date_str = request.POST.get('paid_date')
@@ -475,12 +612,18 @@ def edit_payment(request, payment_id):
 def delete_payment(request, payment_id):
     staff = request.user.staffprofile
 
-    # ✅ ONLY ID + collector check
-    payment = get_object_or_404(
-        Payment,
-        id=payment_id,
-        collected_by=staff
-    )
+    if staff.role in ['group_admin', 'admin']:
+        payment = get_object_or_404(
+            Payment,
+            Q(id=payment_id),
+            Q(collected_by=staff) | Q(group__owner=request.user)
+        )
+    else:
+        payment = get_object_or_404(
+            Payment,
+            id=payment_id,
+            collected_by=staff
+        )
 
     # 🔥 CONDITION 1: Only today
     if payment.paid_date != date.today():
@@ -504,7 +647,10 @@ def delete_payment(request, payment_id):
 @collector_required
 def profile(request):
     collector = request.user.staffprofile
-    assigned_groups = ChittiGroup.objects.filter(collector=collector)
+    if collector.role in ['group_admin', 'admin']:
+        assigned_groups = ChittiGroup.objects.filter(Q(collector=collector) | Q(owner=request.user))
+    else:
+        assigned_groups = ChittiGroup.objects.filter(collector=collector)
     return render(request, 'collector/profile.html', {
         'collector': collector,
         'assigned_groups': assigned_groups
@@ -518,12 +664,19 @@ def member_history(request, member_id):
     staff = request.user.staffprofile
     current_date = timezone.now().date()
 
-    # Fetch member and ensure they belong to the collector's assigned group
-    member = get_object_or_404(
-        Member,
-        id=member_id,
-        assigned_chitti_group__collector=staff
-    )
+    # Fetch member safely for collector or group admin
+    if staff.role in ['group_admin', 'admin']:
+        member = get_object_or_404(
+            Member,
+            Q(id=member_id),
+            Q(assigned_chitti_group__collector=staff) | Q(assigned_chitti_group__owner=request.user) | Q(chitti_memberships__group__owner=request.user) | Q(chitti_memberships__group__collector=staff)
+        )
+    else:
+        member = get_object_or_404(
+            Member,
+            Q(id=member_id),
+            Q(assigned_chitti_group__collector=staff) | Q(chitti_memberships__group__collector=staff)
+        )
 
     # Get successful payments only
     payments = Payment.objects.filter(
@@ -534,13 +687,20 @@ def member_history(request, member_id):
     # Financial Calculations
     total_paid = payments.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
     group = member.assigned_chitti_group
+    if not group:
+        first_mem = member.chitti_memberships.first()
+        if first_mem:
+            group = first_mem.group
+
+    if not group:
+        # Fallback if group is not set
+        group = ChittiGroup.objects.filter(is_active=True).first()
     
-    # Logic to handle the starting date of the Chitti
-    start_date = group.start_date if hasattr(group, 'start_date') and group.start_date else current_date
+    start_date = group.start_date if (group and hasattr(group, 'start_date') and group.start_date) else current_date
     
-    total_months = group.duration_months
-    monthly_amount = float(group.monthly_amount)
-    total_kuri_amount = float(group.total_amount) if hasattr(group, 'total_amount') and group.total_amount else (monthly_amount * total_months)
+    total_months = group.duration_months if group else 12
+    monthly_amount = float(group.monthly_amount) if group else 0
+    total_kuri_amount = float(group.total_amount) if (group and hasattr(group, 'total_amount') and group.total_amount) else (monthly_amount * total_months)
     
     temp_total_paid = float(total_paid)
     pending_amount = max(float(total_kuri_amount) - temp_total_paid, 0)
@@ -649,9 +809,19 @@ def reports(request):
     staff = request.user.staffprofile
     today = date.today()
 
+    assigned_groups = staff.assigned_chitti_groups.filter(is_active=True)
+    if not assigned_groups.exists() and staff.group:
+        assigned_groups = ChittiGroup.objects.filter(id=staff.group_id, is_active=True)
+    if not assigned_groups.exists() and staff.role in ['group_admin', 'admin']:
+        active_id = request.session.get('active_group_id')
+        if active_id:
+            assigned_groups = ChittiGroup.objects.filter(id=active_id, is_active=True)
+        else:
+            assigned_groups = ChittiGroup.objects.filter(owner=request.user, is_active=True)
+
     # Base queryset
     qs = Payment.objects.filter(
-        collected_by=staff,
+        group__in=assigned_groups,
         payment_status='success'
     ).select_related("member", "group")
 
