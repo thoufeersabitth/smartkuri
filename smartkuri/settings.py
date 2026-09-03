@@ -162,9 +162,10 @@ EMAIL_USE_TLS = True
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_HOST_USER = 'csabith58@gmail.com'
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
-DEFAULT_FROM_EMAIL = 'SmartKuri <no-reply@smartkuri.com>'
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "wxtijyyxpcuzpmbm")
+DEFAULT_FROM_EMAIL = 'SmartKuri <csabith58@gmail.com>'
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_TIMEOUT = 15
 
 # -----------------------------
 # AUTH BACKENDS
