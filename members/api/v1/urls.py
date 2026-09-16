@@ -9,7 +9,9 @@ from members.api.v1.views import (
     MemberProfileAPIView,
     MemberPaymentsAPIView,
     MemberAuctionsAPIView,
-    SearchExistingMemberAPIView
+    SearchExistingMemberAPIView,
+    MemberInvitationsAPIView,
+    MemberInvitationRespondAPIView,
 )
 
 urlpatterns = [
@@ -24,10 +26,12 @@ urlpatterns = [
     path("members/<int:pk>/delete/", MemberDeleteAPIView.as_view(), name="member-delete"),
 
     # -----------------------------
-    # Member Dashboard / Profile / Payments / Auctions
+    # Member Dashboard / Profile / Payments / Auctions / Invitations
     # -----------------------------
     path("members/dashboard/", MemberDashboardAPIView.as_view(), name="member-dashboard"),
     path("members/profile/", MemberProfileAPIView.as_view(), name="member-profile"),
     path("members/payments/", MemberPaymentsAPIView.as_view(), name="member-payments"),
     path("members/auctions/", MemberAuctionsAPIView.as_view(), name="member-auctions"),
+    path("members/invitations/", MemberInvitationsAPIView.as_view(), name="member-invitations"),
+    path("members/invitations/<int:pk>/respond/", MemberInvitationRespondAPIView.as_view(), name="member-invitation-respond"),
 ]

@@ -8,7 +8,7 @@ from django.db.models import Count
 from dateutil.relativedelta import relativedelta
 from django.shortcuts import get_object_or_404
 from django.db import IntegrityError, transaction
-from django.db.models import Sum
+from django.db.models import Sum, Max
 from datetime import date
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -18,12 +18,13 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.contrib.auth.models import User
 import random
 from accounts.models import StaffProfile
-from chitti.models import Auction, ChittiGroup, ChittiMember
+from chitti.models import Auction, ChittiGroup, ChittiMember, GroupInvitation
 from payments.models import Payment
 from subscriptions.models import GroupSubscription, SubscriptionPlan
 from subscriptions.utils import (
     get_effective_subscription,
     can_create_group,
+    can_add_member,
     get_subscription_status,
     get_time_left
 )
@@ -869,12 +870,57 @@ class GroupDetailAPIView(APIView):
                 for cm in members
             ],
 
+            # 🔹 PENDING INVITATIONS
+            "pending_invitations": [
+                {
+                    "id": inv.id,
+                    "member_id": inv.member.id,
+                    "name": inv.member.name,
+                    "phone": inv.member.phone,
+                    "created_at": inv.created_at.strftime("%Y-%m-%d %H:%M"),
+                    "status": "pending"
+                }
+                for inv in GroupInvitation.objects.filter(
+                    group=group,
+                    status=GroupInvitation.STATUS_PENDING
+                ).select_related("member").order_by("-created_at")
+            ],
+
             # 🔹 AUCTIONS (FULL DATA)
             "auctions": auction_list,
 
             # 🔹 TODAY (for frontend badge logic)
             "today": date.today()
         })
+
+
+class AdminInvitationActionAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        invitation = get_object_or_404(
+            GroupInvitation,
+            pk=pk,
+            group__owner=request.user,
+            status=GroupInvitation.STATUS_PENDING
+        )
+        action = (request.data.get("action") or "").lower().strip()
+        group = invitation.group
+        member = invitation.member
+
+        if action in ["cancel", "delete"]:
+            invitation.status = GroupInvitation.STATUS_DECLINED
+            invitation.delete()
+            return Response({"message": f"Invitation for {member.name} cancelled successfully."}, status=status.HTTP_200_OK)
+
+        elif action in ["accept", "enroll"]:
+            return Response(
+                {"detail": "Permission denied: Only the invited member can accept this invitation from their member portal. Group admin cannot accept invitations on their behalf."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        return Response({"detail": "Invalid action. Use 'cancel' or 'delete'."}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class EditGroupAPIView(APIView):

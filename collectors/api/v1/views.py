@@ -94,17 +94,31 @@ class CollectorDashboardAPIView(APIView):
             Q(chitti_memberships__group__in=assigned_groups)
         ).distinct().count()
 
+        # REJECTED PAYMENTS
+        rejected_qs = Payment.objects.filter(
+            collected_by=collector,
+            admin_status='rejected',
+            payment_status='success'
+        )
+        rejected_count = rejected_qs.count()
+        rejected_amount = rejected_qs.aggregate(total=Sum('amount'))['total'] or 0
+        has_rejected = rejected_count > 0
+
         # RECENT PAYMENTS
         recent_payments = Payment.objects.filter(
             collected_by=collector,
             payment_status='success'
-        ).select_related('member').order_by('-paid_date', '-id')[:10]
+        ).select_related('member', 'group').order_by('-paid_date', '-id')[:10]
 
         recent_data = [
             {
+                "id": payment.id,
                 "member": payment.member.name if payment.member else "Unknown",
                 "amount": float(payment.amount),
                 "date": str(payment.paid_date),
+                "admin_status": payment.admin_status,
+                "sent_to_admin": payment.sent_to_admin,
+                "received_by_admin": payment.received_by_admin,
             }
             for payment in recent_payments
         ]
@@ -125,6 +139,9 @@ class CollectorDashboardAPIView(APIView):
             "monthly_collection": float(monthly_collection),
             "total_collection": float(total_collection),
             "active_members": active_members,
+            "has_rejected": has_rejected,
+            "rejected_count": rejected_count,
+            "rejected_amount": float(rejected_amount),
             "recent_payments": recent_data,
             "groups": groups_data
         })
@@ -177,27 +194,35 @@ class MemberHistoryAPIView(APIView):
         current_date = timezone.now().date()
         assigned_groups = get_collector_groups(staff)
 
-        member = get_object_or_404(
-            Member,
+        member = Member.objects.filter(
             Q(id=member_id),
             Q(assigned_chitti_group__in=assigned_groups) |
             Q(chitti_memberships__group__in=assigned_groups)
-        )
+        ).distinct().first()
+
+        if not member:
+            return Response({"error": "Member not found in assigned groups"}, status=status.HTTP_404_NOT_FOUND)
+
+        group = None
+        if member.assigned_chitti_group and member.assigned_chitti_group in assigned_groups:
+            group = member.assigned_chitti_group
+        else:
+            matched = member.chitti_memberships.filter(group__in=assigned_groups).select_related('group').first()
+            if matched and matched.group:
+                group = matched.group
+        if not group:
+            group = member.assigned_chitti_group or (member.chitti_memberships.first().group if member.chitti_memberships.exists() else None)
+
+        if not group:
+            return Response({"error": "No Kuri Group assigned to this member"}, status=status.HTTP_400_BAD_REQUEST)
 
         payments = Payment.objects.filter(
             member=member,
+            group=group,
             payment_status='success'
         ).order_by('-paid_date', '-id')
 
         total_paid = payments.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-
-        group = member.assigned_chitti_group
-        if not group:
-            cm = member.chitti_memberships.first()
-            group = cm.group if cm else None
-
-        if not group:
-            return Response({"error": "No Kuri Group assigned to this member"}, status=status.HTTP_400_BAD_REQUEST)
 
         start_date = group.start_date if group.start_date else current_date
 
@@ -270,9 +295,12 @@ class MemberHistoryAPIView(APIView):
             },
             "summary": {
                 "total_months": total_months,
+                "kuri_current_month": min(max(1, (current_date.year - start_date.year) * 12 + current_date.month - start_date.month + 1), total_months),
                 "monthly_amount": monthly_amount,
                 "total_kuri_amount": total_kuri_amount,
                 "total_paid": float(total_paid),
+                "months_paid": int(float(total_paid) // monthly_amount) if monthly_amount > 0 else 0,
+                "due_to_date": float(max(0.0, (monthly_amount * min(max(1, (current_date.year - start_date.year) * 12 + current_date.month - start_date.month + 1), total_months)) - float(total_paid))),
                 "pending_amount": float(pending_amount),
             },
             "month_status": month_status,
@@ -294,13 +322,23 @@ class AddCollectionAPIView(APIView):
         member_id = request.query_params.get("member_id") or request.query_params.get("member")
 
         if member_id:
-            member = get_object_or_404(
-                Member,
+            member = Member.objects.filter(
                 Q(id=member_id),
                 Q(assigned_chitti_group__in=assigned_groups) |
                 Q(chitti_memberships__group__in=assigned_groups)
-            )
-            group = member.assigned_chitti_group or member.chitti_memberships.first().group
+            ).distinct().first()
+
+            if not member:
+                return Response({"error": "Member not found in assigned groups"}, status=status.HTTP_404_NOT_FOUND)
+            group = None
+            if member.assigned_chitti_group and member.assigned_chitti_group in assigned_groups:
+                group = member.assigned_chitti_group
+            else:
+                matched = member.chitti_memberships.filter(group__in=assigned_groups).select_related('group').first()
+                if matched and matched.group:
+                    group = matched.group
+            if not group:
+                group = member.assigned_chitti_group or (member.chitti_memberships.first().group if member.chitti_memberships.exists() else None)
             
             monthly_amount = Decimal(str(group.monthly_amount))
             duration_months = group.duration_months
@@ -362,8 +400,11 @@ class AddCollectionAPIView(APIView):
                 "full_total_amount": float(full_total_amount),
                 "months_covered": months_covered,
                 "current_installment": current_installment,
+                "kuri_running_month": months_elapsed,
+                "months_elapsed": months_elapsed,
                 "progress_percent": progress_percent,
                 "pending": float(pending),
+                "pending_due": float(pending),
                 "advance": float(advance),
                 "status_type": status_type,
                 "status_text": status_text,
@@ -381,17 +422,26 @@ class AddCollectionAPIView(APIView):
             Q(chitti_memberships__group__in=assigned_groups)
         ).distinct().order_by('name')
 
-        members_data = [
-            {
+        members_data = []
+        for m in members:
+            relevant_group = None
+            if m.assigned_chitti_group and m.assigned_chitti_group in assigned_groups:
+                relevant_group = m.assigned_chitti_group
+            else:
+                matched = m.chitti_memberships.filter(group__in=assigned_groups).select_related('group').first()
+                if matched and matched.group:
+                    relevant_group = matched.group
+            if not relevant_group:
+                relevant_group = m.assigned_chitti_group
+
+            members_data.append({
                 "id": m.id,
                 "name": m.name,
                 "phone": m.phone,
-                "group_id": m.assigned_chitti_group.id if m.assigned_chitti_group else None,
-                "group_name": m.assigned_chitti_group.name if m.assigned_chitti_group else None,
-                "monthly_amount": float(m.assigned_chitti_group.monthly_amount) if m.assigned_chitti_group else 0.0
-            }
-            for m in members
-        ]
+                "group_id": relevant_group.id if relevant_group else None,
+                "group_name": relevant_group.name if relevant_group else None,
+                "monthly_amount": float(relevant_group.monthly_amount) if relevant_group and relevant_group.monthly_amount else 0.0
+            })
 
         return Response({
             "members": members_data
@@ -419,14 +469,24 @@ class AddCollectionAPIView(APIView):
 
         assigned_groups = get_collector_groups(staff)
 
-        member = get_object_or_404(
-            Member,
+        member = Member.objects.filter(
             Q(id=member_id),
             Q(assigned_chitti_group__in=assigned_groups) |
             Q(chitti_memberships__group__in=assigned_groups)
-        )
+        ).distinct().first()
 
-        group = member.assigned_chitti_group or member.chitti_memberships.first().group
+        if not member:
+            return Response({"error": "Member not found in assigned groups"}, status=status.HTTP_404_NOT_FOUND)
+
+        group = None
+        if member.assigned_chitti_group and member.assigned_chitti_group in assigned_groups:
+            group = member.assigned_chitti_group
+        else:
+            matched = member.chitti_memberships.filter(group__in=assigned_groups).select_related('group').first()
+            if matched and matched.group:
+                group = matched.group
+        if not group:
+            group = member.assigned_chitti_group or (member.chitti_memberships.first().group if member.chitti_memberships.exists() else None)
 
         # -----------------------------
         # ✅ Amount validation
@@ -488,17 +548,23 @@ class AddCollectionAPIView(APIView):
             payment_status='success'
         ).aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
 
+        if actual_paid >= full_total_amount:
+            return Response(
+                {"error": f"{member.name} has already completed full payment (₹{full_total_amount:,.0f}). No further payment allowed."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         if actual_paid + amount > full_total_amount:
             remaining = full_total_amount - actual_paid
             return Response(
-                {"error": f"Only ₹{remaining} allowed"},
+                {"error": f"Payment exceeds full total! Only ₹{remaining:,.0f} allowed to complete scheme."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         # -----------------------------
         # ✅ CREATE PAYMENT (FULL FLOW)
         # -----------------------------
-        Payment.objects.create(
+        payment = Payment.objects.create(
             member=member,
             collected_by=staff,
             group=group,
@@ -512,6 +578,34 @@ class AddCollectionAPIView(APIView):
             received_by_admin=False,
             admin_status='pending'
         )
+
+        # 🚀 Send Instant Push Notification to Member
+        if member and member.user:
+            try:
+                from core.fcm_service import send_push_to_user
+                col_name = staff.user.get_full_name() or staff.user.username if staff.user else "Collector"
+                send_push_to_user(
+                    user=member.user,
+                    title=f"🧾 Payment Received: ₹{float(amount):,.0f}",
+                    body=f"₹{float(amount):,.0f} received via {col_name} for '{group.name}'.",
+                    data={"type": "receipt", "payment_id": str(payment.id), "group_id": str(group.id), "portal": "member"}
+                )
+            except Exception:
+                pass
+
+        # 🚀 Send Instant Push Notification to Group Admin
+        if group and group.owner:
+            try:
+                from core.fcm_service import send_push_to_user
+                col_name = staff.user.get_full_name() or staff.user.username if staff.user else "Collector"
+                send_push_to_user(
+                    user=group.owner,
+                    title=f"💵 New Collection: ₹{float(amount):,.0f}",
+                    body=f"{col_name} collected ₹{float(amount):,.0f} from {member.name} for '{group.name}'.",
+                    data={"type": "collection", "payment_id": str(payment.id), "group_id": str(group.id), "portal": "admin"}
+                )
+            except Exception:
+                pass
 
         return Response(
             {
@@ -558,11 +652,26 @@ class SendToAdminAPIView(APIView):
             total=Sum('amount')
         )['total'] or 0
 
-        # ✅ Mark as sent
+        # ✅ Mark as sent & ensure notification triggers for admin
+        first_pay = payments.first()
         payments.update(
             sent_to_admin=True,
-            admin_status='pending'
+            admin_status='pending',
+            is_seen=False
         )
+
+        try:
+            from core.fcm_service import send_push_to_user
+            if first_pay and first_pay.group and first_pay.group.owner:
+                col_name = staff.user.get_full_name() or staff.user.username if (staff and staff.user) else "Collector"
+                send_push_to_user(
+                    user=first_pay.group.owner,
+                    title=f"🔔 {payments.count()} Cash Handover Pending",
+                    body=f"{col_name} sent ₹{float(total_amount):,.0f} cash collection handover for your approval.",
+                    data={"type": "handover", "portal": "admin", "group_id": str(first_pay.group.id)}
+                )
+        except Exception:
+            pass
 
         return Response({
             "message": "Payments sent to admin successfully ✅",
@@ -593,10 +702,11 @@ class ResendSinglePaymentAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 🔁 Reset & resend
+        # 🔁 Reset & resend (triggers admin notification)
         payment.admin_status = 'pending'
         payment.sent_to_admin = True
         payment.received_by_admin = False
+        payment.is_seen = False
         payment.save()
 
         return Response({
@@ -634,11 +744,12 @@ class ResendGroupPaymentsAPIView(APIView):
 
         count = payments.count()
 
-        # ⚡ Bulk update (fast)
+        # ⚡ Bulk update (fast, triggers admin notification)
         payments.update(
             admin_status='pending',
             sent_to_admin=True,
-            received_by_admin=False
+            received_by_admin=False,
+            is_seen=False
         )
 
         return Response({
@@ -659,9 +770,13 @@ class TodayCollectionsAPIView(APIView):
             collected_by=staff,
             paid_date=date.today(),
             payment_status='success'
-        ).order_by('-id')
+        ).select_related('member', 'group').order_by('-id')
 
         total_collected = payments.aggregate(total=Sum('amount'))['total'] or 0
+
+        rejected_payments = payments.filter(admin_status='rejected')
+        rejected_count = rejected_payments.count()
+        rejected_amount = rejected_payments.aggregate(total=Sum('amount'))['total'] or 0
 
         payment_data = [
             {
@@ -669,13 +784,21 @@ class TodayCollectionsAPIView(APIView):
                 "member": p.member.name if p.member else None,  
                 "amount": float(p.amount),
                 "payment_method": p.payment_method,
-                "paid_date": p.paid_date,
+                "paid_date": str(p.paid_date),
+                "admin_status": p.admin_status,
+                "sent_to_admin": p.sent_to_admin,
+                "received_by_admin": p.received_by_admin,
+                "group_id": p.group.id if p.group else None,
+                "group_name": p.group.name if p.group else None,
             }
             for p in payments
         ]
 
         return Response({
-            "total_collected": total_collected,
+            "total_collected": float(total_collected),
+            "has_rejected": rejected_count > 0,
+            "rejected_count": rejected_count,
+            "rejected_amount": float(rejected_amount),
             "payments": payment_data
         })
     
@@ -768,7 +891,7 @@ class PendingMembersAPIView(APIView):
     def get(self, request):
         staff = request.user.staffprofile
         today = timezone.now().date()
-        status_filter = request.GET.get('status', 'pending').lower()
+        status_filter = request.GET.get('status', 'pending').lower().strip()
 
         assigned_groups = get_collector_groups(staff)
         members = Member.objects.filter(
@@ -792,6 +915,11 @@ class PendingMembersAPIView(APIView):
             if monthly_amount <= 0:
                 continue
 
+            start_date = group.start_date or today
+            duration_months = int(group.duration_months or 1)
+            months_elapsed = max(1, (today.year - start_date.year) * 12 + today.month - start_date.month + 1)
+            current_month = min(months_elapsed, duration_months)
+
             # Calculate total paid for this group
             total_paid = float(Payment.objects.filter(
                 member=member,
@@ -799,17 +927,15 @@ class PendingMembersAPIView(APIView):
                 payment_status='success'
             ).aggregate(total=Sum('amount'))['total'] or 0)
 
-            # Expected paid up to current month
-            current_month = int(getattr(group, 'current_month', 1) or 1)
+            full_total_amount = monthly_amount * duration_months
             expected_paid = current_month * monthly_amount
             due_amount = max(0.0, expected_paid - total_paid)
 
-            # Month display string
-            month_label = f"Month {current_month} ({today.strftime('%b %Y')})"
+            month_label = f"Month {current_month} of {duration_months} ({today.strftime('%b %Y')})"
 
-            is_paid = due_amount <= 0 or total_paid >= expected_paid
+            is_paid = (due_amount <= 0.0) or (total_paid >= expected_paid)
 
-            if status_filter == "pending" and not is_paid:
+            if status_filter in ["pending", "due", "dues"] and not is_paid:
                 member_list.append({
                     'member_name': member.name,
                     'member_id': member.id,
@@ -819,7 +945,7 @@ class PendingMembersAPIView(APIView):
                     'due': due_amount,
                     'status': 'Pending'
                 })
-            elif status_filter == "success" and is_paid:
+            elif status_filter in ["paid", "success", "cleared", "completed"] and is_paid:
                 member_list.append({
                     'member_name': member.name,
                     'member_id': member.id,
@@ -827,7 +953,7 @@ class PendingMembersAPIView(APIView):
                     'month': month_label,
                     'paid': total_paid,
                     'due': 0.0,
-                    'status': 'Success'
+                    'status': 'Cleared' if total_paid >= full_total_amount else 'Up to Date'
                 })
 
         return Response({
@@ -963,17 +1089,23 @@ class CollectorReportsAPIView(APIView):
         ).aggregate(total=Sum('amount'))['total'] or 0
 
         # ================= Paid Members List =================
-        from_date = request.GET.get('from')
-        to_date = request.GET.get('to')
+        from_date = request.GET.get('from') or request.GET.get('from_date')
+        to_date = request.GET.get('to') or request.GET.get('to_date')
 
         if from_date or to_date:
             filtered_qs = qs
             if from_date:
-                from_date_obj = datetime.strptime(from_date, "%Y-%m-%d").date()
-                filtered_qs = filtered_qs.filter(paid_date__gte=from_date_obj)
+                try:
+                    from_date_obj = datetime.strptime(from_date.strip()[:10], "%Y-%m-%d").date()
+                    filtered_qs = filtered_qs.filter(paid_date__gte=from_date_obj)
+                except Exception:
+                    pass
             if to_date:
-                to_date_obj = datetime.strptime(to_date, "%Y-%m-%d").date()
-                filtered_qs = filtered_qs.filter(paid_date__lte=to_date_obj)
+                try:
+                    to_date_obj = datetime.strptime(to_date.strip()[:10], "%Y-%m-%d").date()
+                    filtered_qs = filtered_qs.filter(paid_date__lte=to_date_obj)
+                except Exception:
+                    pass
             paid_members = filtered_qs.order_by('-paid_date')
         else:
             paid_members = qs.filter(
@@ -1008,8 +1140,19 @@ class CollectorProfileAPIView(APIView):
     def get(self, request):
         collector = request.user.staffprofile
 
-        assigned_groups = ChittiGroup.objects.filter(collector=collector)
+        assigned_groups = get_collector_groups(collector)
         group_names = [g.name for g in assigned_groups]
+        groups_data = [
+            {
+                "id": g.id,
+                "name": g.name,
+                "code": g.code,
+                "monthly_amount": float(g.monthly_amount),
+                "duration_months": g.duration_months,
+                "total_amount": float(g.total_amount) if g.total_amount else float(g.monthly_amount) * g.duration_months
+            }
+            for g in assigned_groups
+        ]
 
         return Response({
             "collector": {
@@ -1019,5 +1162,81 @@ class CollectorProfileAPIView(APIView):
                 "email": collector.user.email,
                 "joined": collector.user.date_joined.strftime("%d %b %Y"),
             },
-            "assigned_groups": group_names
+            "assigned_groups": group_names,
+            "groups": groups_data
+        })
+
+
+class CollectorRejectedPaymentsAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        staff = request.user.staffprofile
+        collector_groups = set()
+        if staff.group:
+            collector_groups.add(staff.group.id)
+        if hasattr(staff, 'assigned_chitti_groups'):
+            collector_groups.update(staff.assigned_chitti_groups.values_list('id', flat=True))
+
+        rejected_payments = Payment.objects.filter(
+            Q(collected_by=staff) | Q(collected_by__user=request.user) | Q(group__collector=staff) | Q(group_id__in=collector_groups),
+            admin_status='rejected',
+            payment_status='success'
+        ).select_related('member', 'group').order_by('-paid_date', '-id')
+
+        total_rejected_amount = rejected_payments.aggregate(total=Sum('amount'))['total'] or 0
+
+        # Group by Kuri group
+        by_group = defaultdict(list)
+        for p in rejected_payments:
+            g_name = p.group.name if p.group else "General"
+            g_id = p.group.id if p.group else 0
+            by_group[(g_id, g_name)].append(p)
+
+        groups_data = []
+        for (g_id, g_name), p_list in by_group.items():
+            g_total = sum(p.amount for p in p_list)
+            groups_data.append({
+                "group_id": g_id,
+                "group_name": g_name,
+                "total_amount": float(g_total),
+                "count": len(p_list),
+                "payments": [
+                    {
+                        "id": p.id,
+                        "member_name": p.member.name if p.member else "Unknown",
+                        "member_phone": p.member.phone if p.member else "",
+                        "amount": float(p.amount),
+                        "paid_date": str(p.paid_date),
+                        "payment_method": p.payment_method,
+                        "group_id": g_id,
+                        "group_name": g_name,
+                        "admin_status": p.admin_status,
+                    }
+                    for p in p_list
+                ]
+            })
+
+        flat_payments = [
+            {
+                "id": p.id,
+                "member_name": p.member.name if p.member else "Unknown",
+                "member_phone": p.member.phone if p.member else "",
+                "amount": float(p.amount),
+                "paid_date": str(p.paid_date),
+                "payment_method": p.payment_method,
+                "group_id": p.group.id if p.group else None,
+                "group_name": p.group.name if p.group else None,
+                "admin_status": p.admin_status,
+            }
+            for p in rejected_payments
+        ]
+
+        return Response({
+            "has_rejected": rejected_payments.exists(),
+            "total_count": rejected_payments.count(),
+            "total_amount": float(total_rejected_amount),
+            "groups": groups_data,
+            "payments": flat_payments,
         })

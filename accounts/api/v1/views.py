@@ -13,16 +13,37 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 import random, time
 import razorpay
 from .serializers import *
-from chitti.models import ChittiGroup, ChittiMember
+from chitti.models import ChittiGroup, ChittiMember, GroupInvitation
 from subscriptions.models import SubscriptionPlan, GroupSubscription
 from payments.models import Payment
 from members.models import Member
-from accounts.models import StaffProfile
+from accounts.models import StaffProfile, FCMDeviceToken
 from django.conf import settings
 import uuid
 from rest_framework.decorators import api_view
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
+
+
+class RegisterFCMTokenAPI(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        token = request.data.get('token', '').strip()
+        device_type = request.data.get('device_type', 'android').strip()
+
+        if not token:
+            return Response({'error': 'Token is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        FCMDeviceToken.objects.update_or_create(
+            token=token,
+            defaults={
+                'user': request.user,
+                'device_type': device_type,
+            }
+        )
+        return Response({'success': True, 'message': 'FCM token registered successfully'}, status=status.HTTP_200_OK)
+
 
 
 
@@ -1081,6 +1102,37 @@ class UserLookupAPIView(APIView):
                             "code": g.code,
                             "icon": "member",
                         })
+
+            # 3. Pending Group Invitations
+            pending_invs = GroupInvitation.objects.filter(
+                member__in=m_records,
+                status=GroupInvitation.STATUS_PENDING,
+                group__is_active=True
+            ).select_related('group')
+            for pinv in pending_invs:
+                g = pinv.group
+                key = f"member_group_{g.id}"
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    items.append({
+                        "type": "member",
+                        "title": g.name,
+                        "subtitle": f"Invitation Pending • Tap to Accept",
+                        "group_id": g.id,
+                        "code": g.code,
+                        "icon": "mail",
+                    })
+
+            # 4. Fallback if user is a member but has no active or pending groups listed yet
+            if not any(it['type'] == 'member' for it in items) and m_records.exists():
+                items.append({
+                    "type": "member",
+                    "title": "Member Portal",
+                    "subtitle": "Access your member account",
+                    "group_id": None,
+                    "code": "MEMBER",
+                    "icon": "member",
+                })
 
         return Response({
             "exists": True,

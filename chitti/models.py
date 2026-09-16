@@ -456,3 +456,47 @@ class MemberPayment(models.Model):
 
     def __str__(self):
         return f"{self.member.member.name} - ₹{self.amount}"
+
+# ==================================================
+# Group Invitation (Consent-based Enrollment)
+# ==================================================
+
+class GroupInvitation(models.Model):
+    STATUS_PENDING = 'pending'
+    STATUS_ACCEPTED = 'accepted'
+    STATUS_DECLINED = 'declined'
+
+    STATUS_CHOICES = (
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_ACCEPTED, 'Accepted'),
+        (STATUS_DECLINED, 'Declined'),
+    )
+
+    group = models.ForeignKey(
+        ChittiGroup,
+        on_delete=models.CASCADE,
+        related_name='invitations'
+    )
+    member = models.ForeignKey(
+        'members.Member',
+        on_delete=models.CASCADE,
+        related_name='received_invitations'
+    )
+    invited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='sent_group_invitations'
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Invite: {self.member.name} -> {self.group.name} ({self.status})"

@@ -11,6 +11,7 @@ from chitti.api.v1.views import (
     AuctionSpinAPIView,
     CreateGroupAPIView,
     GroupDetailAPIView,
+    AdminInvitationActionAPIView,
     EditGroupAPIView,
     EditAuctionDatesAPIView,        
     AdminGroupListAPIView,
@@ -39,6 +40,7 @@ urlpatterns = [
     path("admin/groups/", AdminGroupListAPIView.as_view(), name="admin-group-list"),
     path("admin/groups/<int:group_id>/", GroupDetailAPIView.as_view(), name="admin-group-detail"),
     path("admin/groups/<int:group_id>/edit/", EditGroupAPIView.as_view(), name="admin-group-edit"),
+    path("admin/invitations/<int:pk>/action/", AdminInvitationActionAPIView.as_view(), name="admin-invitation-action"),
 
     # ================= Cash Collectors =================
     path("admin/collectors/", CashCollectorListAPIView.as_view(), name="admin-collector-list"),

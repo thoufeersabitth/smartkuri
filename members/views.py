@@ -645,8 +645,36 @@ def member_edit(request, pk):
 @group_admin_required
 def member_delete(request, pk):
     admin_user = request.user
-    member = get_object_or_404(Member, pk=pk, assigned_chitti_group__owner=admin_user)
-    member.delete()
+    admin_groups = ChittiGroup.objects.filter(owner=admin_user)
+    member = Member.objects.filter(
+        Q(id=pk) & (
+            Q(assigned_chitti_group__in=admin_groups) |
+            Q(chitti_memberships__group__in=admin_groups)
+        )
+    ).distinct().first()
+
+    if not member:
+        cm = ChittiMember.objects.filter(id=pk, group__in=admin_groups).first()
+        if cm:
+            member = cm.member
+
+    if not member:
+        messages.error(request, "Member not found or not in your groups.")
+        return redirect('members:member_list')
+
+    ChittiMember.objects.filter(group__in=admin_groups, member=member).delete()
+    GroupInvitation.objects.filter(group__in=admin_groups, member=member).delete()
+    if member.assigned_chitti_group in admin_groups:
+        member.assigned_chitti_group = None
+        member.save(update_fields=['assigned_chitti_group'])
+
+    if not ChittiMember.objects.filter(member=member).exists():
+        auth_user = member.user
+        member.delete()
+        if auth_user and not auth_user.is_staff and not auth_user.is_superuser:
+            if not ChittiGroup.objects.filter(owner=auth_user).exists():
+                auth_user.delete()
+
     messages.success(request, "Member deleted successfully!")
     return redirect('members:member_list')
 

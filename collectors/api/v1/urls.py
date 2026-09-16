@@ -13,7 +13,8 @@ from .views import (
     EditPaymentAPIView,    
     DeletePaymentAPIView, 
     CollectorReportsAPIView,
-    AllCollectionsAPIView
+    AllCollectionsAPIView,
+    CollectorRejectedPaymentsAPIView
 )
 
 urlpatterns = [
@@ -25,6 +26,7 @@ urlpatterns = [
     path("collector/pending-members/", PendingMembersAPIView.as_view(), name="collector-pending-members"),
 
     path('collector/collections/', AllCollectionsAPIView.as_view(), name='collector-all-collections'),
+    path('collector/rejected-payments/', CollectorRejectedPaymentsAPIView.as_view(), name='collector-rejected-payments'),
 
     # ------------------------------
     # Edit / Delete Payment APIs

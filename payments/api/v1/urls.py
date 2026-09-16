@@ -11,6 +11,7 @@ from payments.api.v1.views import (
     ApprovePaymentAPI,
     ApproveGroupPaymentsAPI,
     AdminNotificationAPI,
+    ClearNotificationAPI,
     RejectGroupPaymentsAPI,
     RejectPaymentAPI,
 )
@@ -41,5 +42,6 @@ urlpatterns = [
     path("admin/approve/group/<int:group_id>/", ApproveGroupPaymentsAPI.as_view(), name="approve-group-payments"),
     path("admin/reject/group/<int:group_id>/", RejectGroupPaymentsAPI.as_view(), name="reject-group-payments"),
     path("admin/notifications/", AdminNotificationAPI.as_view(), name="admin-notifications"),
+    path("admin/notifications/clear/", ClearNotificationAPI.as_view(), name="admin-notifications-clear"),
 
 ]

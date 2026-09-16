@@ -11,6 +11,9 @@ from django.contrib.auth import logout
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework import status
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.authentication import SessionAuthentication
 
 from members.models import Member
 from chitti.models import ChittiGroup, ChittiMember
@@ -241,9 +244,13 @@ def add_collection(request):
                     return redirect('collector:add')
 
                 # limit check
+                if actual_paid >= full_total_amount:
+                    messages.error(request, f"{member.name} has already completed full payment (₹{full_total_amount:,.0f}). No further payment allowed.")
+                    return redirect('collector:add')
+
                 if actual_paid + amount_input > full_total_amount:
                     remaining = full_total_amount - actual_paid
-                    messages.error(request, f"Only ₹{remaining} allowed")
+                    messages.error(request, f"Payment exceeds full total! Only ₹{remaining:,.0f} allowed to complete scheme.")
                     return redirect('collector:add')
 
                 # SAVE
@@ -296,24 +303,27 @@ def add_collection(request):
 
 
 class HandoverPendingAPIView(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-
-        staff = request.user.staffprofile
+        try:
+            staff = request.user.staffprofile
+        except Exception:
+            return Response({"error": "Staff profile not found"}, status=status.HTTP_400_BAD_REQUEST)
 
         # ✅ total collected (all successful payments)
         total_collected = Payment.objects.filter(
             collected_by=staff,
             payment_status='success'
-        ).aggregate(total=Sum('amount'))['total'] or 0
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
         # ✅ total sent to admin
         total_sent = Payment.objects.filter(
             collected_by=staff,
             payment_status='success',
             sent_to_admin=True
-        ).aggregate(total=Sum('amount'))['total'] or 0
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
         # ✅ pending (not yet sent)
         pending = Payment.objects.filter(
@@ -321,14 +331,49 @@ class HandoverPendingAPIView(APIView):
             payment_status='success',
             sent_to_admin=False,
             received_by_admin=False
-        ).aggregate(total=Sum('amount'))['total'] or 0
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
         return Response({
-            "total_collected": total_collected,
-            "total_sent": total_sent,
-            "handover_pending": pending,
-            "show_card": pending > 0
+            "total_collected": float(total_collected),
+            "total_sent": float(total_sent),
+            "handover_pending": float(pending),
+            "show_card": pending > Decimal('0.00')
         })
+
+    def post(self, request):
+        try:
+            staff = request.user.staffprofile
+        except Exception:
+            return Response({"error": "Staff profile not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+        payments = Payment.objects.filter(
+            collected_by=staff,
+            payment_status='success',
+            sent_to_admin=False,
+            received_by_admin=False
+        )
+
+        total_amount = payments.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+
+        if not payments.exists() or total_amount <= Decimal('0.00'):
+            return Response({
+                "message": "No pending handover cash found",
+                "total_amount": 0.0,
+                "count": 0
+            }, status=status.HTTP_200_OK)
+
+        count = payments.count()
+        payments.update(
+            sent_to_admin=True,
+            admin_status='pending',
+            is_seen=False
+        )
+
+        return Response({
+            "message": f"₹{total_amount:,.0f} handed over to admin successfully ✅",
+            "total_amount": float(total_amount),
+            "count": count
+        }, status=status.HTTP_200_OK)
     
 # ---------------------------------
 # -----------------------------
@@ -772,6 +817,7 @@ def resend_payment(request, payment_id):
     payment.admin_status = 'pending'
     payment.sent_to_admin = True
     payment.received_by_admin = False
+    payment.is_seen = False
     payment.save()
 
     messages.success(request, "Payment resubmitted to admin ✅")
@@ -797,6 +843,7 @@ def resend_group_payments(request, group_id):
         p.admin_status = 'pending'
         p.sent_to_admin = True
         p.received_by_admin = False
+        p.is_seen = False
         p.save()
 
     messages.success(request, "All rejected payments resent to admin ✅")

@@ -20,12 +20,14 @@ from accounts.api.v1.views import (
     UserKurisAPIView,
     UserLookupAPIView,
     ChangePasswordAPIView,
+    RegisterFCMTokenAPI,
 )
 
 urlpatterns = [
     # JWT Auth
     path('login/', LoginAPIView.as_view(), name='api_login'),
     path('auth/lookup/', UserLookupAPIView.as_view(), name='api_user_lookup'),
+    path('auth/fcm-token/', RegisterFCMTokenAPI.as_view(), name='api_register_fcm_token'),
     path('user-kuris/', UserKurisAPIView.as_view(), name='api_user_kuris'),
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
