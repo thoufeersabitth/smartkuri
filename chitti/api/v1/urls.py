@@ -17,6 +17,9 @@ from chitti.api.v1.views import (
     AdminGroupListAPIView,
     GroupAdminProfileAPIView,
     GroupAdminDashboardAPIView,
+    SubscriptionCreateOrderAPIView,
+    SubscriptionVerifyPaymentAPIView,
+    SubscriptionPlanListAPIView,
 
     # ===== Cash Collectors =====
     CashCollectorListAPIView,
@@ -28,6 +31,11 @@ from chitti.api.v1.views import (
 app_name = "chitti"
 
 urlpatterns = [
+    # ================= Subscription Razorpay =================
+    path("subscription/plans/", SubscriptionPlanListAPIView.as_view(), name="subscription-plans"),
+    path("subscription/create-order/", SubscriptionCreateOrderAPIView.as_view(), name="subscription-create-order"),
+    path("subscription/verify-payment/", SubscriptionVerifyPaymentAPIView.as_view(), name="subscription-verify-payment"),
+
     # ================= Dashboard =================
     path("admin/dashboard/", GroupAdminDashboardAPIView.as_view(), name="group-admin-dashboard"),
 

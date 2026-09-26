@@ -1,3 +1,4 @@
+import re
 from rest_framework import serializers
 from accounts.models import StaffProfile
 from chitti.models import ChittiGroup, ChittiMember, Auction
@@ -172,6 +173,32 @@ class CashCollectorCreateSerializer(serializers.Serializer):
             )
         return group
 
+    def validate(self, data):
+        phone = data.get("phone", "").strip() if data.get("phone") else ""
+        email = data.get("email", "").strip() if data.get("email") else ""
+
+        if "@" in phone:
+            raise serializers.ValidationError({
+                "phone": "Phone number cannot contain '@'. Enter a valid 10-digit mobile number."
+            })
+        digits = re.sub(r'\D', '', phone)
+        if digits.startswith('91') and len(digits) == 12:
+            digits = digits[2:]
+        elif digits.startswith('0') and len(digits) == 11:
+            digits = digits[1:]
+        if len(digits) != 10:
+            raise serializers.ValidationError({
+                "phone": "Please enter a valid 10-digit mobile number."
+            })
+        data["phone"] = digits
+
+        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+            raise serializers.ValidationError({
+                "email": "Please enter a valid email address (e.g. name@gmail.com)."
+            })
+
+        return data
+
 
 class CashCollectorListSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username")
@@ -198,13 +225,15 @@ class CashCollectorListSerializer(serializers.ModelSerializer):
 class CashCollectorUpdateSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source="user.email", required=False)
     username = serializers.CharField(source="user.username", required=False)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     class Meta:
         model = StaffProfile
-        fields = ["phone", "email", "username"]  
+        fields = ["phone", "email", "username", "password"]  
 
     def update(self, instance, validated_data):
         user_data = validated_data.pop("user", {})
+        new_password = validated_data.pop("password", None)
 
         # ✅ Update email
         if "email" in user_data:
@@ -214,8 +243,10 @@ class CashCollectorUpdateSerializer(serializers.ModelSerializer):
         if "username" in user_data:
             instance.user.username = user_data["username"]
 
-        instance.user.save()
+        # ✅ Update password if provided
+        if new_password and str(new_password).strip():
+            instance.user.set_password(str(new_password).strip())
 
-        validated_data.pop("password", None)
+        instance.user.save()
 
         return super().update(instance, validated_data)

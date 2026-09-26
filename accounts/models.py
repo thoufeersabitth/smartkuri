@@ -25,6 +25,12 @@ class StaffProfile(models.Model):
 
     is_blocked = models.BooleanField(default=False)
     is_subscribed = models.BooleanField(default=False)
+    subscription_plan = models.ForeignKey(
+        'subscriptions.SubscriptionPlan',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
     subscription_end = models.DateField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)

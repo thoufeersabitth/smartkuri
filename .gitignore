@@ -18,3 +18,10 @@ media/
 # Optional: Django migrations (if you want to ignore)
 */migrations/*.py
 */migrations/*.pyc
+
+# Firebase service account
+firebase-service-account.json
+*firebase-adminsdk*.json
+
+# Cache
+.pytest_cache/

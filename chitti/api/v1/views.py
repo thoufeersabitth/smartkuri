@@ -8,15 +8,18 @@ from django.db.models import Count
 from dateutil.relativedelta import relativedelta
 from django.shortcuts import get_object_or_404
 from django.db import IntegrityError, transaction
-from django.db.models import Sum, Max
+from django.db.models import Sum, Max, Q
 from datetime import date
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.contrib.auth.models import User
+from django.conf import settings
 import random
+import time
+import razorpay
 from accounts.models import StaffProfile
 from chitti.models import Auction, ChittiGroup, ChittiMember, GroupInvitation
 from payments.models import Payment
@@ -320,7 +323,15 @@ class GroupAdminProfileAPIView(APIView):
             role="group_admin"
         )
 
+        # Trigger automatic subscription expiration / trial reminders check
+        try:
+            from subscriptions.notifications import check_and_send_subscription_reminders
+            check_and_send_subscription_reminders(target_user=user)
+        except Exception as e:
+            pass
+
         # Groups under this admin
+
         groups = ChittiGroup.objects.filter(owner=user).annotate(
             members_count=Count("chitti_members")
         )
@@ -332,25 +343,71 @@ class GroupAdminProfileAPIView(APIView):
         main_group = groups.filter(parent_group__isnull=True).first()
 
         effective_sub = None
-        subscription_status = {
-            "active": False,
-            "days_left": 0,
-            "hours_left": 0
-        }
-        time_left = "0"
-
-        max_groups = 0
-        max_members = 0
-
         if main_group:
             effective_sub = get_effective_subscription(main_group)
 
         if effective_sub:
+            # Self-heal legacy plans: if plan is deactivated or legacy 90-day/20-member plan
+            if not effective_sub.plan.is_active or effective_sub.plan.name in ["Free Starter", "free", "basic", "medium"]:
+                active_free = SubscriptionPlan.objects.filter(name="Free Trial", is_active=True).first()
+                if active_free:
+                    effective_sub.plan = active_free
+                    effective_sub.end_date = effective_sub.start_date + timedelta(days=active_free.duration_days, hours=23, minutes=59, seconds=59)
+                    effective_sub.save(update_fields=["plan", "end_date"])
+
             subscription_status = get_subscription_status(effective_sub)
             time_left = get_time_left(effective_sub)
-
+            plan_name = effective_sub.plan.name
+            is_active = effective_sub.is_active and subscription_status["active"]
             max_groups = effective_sub.plan.max_groups
             max_members = effective_sub.plan.max_members
+        else:
+            # Fallback when no active group subscription attached yet
+            # 1. Check if user already subscribed to Pro (Starter Pro, Growth Pro, or Business Pro Max)
+            if getattr(profile, "is_subscribed", False) and (
+                (profile.subscription_end and profile.subscription_end >= timezone.now().date()) or
+                profile.subscription_end is None
+            ):
+                pro_plan = getattr(profile, "subscription_plan", None)
+                if not pro_plan:
+                    pro_plan = SubscriptionPlan.objects.filter(price__gt=0, is_active=True).first()
+
+                plan_name = pro_plan.name if pro_plan else "Starter Pro"
+                max_groups = pro_plan.max_groups if pro_plan else 3
+                max_members = pro_plan.max_members if pro_plan else 30
+                if profile.subscription_end:
+                    days_left = max((profile.subscription_end - timezone.now().date()).days, 0)
+                else:
+                    days_left = pro_plan.duration_days if pro_plan else 365
+                is_active = days_left > 0
+                subscription_status = {
+                    "active": is_active,
+                    "days_left": days_left,
+                    "hours_left": 0
+                }
+                time_left = f"{days_left} days" if is_active else "Expired"
+            else:
+                # 2. Free Trial (7 days / 1 week from user registration date, 1 group, 10 members)
+                free_plan = SubscriptionPlan.objects.filter(name="Free Trial", is_active=True).first()
+                if not free_plan:
+                    free_plan = SubscriptionPlan.objects.filter(price=0, is_active=True).first()
+
+                trial_duration = free_plan.duration_days if free_plan else 7
+                plan_name = free_plan.name if free_plan else "Free Trial"
+                max_groups = free_plan.max_groups if free_plan else 1
+                max_members = free_plan.max_members if free_plan else 10
+
+                days_passed = (timezone.now() - user.date_joined).days
+                days_left = max(trial_duration - days_passed, 0)
+                trial_active = days_left > 0
+
+                subscription_status = {
+                    "active": trial_active,
+                    "days_left": days_left,
+                    "hours_left": 0
+                }
+                time_left = f"{days_left} days" if trial_active else "Expired"
+                is_active = trial_active
 
         # Remaining calculations (avoid negative values)
         remaining_groups = max(max_groups - groups_count, 0)
@@ -369,8 +426,8 @@ class GroupAdminProfileAPIView(APIView):
             "members_count": total_members_count,
 
             "effective_subscription": {
-                "plan": effective_sub.plan.name if effective_sub else None,
-                "is_active": effective_sub.is_active if effective_sub else False,
+                "plan": plan_name,
+                "is_active": is_active,
                 "max_groups": max_groups,
                 "remaining_groups": remaining_groups,
                 "max_members": max_members,
@@ -494,12 +551,14 @@ class AdminGroupListAPIView(APIView):
             owner=user
         ).prefetch_related('auctions')
 
-        # ❌ No groups → same as redirect
+        # ❌ No groups → return clean empty list (HTTP 200)
         if not groups.exists():
             return Response({
+                "count": 0,
+                "groups": [],
                 "redirect": "create_group",
                 "message": "No groups found"
-            }, status=404)
+            }, status=200)
 
         result = []
 
@@ -527,6 +586,10 @@ class AdminGroupListAPIView(APIView):
             if group.start_date:
                 days_until_first_auction = (group.start_date - date.today()).days
 
+            collector_name = "Not Assigned"
+            if group.collector and hasattr(group.collector, "user"):
+                collector_name = group.collector.user.username
+
             # ✅ BUILD RESPONSE (DON'T MUTATE OBJECT)
             result.append({
                 "id": group.id,
@@ -538,6 +601,8 @@ class AdminGroupListAPIView(APIView):
 
                 "start_date": group.start_date,
                 "registration_start_date": group.registration_start_date,
+                "parent_group": group.parent_group_id,
+                "collector_name": collector_name,
 
                 # 🔥 computed fields (same as template)
                 "end_date": end_date,
@@ -547,6 +612,7 @@ class AdminGroupListAPIView(APIView):
             })
 
         return Response({
+            "count": len(result),
             "groups": result
         }, status=200)
     
@@ -697,6 +763,48 @@ class AdminGroupCreateAPIView(APIView):
 
             profile = user.staffprofile
             profile.group = group
+
+            is_already_pro = getattr(profile, "is_subscribed", False) and (
+                profile.subscription_end is None or profile.subscription_end >= timezone.now().date()
+            )
+
+            if is_already_pro:
+                pro_plan = getattr(profile, "subscription_plan", None)
+                if not pro_plan:
+                    pro_plan = SubscriptionPlan.objects.filter(price__gt=0, is_active=True).order_by('price').first()
+                if pro_plan:
+                    now = timezone.now()
+                    if profile.subscription_end:
+                        end_dt = datetime.combine(profile.subscription_end, datetime.max.time(), tzinfo=timezone.get_current_timezone())
+                    else:
+                        end_dt = now + timedelta(days=pro_plan.duration_days)
+                    GroupSubscription.objects.update_or_create(
+                        group=group,
+                        defaults={
+                            "plan": pro_plan,
+                            "start_date": now,
+                            "end_date": end_dt,
+                            "is_active": True,
+                        }
+                    )
+            else:
+                # Auto-assign Free Trial Subscription (10 members, remaining from 7-day trial)
+                free_plan = SubscriptionPlan.objects.filter(name="Free Trial", is_active=True).first()
+                if not free_plan:
+                    free_plan = SubscriptionPlan.objects.filter(price=0, is_active=True).first()
+                if free_plan:
+                    days_passed = (timezone.now() - user.date_joined).days
+                    remaining_days = max(free_plan.duration_days - days_passed, 1)
+                    GroupSubscription.objects.update_or_create(
+                        group=group,
+                        defaults={
+                            "plan": free_plan,
+                            "start_date": user.date_joined,
+                            "end_date": timezone.now() + timedelta(days=remaining_days),
+                            "is_active": True,
+                        }
+                    )
+
             profile.save()
 
             return Response({
@@ -1102,12 +1210,18 @@ class CashCollectorUpdateAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def put(self, request, pk):
-        collector = get_object_or_404(
-            StaffProfile,
+        collector = StaffProfile.objects.filter(
             pk=pk,
-            role="collector",
-            assigned_chitti_groups__owner=request.user
-        )
+            role="collector"
+        ).filter(
+            Q(assigned_chitti_groups__owner=request.user) | Q(group__owner=request.user)
+        ).distinct().first()
+
+        if not collector:
+            return Response(
+                {"error": "Collector not found or permission denied"},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
         serializer = CashCollectorUpdateSerializer(
             collector,
@@ -1119,6 +1233,9 @@ class CashCollectorUpdateAPIView(APIView):
         serializer.save()
 
         return Response({"message": "Cash collector updated"})
+
+    def patch(self, request, pk):
+        return self.put(request, pk)
 
 
 
@@ -1636,3 +1753,297 @@ class EditAuctionDatesAPIView(APIView):
                 {"error": f"Unexpected error: {str(e)}"},
                 status=500
             )
+
+
+# ==============================================================================
+# 💳 SUBSCRIPTION RAZORPAY PAYMENT APIS
+# ==============================================================================
+
+class SubscriptionCreateOrderAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if not hasattr(user, "staffprofile") or user.staffprofile.role != "group_admin":
+            return Response({"error": "Only group admins can subscribe"}, status=status.HTTP_403_FORBIDDEN)
+
+        group_id = request.data.get("group_id")
+        plan_id = request.data.get("plan_id")
+
+        # Resolve group (optional: can subscribe before creating a group)
+        group = None
+        if group_id:
+            group = ChittiGroup.objects.filter(id=group_id, owner=user).first()
+        else:
+            group = ChittiGroup.objects.filter(owner=user, parent_group__isnull=True).first()
+            if not group:
+                group = ChittiGroup.objects.filter(owner=user).first()
+
+        # Subscriptions attach to root main group
+        if group and group.parent_group:
+            curr = group
+            while curr.parent_group:
+                curr = curr.parent_group
+            group = curr
+
+        # Resolve plan (default: Annual Pro ₹499)
+        if plan_id:
+            plan = get_object_or_404(SubscriptionPlan, id=plan_id, is_active=True)
+        else:
+            plan = SubscriptionPlan.objects.filter(name="Annual Pro", is_active=True).first()
+            if not plan:
+                plan = SubscriptionPlan.objects.filter(price__gt=0, is_active=True).first()
+
+        if not plan:
+            return Response({"error": "No active subscription plan found."}, status=status.HTTP_404_NOT_FOUND)
+
+        amount_paise = int(plan.price * 100)
+        if amount_paise <= 0:
+            return Response({"error": "Selected plan is free."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check existing subscription for rollover preview
+        now = timezone.now()
+        existing_sub = None
+        if group:
+            existing_sub = getattr(group, 'subscription', None) or GroupSubscription.objects.filter(group=group).first()
+        if not existing_sub:
+            existing_sub = GroupSubscription.objects.filter(group__owner=user, is_active=True).first()
+
+        existing_end_dt = None
+        if existing_sub and existing_sub.is_active and existing_sub.end_date and existing_sub.end_date > now:
+            if existing_sub.plan and existing_sub.plan.price > 0 and 'trial' not in existing_sub.plan.name.lower():
+                existing_end_dt = existing_sub.end_date
+
+        if not existing_end_dt and hasattr(user, 'staffprofile'):
+            profile = user.staffprofile
+            if getattr(profile, 'is_subscribed', False) and getattr(profile, 'subscription_plan', None):
+                if profile.subscription_plan.price > 0 and 'trial' not in profile.subscription_plan.name.lower():
+                    if profile.subscription_end and profile.subscription_end >= now.date():
+                        current_tz = timezone.get_current_timezone()
+                        existing_end_dt = datetime.combine(profile.subscription_end, datetime.max.time().replace(microsecond=0), tzinfo=current_tz)
+
+        rollover_days = 0
+        if existing_end_dt and existing_end_dt > now:
+            rollover_days = max((existing_end_dt.date() - now.date()).days, 0)
+
+        receipt = f"sub_{group.id}_{int(time.time())}" if group else f"sub_u{user.id}_{int(time.time())}"
+
+        try:
+            client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+            order = client.order.create({
+                "amount": amount_paise,
+                "currency": "INR",
+                "receipt": receipt,
+                "payment_capture": 1
+            })
+
+            return Response({
+                "order_id": order["id"],
+                "amount": amount_paise,
+                "currency": "INR",
+                "key_id": settings.RAZORPAY_KEY_ID,
+                "plan_id": plan.id,
+                "plan_name": plan.name,
+                "group_id": group.id if group else None,
+                "group_name": group.name if group else "SmartKuri",
+                "rollover_days": rollover_days,
+                "total_validity_days": plan.duration_days + rollover_days,
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            err_msg = str(e)
+            if settings.DEBUG and ("Authentication failed" in err_msg or "401" in err_msg or "BadRequestError" in err_msg):
+                return Response({
+                    "is_test_fallback": True,
+                    "order_id": f"order_demo_{int(time.time())}",
+                    "amount": amount_paise,
+                    "currency": "INR",
+                    "key_id": settings.RAZORPAY_KEY_ID or "rzp_test_fallback",
+                    "plan_id": plan.id,
+                    "plan_name": plan.name,
+                    "group_id": group.id if group else None,
+                    "group_name": group.name if group else "SmartKuri",
+                    "rollover_days": rollover_days,
+                    "total_validity_days": plan.duration_days + rollover_days,
+                    "warning": "Razorpay credentials in .env are invalid or expired. Test mode enabled.",
+                }, status=status.HTTP_200_OK)
+            return Response({"error": f"Failed to create Razorpay order: {err_msg}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class SubscriptionVerifyPaymentAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request):
+        user = request.user
+        if not hasattr(user, "staffprofile") or user.staffprofile.role != "group_admin":
+            return Response({"error": "Only group admins can verify subscription"}, status=status.HTTP_403_FORBIDDEN)
+
+        payment_id = request.data.get("razorpay_payment_id")
+        order_id = request.data.get("razorpay_order_id")
+        signature = request.data.get("razorpay_signature")
+        group_id = request.data.get("group_id")
+        plan_id = request.data.get("plan_id")
+
+        if not payment_id or not order_id or not signature:
+            return Response({"error": "Payment credentials missing."}, status=status.HTTP_400_BAD_REQUEST)
+
+        is_demo_test = (
+            settings.DEBUG and (
+                payment_id.startswith("pay_demo_") or
+                order_id.startswith("order_demo_") or
+                signature.startswith("demo_")
+            )
+        )
+
+        if not is_demo_test:
+            client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+            try:
+                client.utility.verify_payment_signature({
+                    "razorpay_order_id": order_id,
+                    "razorpay_payment_id": payment_id,
+                    "razorpay_signature": signature
+                })
+            except razorpay.errors.SignatureVerificationError:
+                return Response({"error": "Payment signature verification failed."}, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as e:
+                return Response({"error": f"Verification error: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Resolve group
+        group = None
+        if group_id:
+            group = ChittiGroup.objects.filter(id=group_id, owner=user).first()
+        else:
+            group = ChittiGroup.objects.filter(owner=user, parent_group__isnull=True).first() or ChittiGroup.objects.filter(owner=user).first()
+
+        # Always attach subscription to the root/main group
+        if group and group.parent_group:
+            curr = group
+            while curr.parent_group:
+                curr = curr.parent_group
+            group = curr
+
+        # Resolve plan
+        if plan_id:
+            plan = get_object_or_404(SubscriptionPlan, id=plan_id)
+        else:
+            plan = SubscriptionPlan.objects.filter(name="Annual Pro", is_active=True).first()
+            if not plan:
+                plan = SubscriptionPlan.objects.filter(price__gt=0, is_active=True).first()
+
+        now = timezone.now()
+
+        # Check existing subscription for rollover / extension
+        # If user currently has an active paid subscription with remaining validity, do NOT discard remaining days!
+        existing_sub = None
+        if group:
+            existing_sub = getattr(group, 'subscription', None) or GroupSubscription.objects.filter(group=group).first()
+        if not existing_sub:
+            existing_sub = GroupSubscription.objects.filter(group__owner=user, is_active=True).first()
+
+        existing_end_dt = None
+        is_previous_paid = False
+
+        if existing_sub and existing_sub.is_active and existing_sub.end_date and existing_sub.end_date > now:
+            # Check if existing plan was a paid plan
+            if existing_sub.plan and existing_sub.plan.price > 0 and 'trial' not in existing_sub.plan.name.lower():
+                is_previous_paid = True
+                existing_end_dt = existing_sub.end_date
+
+        profile = user.staffprofile
+        if not existing_end_dt and getattr(profile, 'is_subscribed', False):
+            profile_plan = getattr(profile, 'subscription_plan', None)
+            if profile_plan and profile_plan.price > 0 and 'trial' not in profile_plan.name.lower():
+                if profile.subscription_end and profile.subscription_end >= now.date():
+                    is_previous_paid = True
+                    current_tz = timezone.get_current_timezone()
+                    existing_end_dt = datetime.combine(profile.subscription_end, datetime.max.time().replace(microsecond=0), tzinfo=current_tz)
+
+        rollover_days = 0
+        if is_previous_paid and existing_end_dt and existing_end_dt > now:
+            rollover_days = max((existing_end_dt.date() - now.date()).days, 0)
+            end_date = existing_end_dt + timedelta(days=plan.duration_days)
+            start_date = existing_sub.start_date if (existing_sub and existing_sub.start_date) else now
+        else:
+            end_date = now + timedelta(days=plan.duration_days)
+            start_date = now
+
+        # Update or create GroupSubscription if group exists
+        if group:
+            sub, _ = GroupSubscription.objects.update_or_create(
+                group=group,
+                defaults={
+                    "plan": plan,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "is_active": True,
+                }
+            )
+
+        # Update StaffProfile
+        profile.is_subscribed = True
+        profile.subscription_plan = plan
+        profile.subscription_end = end_date.date()
+        profile.save(update_fields=["is_subscribed", "subscription_plan", "subscription_end"])
+
+        # Record payment entry
+        try:
+            Payment.objects.create(
+                collected_by=profile,
+                amount=plan.price,
+                payment_method="razorpay",
+                payment_status="success",
+                group=group,
+                transaction_id=payment_id,
+                paid_date=now.date(),
+            )
+        except Exception:
+            pass
+
+        group_name = group.name if group else "SmartKuri Account"
+        total_validity_days = plan.duration_days + rollover_days
+
+        if rollover_days > 0:
+            success_msg = (
+                f"Successfully upgraded {group_name} to {plan.name}! "
+                f"{rollover_days} remaining days from previous plan were rolled over. "
+                f"Total validity: {total_validity_days} days (valid until {end_date.strftime('%d %b %Y')})."
+            )
+        else:
+            success_msg = f"Successfully upgraded {group_name} to {plan.name}! Valid until {end_date.strftime('%d %b %Y')}."
+
+        return Response({
+            "success": True,
+            "message": success_msg,
+            "plan": plan.name,
+            "end_date": end_date.isoformat(),
+            "duration_days": plan.duration_days,
+            "rollover_days_added": rollover_days,
+            "total_validity_days": total_validity_days,
+            "max_members": plan.max_members,
+            "max_groups": plan.max_groups,
+            "max_collectors": getattr(plan, 'max_collectors', 0),
+        }, status=status.HTTP_200_OK)
+
+
+class SubscriptionPlanListAPIView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        plans = SubscriptionPlan.objects.filter(is_active=True).order_by('price')
+        results = []
+        for p in plans:
+            results.append({
+                "id": p.id,
+                "name": p.name,
+                "price": float(p.price),
+                "duration_days": p.duration_days,
+                "duration_years": round(p.duration_days / 365) if p.duration_days >= 365 else 0,
+                "max_groups": p.max_groups,
+                "max_members": p.max_members,
+                "max_collectors": p.max_groups,
+                "is_trial": p.price == 0,
+            })
+        return Response({"success": True, "plans": results}, status=status.HTTP_200_OK)

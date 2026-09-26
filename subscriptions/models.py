@@ -81,3 +81,29 @@ class GroupSubscription(models.Model):
 
     def __str__(self):
         return f"{self.group.name} - {self.plan.name}"
+
+
+class SubscriptionNotificationLog(models.Model):
+    """
+    Tracks sent subscription / free trial notifications to prevent duplicate pushes on the same date.
+    """
+    NOTIFICATION_TYPES = (
+        ('7_days_left', '7 Days Left Warning'),
+        ('2_days_left', '2 Days Left Warning'),
+        ('1_day_left', '1 Day Left Warning'),
+        ('expired', 'Subscription Expired Alert'),
+    )
+
+    from django.contrib.auth.models import User
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='subscription_notif_logs')
+    subscription = models.ForeignKey(GroupSubscription, on_delete=models.CASCADE, null=True, blank=True, related_name='notification_logs')
+    notification_type = models.CharField(max_length=50, choices=NOTIFICATION_TYPES)
+    sent_date = models.DateField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'notification_type', 'sent_date')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.notification_type} on {self.sent_date}"
+

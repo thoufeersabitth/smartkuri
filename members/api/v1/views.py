@@ -13,8 +13,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+import re
 from chitti.api.v1.serializers import AuctionSerializer
 from members.models import Member
+from accounts.models import StaffProfile
 from chitti.models import Auction, ChittiGroup, ChittiMember, GroupInvitation
 from payments.api.v1.serializers import PaymentSerializer
 from payments.models import Payment
@@ -73,17 +75,31 @@ class SearchExistingMemberAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        query = request.GET.get("q", "").strip() or request.GET.get("identifier", "").strip()
+        query = (request.GET.get("q", "") or request.GET.get("identifier", "")).strip()
         if not query or len(query) < 2:
             return Response({"exists": False, "results": []})
 
-        # Search Members matching query
-        members_qs = Member.objects.filter(
-            Q(email__icontains=query) | Q(phone__icontains=query) | Q(name__icontains=query)
-        ).select_related("user", "assigned_chitti_group")[:10]
+        # Extract digits in case phone has country code (+91), spaces, dashes: e.g. +91 98765 43210 -> 9876543210
+        digits_query = re.sub(r"\D", "", query)
+        last10 = digits_query[-10:] if len(digits_query) >= 10 else digits_query
+
+        # Build phone filters for Member & StaffProfile
+        member_phone_q = Q(phone__icontains=query)
+        staff_phone_q = Q(phone__icontains=query)
+        if len(digits_query) >= 5:
+            member_phone_q |= Q(phone__icontains=digits_query)
+            staff_phone_q |= Q(phone__icontains=digits_query)
+        if len(last10) >= 10:
+            member_phone_q |= Q(phone__endswith=last10)
+            staff_phone_q |= Q(phone__endswith=last10)
+
+        # 1. Search Members matching query
+        member_filter = Q(email__icontains=query) | Q(name__icontains=query) | member_phone_q
+        members_qs = Member.objects.filter(member_filter).select_related("user", "assigned_chitti_group")[:10]
 
         results = []
         seen_user_ids = set()
+        seen_phones = set()
 
         for m in members_qs:
             uid = m.user_id if m.user else None
@@ -91,6 +107,8 @@ class SearchExistingMemberAPIView(APIView):
                 continue
             if uid:
                 seen_user_ids.add(uid)
+            if m.phone:
+                seen_phones.add(m.phone[-10:] if len(m.phone) >= 10 else m.phone)
 
             enrolled_gids = list(
                 ChittiMember.objects.filter(
@@ -112,12 +130,23 @@ class SearchExistingMemberAPIView(APIView):
                 "enrolled_group_ids": enrolled_gids,
             })
 
+        # 2. Search StaffProfile (Users who registered / signed up in app!)
         if len(results) < 10:
-            users_qs = User.objects.filter(
-                Q(email__icontains=query) | Q(username__icontains=query) | Q(first_name__icontains=query)
-            ).exclude(id__in=seen_user_ids).select_related("member_profile")[:10]
+            staff_filter = Q(user__email__icontains=query) | Q(user__first_name__icontains=query) | Q(user__username__icontains=query) | staff_phone_q
+            staff_qs = StaffProfile.objects.filter(staff_filter).select_related("user")[:10]
 
-            for u in users_qs:
+            for sp in staff_qs:
+                u = sp.user
+                if not u or u.id in seen_user_ids:
+                    continue
+                sp_last10 = (sp.phone[-10:] if len(sp.phone) >= 10 else sp.phone) if sp.phone else ""
+                if sp_last10 and sp_last10 in seen_phones:
+                    continue
+
+                seen_user_ids.add(u.id)
+                if sp_last10:
+                    seen_phones.add(sp_last10)
+
                 enrolled_gids = list(
                     ChittiMember.objects.filter(
                         member__user=u
@@ -125,19 +154,63 @@ class SearchExistingMemberAPIView(APIView):
                 )
 
                 member_prof = getattr(u, "member_profile", None)
+                clean_phone = sp.phone or (member_prof.phone if member_prof else "")
+                email_val = (member_prof.email if member_prof and member_prof.email else None) or u.email or (u.username if "@" in u.username else "")
+                name_val = (member_prof.name if member_prof and member_prof.name else None) or u.first_name or u.get_full_name() or u.username
+
+                results.append({
+                    "id": member_prof.id if member_prof else 0,
+                    "user_id": u.id,
+                    "name": name_val,
+                    "email": email_val,
+                    "phone": clean_phone,
+                    "address": member_prof.address if member_prof else "",
+                    "aadhaar_no": member_prof.aadhaar_no if member_prof else "",
+                    "current_group": member_prof.assigned_chitti_group.name if (member_prof and member_prof.assigned_chitti_group) else "",
+                    "enrolled_group_ids": enrolled_gids,
+                })
+
+        # 3. Search User model directly (fallback)
+        if len(results) < 10:
+            user_phone_q = Q()
+            if len(digits_query) >= 5:
+                user_phone_q |= Q(staffprofile__phone__icontains=digits_query) | Q(member_profile__phone__icontains=digits_query)
+            if len(last10) >= 10:
+                user_phone_q |= Q(staffprofile__phone__endswith=last10) | Q(member_profile__phone__endswith=last10)
+
+            users_qs = User.objects.filter(
+                Q(email__icontains=query) | Q(username__icontains=query) | Q(first_name__icontains=query) | user_phone_q
+            ).exclude(id__in=seen_user_ids).select_related("member_profile", "staffprofile")[:10]
+
+            for u in users_qs:
+                if u.id in seen_user_ids:
+                    continue
+                seen_user_ids.add(u.id)
+
+                enrolled_gids = list(
+                    ChittiMember.objects.filter(
+                        member__user=u
+                    ).values_list("group_id", flat=True).distinct()
+                )
+
+                member_prof = getattr(u, "member_profile", None)
+                staff_prof = getattr(u, "staffprofile", None)
                 is_username_email = "@" in u.username
                 phone_val = ""
-                if member_prof and member_prof.phone and "@" not in member_prof.phone:
+                if staff_prof and staff_prof.phone:
+                    phone_val = staff_prof.phone
+                elif member_prof and member_prof.phone and "@" not in member_prof.phone:
                     phone_val = member_prof.phone
                 elif not is_username_email:
                     phone_val = u.username
 
                 email_val = (member_prof.email if (member_prof and member_prof.email) else None) or u.email or (u.username if is_username_email else "")
+                name_val = (member_prof.name if member_prof and member_prof.name else None) or (u.first_name if u.first_name else None) or u.get_full_name() or u.username
 
                 results.append({
                     "id": member_prof.id if member_prof else 0,
                     "user_id": u.id,
-                    "name": member_prof.name if member_prof else (u.get_full_name() or u.username),
+                    "name": name_val,
                     "email": email_val,
                     "phone": phone_val,
                     "address": member_prof.address if member_prof else "",
@@ -192,9 +265,18 @@ class MemberCreateAPIView(APIView):
                         pass
 
                 if not user and (phone or email):
-                    user = User.objects.filter(
-                        Q(username=phone) | Q(email=email) | Q(username=email)
-                    ).first()
+                    user_q = Q(username=phone) | Q(email=email) | Q(username=email)
+                    if phone:
+                        user_q |= Q(staffprofile__phone=phone) | Q(member_profile__phone=phone)
+                    user = User.objects.filter(user_q).first()
+
+                    if not user and phone:
+                        digits = re.sub(r"\D", "", phone)
+                        if len(digits) >= 10:
+                            last10 = digits[-10:]
+                            user = User.objects.filter(
+                                Q(username__endswith=last10) | Q(staffprofile__phone__endswith=last10) | Q(member_profile__phone__endswith=last10)
+                            ).first()
 
                 # Check duplicate inside this group (strictly prevent 2 times in same kuri)
                 if group:
@@ -217,6 +299,10 @@ class MemberCreateAPIView(APIView):
                     member = Member.objects.filter(user=user).first()
                     if not member:
                         clean_phone = phone if (phone and "@" not in phone) else ""
+                        if not clean_phone:
+                            sp_obj = getattr(user, "staffprofile", None)
+                            if sp_obj and sp_obj.phone:
+                                clean_phone = sp_obj.phone
                         if not clean_phone and user.username and "@" not in user.username and len(user.username) <= 15:
                             clean_phone = user.username
 
@@ -226,22 +312,34 @@ class MemberCreateAPIView(APIView):
                                 status=status.HTTP_400_BAD_REQUEST
                             )
 
-                        if Member.objects.filter(phone=clean_phone).exists():
-                            return Response(
-                                {"detail": f"Mobile number '{clean_phone}' is already registered with another member."},
-                                status=status.HTTP_400_BAD_REQUEST
+                        existing_member_with_phone = Member.objects.filter(phone=clean_phone).first()
+                        if existing_member_with_phone:
+                            if existing_member_with_phone.user is None or existing_member_with_phone.user == user:
+                                existing_member_with_phone.user = user
+                                if name and not existing_member_with_phone.name:
+                                    existing_member_with_phone.name = name
+                                if email and not existing_member_with_phone.email:
+                                    existing_member_with_phone.email = email
+                                if address and not existing_member_with_phone.address:
+                                    existing_member_with_phone.address = address
+                                existing_member_with_phone.save()
+                                member = existing_member_with_phone
+                            else:
+                                return Response(
+                                    {"detail": f"Mobile number '{clean_phone}' is already registered with another member."},
+                                    status=status.HTTP_400_BAD_REQUEST
+                                )
+                        else:
+                            member = Member.objects.create(
+                                user=user,
+                                name=name or user.get_full_name() or user.username,
+                                email=email or user.email,
+                                phone=clean_phone,
+                                address=address,
+                                aadhaar_no=aadhaar_no,
+                                assigned_chitti_group=group,
+                                is_first_login=False
                             )
-
-                        member = Member.objects.create(
-                            user=user,
-                            name=name or user.get_full_name() or user.username,
-                            email=email or user.email,
-                            phone=clean_phone,
-                            address=address,
-                            aadhaar_no=aadhaar_no,
-                            assigned_chitti_group=group,
-                            is_first_login=False
-                        )
                     else:
                         # Existing member profile: update details safely
                         if phone and phone != member.phone:
@@ -279,6 +377,38 @@ class MemberCreateAPIView(APIView):
                             {"detail": f"Member is already enrolled in group '{group.name}'"},
                             status=status.HTTP_400_BAD_REQUEST
                         )
+
+                    # ✅ Self-Enroll Shortcut: Admin adding themselves → skip invitation
+                    if user == request.user:
+                        if group:
+                            from django.db.models import Max
+                            for _ in range(3):
+                                try:
+                                    last_token = ChittiMember.objects.filter(group=group).aggregate(
+                                        max_token=Max("token_no")
+                                    )["max_token"] or 0
+                                    next_token = last_token + 1
+                                    ChittiMember.objects.create(
+                                        group=group,
+                                        member=member,
+                                        token_no=next_token
+                                    )
+                                    break
+                                except Exception:
+                                    continue
+                        return Response({
+                            "message": "You have been enrolled into the group successfully.",
+                            "is_invitation": False,
+                            "is_self_enroll": True,
+                            "username": user.username,
+                            "member_id": member.id,
+                            "member_name": member.name,
+                            "phone": member.phone,
+                            "group_id": group.id if group else None,
+                            "group_name": group.name if group else "",
+                            "monthly_amount": float(group.monthly_amount or 0) if group else 0.0,
+                            "duration_months": group.duration_months or 20 if group else 20
+                        }, status=status.HTTP_201_CREATED)
 
                     # Check if an invitation is already pending
                     invitation_id = None
@@ -324,21 +454,24 @@ class MemberCreateAPIView(APIView):
                             status=status.HTTP_400_BAD_REQUEST
                         )
 
-                    if Member.objects.filter(phone=phone).exists() or User.objects.filter(username=phone).exists():
+                    if Member.objects.filter(phone=phone).exists() or User.objects.filter(username=phone).exists() or StaffProfile.objects.filter(phone=phone).exists():
                         return Response(
-                            {"detail": f"Mobile number '{phone}' is already registered. Please tap Auto-Fill to enrol this member."},
+                            {"detail": f"Mobile number '{phone}' is already registered in SmartKuri. Please tap Auto-Fill to enrol this member."},
                             status=status.HTTP_400_BAD_REQUEST
                         )
 
-                    if email and (Member.objects.filter(email__iexact=email).exists() or User.objects.filter(email__iexact=email).exists()):
+                    if email and (Member.objects.filter(email__iexact=email).exists() or User.objects.filter(email__iexact=email).exists() or StaffProfile.objects.filter(user__email__iexact=email).exists()):
                         return Response(
-                            {"detail": f"Email '{email}' is already registered. Please tap Auto-Fill to enrol this member."},
+                            {"detail": f"Email '{email}' is already registered in SmartKuri. Please tap Auto-Fill to enrol this member."},
                             status=status.HTTP_400_BAD_REQUEST
                         )
+
+                    if not password:
+                        password = phone
 
                     username = phone
-                    if not password:
-                        password = "".join(random.choices(string.ascii_letters + string.digits, k=8))
+                    if User.objects.filter(username=username).exists():
+                        username = f"mem_{phone}_{random.randint(100, 999)}"
 
                     user = User.objects.create_user(
                         username=username,
@@ -380,6 +513,7 @@ class MemberCreateAPIView(APIView):
                         "message": "New member registered and enrolled successfully",
                         "is_invitation": False,
                         "username": user.username,
+                        "temp_password": password,
                         "member_id": member.id,
                         "member_name": member.name,
                         "phone": member.phone,

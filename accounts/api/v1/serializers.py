@@ -1,3 +1,4 @@
+import re
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
@@ -25,7 +26,24 @@ class GroupSignupSerializer(serializers.Serializer):
         if data.get('password') != data.get('confirm_password'):
             raise serializers.ValidationError({"password": "Passwords do not match"})
         
-        if User.objects.filter(email=data.get('email')).exists():
+        email = data.get('email', '').strip()
+        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+            raise serializers.ValidationError({"email": "Please enter a valid email address (e.g. name@gmail.com)."})
+
+        phone = data.get('phone', '').strip()
+        if "@" in phone:
+            raise serializers.ValidationError({"phone": "Phone number cannot contain '@'. Enter a valid 10-digit mobile number."})
+
+        digits = re.sub(r'\D', '', phone)
+        if digits.startswith('91') and len(digits) == 12:
+            digits = digits[2:]
+        elif digits.startswith('0') and len(digits) == 11:
+            digits = digits[1:]
+        if len(digits) != 10:
+            raise serializers.ValidationError({"phone": "Please enter a valid 10-digit mobile number."})
+        data['phone'] = digits
+
+        if User.objects.filter(email=email).exists():
             raise serializers.ValidationError({"email": "Email is already registered"})
             
         return data
@@ -91,7 +109,24 @@ class CashCollectorCreateSerializer(serializers.Serializer):
                 {"username": "Username is already taken"}
             )
 
-        if User.objects.filter(email=data['email']).exists():
+        email = data.get('email', '').strip()
+        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+            raise serializers.ValidationError({"email": "Please enter a valid email address (e.g. name@gmail.com)."})
+
+        phone = data.get('phone', '').strip()
+        if "@" in phone:
+            raise serializers.ValidationError({"phone": "Phone number cannot contain '@'. Enter a valid 10-digit mobile number."})
+
+        digits = re.sub(r'\D', '', phone)
+        if digits.startswith('91') and len(digits) == 12:
+            digits = digits[2:]
+        elif digits.startswith('0') and len(digits) == 11:
+            digits = digits[1:]
+        if len(digits) != 10:
+            raise serializers.ValidationError({"phone": "Please enter a valid 10-digit mobile number."})
+        data['phone'] = digits
+
+        if User.objects.filter(email=email).exists():
             raise serializers.ValidationError(
                 {"email": "Email is already registered"}
             )

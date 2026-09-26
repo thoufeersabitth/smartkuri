@@ -22,40 +22,28 @@ from collections import defaultdict
 
 
 def get_collector_groups(staff, group_id=None):
+    if staff.role in ['admin', 'group_admin']:
+        # Admin can collect for all active groups they own
+        base_qs = ChittiGroup.objects.filter(owner=staff.user, is_active=True)
+    elif staff.user.is_superuser:
+        base_qs = ChittiGroup.objects.filter(is_active=True)
+    else:
+        # Collector role: strictly assigned groups only
+        assigned = staff.assigned_chitti_groups.filter(is_active=True)
+        if not assigned.exists() and staff.group and staff.group.is_active:
+            assigned = ChittiGroup.objects.filter(id=staff.group.id)
+        if not assigned.exists():
+            assigned = ChittiGroup.objects.filter(collector=staff, is_active=True)
+        base_qs = assigned.distinct()
+
     if group_id:
         try:
             gid = int(group_id)
-            matched = ChittiGroup.objects.filter(id=gid, is_active=True)
-            if matched.exists():
-                return matched
+            return base_qs.filter(id=gid)
         except (ValueError, TypeError):
-            pass
+            return ChittiGroup.objects.none()
 
-    if staff.role == 'collector':
-        # 1. Assigned Kuris via collector FK on ChittiGroup
-        assigned = staff.assigned_chitti_groups.filter(is_active=True)
-        if assigned.exists():
-            return assigned.distinct()
-        
-        # 2. Assigned Kuri via staff.group FK
-        if staff.group and staff.group.is_active:
-            return ChittiGroup.objects.filter(id=staff.group.id)
-
-        # 3. Direct collector filter
-        fallback = ChittiGroup.objects.filter(collector=staff, is_active=True)
-        if fallback.exists():
-            return fallback.distinct()
-
-    elif staff.role in ['admin', 'group_admin']:
-        # If admin has a specific active group set on profile, strictly use that group
-        if staff.group and staff.group.is_active:
-            return ChittiGroup.objects.filter(id=staff.group.id)
-        # Otherwise, return their first active group strictly
-        owned = ChittiGroup.objects.filter(owner=staff.user, is_active=True)
-        if owned.exists():
-            return ChittiGroup.objects.filter(id=owned.first().id)
-
-    return ChittiGroup.objects.none()
+    return base_qs
 
 
 class CollectorDashboardAPIView(APIView):

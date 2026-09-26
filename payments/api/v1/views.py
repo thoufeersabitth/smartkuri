@@ -191,6 +191,18 @@ class GroupPaymentCreateAPI(APIView):
         if not staff_profile:
             return Response({"error": "Collector profile not found"}, status=400)
 
+        # 🔒 Verify permission to collect for this group:
+        # Group admin can collect for ANY of their owned groups.
+        # Collector can strictly collect ONLY for their assigned groups.
+        if staff_profile.role in ['admin', 'group_admin']:
+            if group.owner != request.user and not request.user.is_superuser:
+                return Response({"error": "You can only collect for your own groups."}, status=403)
+        else:
+            from collectors.api.v1.views import get_collector_groups
+            assigned = get_collector_groups(staff_profile)
+            if not assigned.filter(id=group.id).exists():
+                return Response({"error": "You are not assigned to collect for this group."}, status=403)
+
         # =========================
         # AUTO ADD CHITTI MEMBER (SAFE)
         # =========================
@@ -951,10 +963,11 @@ class AdminNotificationAPI(APIView):
                     "priority": "high",
                 })
 
-            # New Collections by Collectors for Admin's groups
+            # New Collections by Collectors for Admin's groups (only unread/unseen)
             new_col_qs = Payment.objects.filter(
                 payment_status='success',
-                collected_by__isnull=False
+                collected_by__isnull=False,
+                is_seen=False
             ).select_related('collected_by__user', 'member', 'group')
 
             if not staff or staff.role != 'admin':
@@ -1002,7 +1015,7 @@ class AdminNotificationAPI(APIView):
                         "id": 9991,
                         "title": f"⚠️ Dues Alert: {defaulter_count} Multi-Month Defaulter{'s' if defaulter_count > 1 else ''}",
                         "message": f"{defaulter_count} members across your groups have 2+ unpaid installments (Total: ₹{total_defaulter_dues:,.0f}).",
-                        "created_at": timezone.now().isoformat(),
+                        "created_at": timezone.now().date().isoformat(),
                         "amount": total_defaulter_dues,
                         "count": defaulter_count,
                         "type": "multi_due",
@@ -1036,6 +1049,66 @@ class AdminNotificationAPI(APIView):
                     "type": "member_joined",
                     "priority": "normal",
                 })
+
+            # ── Free Trial & Subscription Live In-App Notification ──
+            try:
+                now_dt = timezone.now()
+                groups_for_sub = ChittiGroup.objects.filter(owner=request.user)
+                main_grp = groups_for_sub.filter(parent_group__isnull=True).first()
+                sub_obj = getattr(main_grp, 'subscription', None)
+
+                if sub_obj and sub_obj.end_date:
+                    sub_days = (sub_obj.end_date - now_dt).days
+                    if sub_obj.end_date < now_dt:
+                        sub_days = -1
+                    p_name = sub_obj.plan.name
+                    is_sub_trial = (
+                        sub_obj.plan.price == 0 or
+                        'trial' in sub_obj.plan.name.lower() or
+                        'free' in sub_obj.plan.name.lower()
+                    )
+                else:
+                    pass_days = (now_dt - request.user.date_joined).days
+                    sub_days = 7 - pass_days
+                    p_name = 'Free Trial'
+                    is_sub_trial = True
+
+                if sub_days <= 0:
+                    admin_notifications.insert(0, {
+                        "id": 999900,
+                        "title": "🚨 Free Trial Expired!" if is_sub_trial else f"🚨 {p_name} Expired!",
+                        "message": "Your Free Trial has expired. Upgrade to SmartKuri Pro to add more members & groups." if is_sub_trial else f"Your {p_name} subscription has expired. Tap to upgrade or renew.",
+                        "created_at": now_dt.date().isoformat(),
+                        "amount": 0,
+                        "count": 1,
+                        "type": "subscription",
+                        "priority": "high",
+                    })
+                elif sub_days == 1:
+                    admin_notifications.insert(0, {
+                        "id": 999901,
+                        "title": "⚠️ Free Trial Expiring Tomorrow!" if is_sub_trial else f"⚠️ {p_name} Expiring Tomorrow!",
+                        "message": "Only 24 hours left on your Free Trial. Tap to upgrade to Pro now." if is_sub_trial else f"Only 24 hours remaining on your {p_name} subscription. Tap to renew.",
+                        "created_at": now_dt.date().isoformat(),
+                        "amount": 0,
+                        "count": 1,
+                        "type": "subscription",
+                        "priority": "high",
+                    })
+                elif sub_days <= 3 or (not is_sub_trial and sub_days <= 7):
+                    admin_notifications.insert(0, {
+                        "id": 999902,
+                        "title": f"⏳ Free Trial: {sub_days} Days Left" if is_sub_trial else f"⏳ {p_name}: {sub_days} Days Left",
+                        "message": f"Your 7-Day Free Trial ends in {sub_days} days. Tap to explore Pro plans." if is_sub_trial else f"Your {p_name} subscription expires in {sub_days} days. Tap to renew.",
+                        "created_at": now_dt.date().isoformat(),
+                        "amount": 0,
+                        "count": 1,
+                        "type": "subscription",
+                        "priority": "high",
+                    })
+            except Exception as e:
+                logger.error(f"Error injecting subscription in-app notification: {e}")
+
 
         # ── 2. COLLECTOR NOTIFICATIONS ─────────────────────────────────────────
         collector_notifications = []
@@ -1254,27 +1327,18 @@ class ClearNotificationAPI(APIView):
         staff = getattr(request.user, "staffprofile", None)
 
         if portal in ['admin', 'group_admin'] or not portal:
-            if staff:
-                admin_group_ids = get_admin_accessible_group_ids(request.user, staff)
-                admin_qs = Payment.objects.filter(
-                    sent_to_admin=True,
-                    admin_status__iexact='pending',
-                    is_seen=False
-                )
-                if staff.role != 'admin':
-                    if admin_group_ids:
-                        admin_qs = admin_qs.filter(group_id__in=admin_group_ids)
-                    else:
-                        admin_qs = admin_qs.filter(
-                            Q(group__owner=request.user) | Q(group__collector=staff)
-                        )
-                updated_count = admin_qs.update(is_seen=True)
+            admin_group_ids = get_admin_accessible_group_ids(request.user, staff) if staff else []
+            admin_qs = Payment.objects.filter(is_seen=False)
+            if staff and staff.role == 'admin':
+                pass
+            elif admin_group_ids:
+                admin_qs = admin_qs.filter(group_id__in=admin_group_ids)
             else:
-                updated_count = Payment.objects.filter(
-                    sent_to_admin=True,
-                    admin_status__iexact='pending',
-                    is_seen=False
-                ).update(is_seen=True)
+                admin_qs = admin_qs.filter(
+                    Q(group__owner=request.user) |
+                    (Q(group__owner__email__iexact=request.user.email) if request.user.email else Q())
+                )
+            updated_count = admin_qs.update(is_seen=True)
             return Response({"success": True, "message": "Admin notifications marked as read", "updated": updated_count})
 
         return Response({"success": True, "message": "Notifications marked as read"})

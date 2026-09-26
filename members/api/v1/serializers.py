@@ -1,9 +1,8 @@
+import re
 from rest_framework import serializers
 from members.models import Member
 from chitti.models import ChittiMember
 from payments.models import Payment
-
-
 from django.contrib.auth.models import User
 
 
@@ -142,16 +141,27 @@ class MemberCreateSerializer(serializers.ModelSerializer):
         if not email:
             raise serializers.ValidationError({"email": "Email address is mandatory."})
 
-        # 🛡️ Strict: Phone must never contain '@' or letters (digits only)
-        if "@" in phone or not phone.isdigit() or len(phone) < 10:
+        # 🛡️ Strict: Phone must never contain '@' and must normalize to exactly 10 digits
+        if "@" in phone:
             raise serializers.ValidationError({
-                "phone": "Phone number must be a valid 10-digit number (emails or letters are strictly not allowed)."
+                "phone": "Phone number cannot contain '@'. Enter a valid 10-digit mobile number."
             })
-
-        # 🛡️ Strict: Email must contain '@' and '.'
-        if "@" not in email or "." not in email:
+        digits = re.sub(r'\D', '', phone)
+        if digits.startswith('91') and len(digits) == 12:
+            digits = digits[2:]
+        elif digits.startswith('0') and len(digits) == 11:
+            digits = digits[1:]
+        if len(digits) != 10:
             raise serializers.ValidationError({
-                "email": "Please enter a valid email address."
+                "phone": "Please enter a valid 10-digit mobile number."
+            })
+        phone = digits
+        data["phone"] = phone
+
+        # 🛡️ Strict: Email must match standard email pattern (e.g. name@gmail.com)
+        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+            raise serializers.ValidationError({
+                "email": "Please enter a valid email address (e.g. name@gmail.com)."
             })
 
         # Fresh member registration checks (when NOT explicitly enrolling an existing member)
@@ -185,6 +195,9 @@ class MemberCreateSerializer(serializers.ModelSerializer):
         return data
 
 class MemberUpdateSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(required=True)
+    phone = serializers.CharField(required=True)
+
     class Meta:
         model = Member
         fields = [
@@ -199,8 +212,36 @@ class MemberUpdateSerializer(serializers.ModelSerializer):
     def validate_assigned_chitti_group(self, group):
         request = self.context.get("request")
 
-        if group.owner != request.user:
+        if group and request and group.owner != request.user:
             raise serializers.ValidationError(
                 "You can assign only your own groups"
             )
         return group
+
+    def validate(self, data):
+        phone = data.get("phone", "").strip() if data.get("phone") else ""
+        email = data.get("email", "").strip() if data.get("email") else ""
+
+        if phone:
+            if "@" in phone:
+                raise serializers.ValidationError({
+                    "phone": "Phone number cannot contain '@'. Enter a valid 10-digit mobile number."
+                })
+            digits = re.sub(r'\D', '', phone)
+            if digits.startswith('91') and len(digits) == 12:
+                digits = digits[2:]
+            elif digits.startswith('0') and len(digits) == 11:
+                digits = digits[1:]
+            if len(digits) != 10:
+                raise serializers.ValidationError({
+                    "phone": "Please enter a valid 10-digit mobile number."
+                })
+            data["phone"] = digits
+
+        if email:
+            if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+                raise serializers.ValidationError({
+                    "email": "Please enter a valid email address (e.g. name@gmail.com)."
+                })
+
+        return data

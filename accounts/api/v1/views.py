@@ -10,7 +10,7 @@ from django.db import transaction
 from django.db.models import Q
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.authentication import JWTAuthentication
-import random, time
+import random, time, re
 import razorpay
 from .serializers import *
 from chitti.models import ChittiGroup, ChittiMember, GroupInvitation
@@ -63,8 +63,9 @@ class LoginAPIView(APIView):
     permission_classes = []
 
     def post(self, request):
-        identifier = request.data.get('identifier')
+        identifier = str(request.data.get('identifier') or '').strip()
         password = request.data.get('password')
+        target_role = str(request.data.get('target_role') or request.data.get('role') or '').strip().lower()
 
         # ✅ Validate input
         if not identifier or not password:
@@ -73,28 +74,31 @@ class LoginAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        user = None
+        # 1️⃣ Authenticate through PhoneOrEmailBackend with target_role
+        user = authenticate(request, username=identifier, password=password, target_role=target_role)
 
-        # 1️⃣ Username login
-        user = authenticate(request, username=identifier, password=password)
-
-        # 2️⃣ Email login
+        # 2️⃣ Fallback direct check if authenticate didn't resolve
         if user is None:
-            u = User.objects.filter(email=identifier).first()
-            if u and u.check_password(password):
-                user = u
+            # Gather candidates
+            candidates = list(User.objects.filter(Q(username__iexact=identifier) | Q(email__iexact=identifier)))
+            for sp in StaffProfile.objects.filter(phone=identifier).select_related('user'):
+                if sp.user and sp.user not in candidates:
+                    candidates.append(sp.user)
+            for m in Member.objects.filter(phone=identifier).select_related('user'):
+                if m.user and m.user not in candidates:
+                    candidates.append(m.user)
 
-        # 3️⃣ Member phone login
-        if user is None:
-            member = Member.objects.filter(phone=identifier).first()
-            if member and member.user and member.user.check_password(password):
-                user = member.user
+            if target_role in ['group_admin', 'admin']:
+                candidates.sort(key=lambda u: 0 if getattr(getattr(u, 'staffprofile', None), 'role', '') in ['group_admin', 'admin'] else 1)
+            elif target_role == 'collector':
+                candidates.sort(key=lambda u: 0 if getattr(getattr(u, 'staffprofile', None), 'role', '') == 'collector' else 1)
+            elif target_role == 'member':
+                candidates.sort(key=lambda u: 0 if hasattr(u, 'member_profile') else 1)
 
-        # 4️⃣ Staff phone login
-        if user is None:
-            staff = StaffProfile.objects.filter(phone=identifier).first()
-            if staff and staff.user and staff.user.check_password(password):
-                user = staff.user
+            for u in candidates:
+                if u.is_active and (u.check_password(password) or u.check_password(str(password).strip())):
+                    user = u
+                    break
 
         # =====================================
         # ✅ FINAL RESPONSE
@@ -118,42 +122,43 @@ class LoginAPIView(APIView):
             first_login = False
 
             # =====================================
-            # 👨‍💼 STAFF LOGIC
+            # 👨‍💼 TARGET ROLE OVERRIDE & STAFF LOGIC
             # =====================================
-            if hasattr(user, 'staffprofile'):
+            if target_role in ['group_admin', 'admin'] and hasattr(user, 'staffprofile'):
+                profile = user.staffprofile
+                role = profile.role
+                first_login = False
+                redirect_to = "adminpanel:dashboard" if role == 'admin' else "accounts:group_admin_dashboard"
 
+            elif target_role == 'member' and hasattr(user, 'member_profile'):
+                member = user.member_profile
+                role = "member"
+                if member.is_first_login:
+                    first_login = True
+                    redirect_to = "members:first_login_setup"
+                else:
+                    redirect_to = "members:member_dashboard"
+
+            elif hasattr(user, 'staffprofile'):
                 profile = user.staffprofile
                 role = profile.role
 
                 if role == 'admin':
                     redirect_to = "adminpanel:dashboard"
-
                 elif role == 'collector':
                     redirect_to = "accounts:collector_dashboard"
-
                 elif role == 'group_admin':
+                    redirect_to = "accounts:group_admin_dashboard"
 
-                    if not profile.group:
-                        group_setup_needed = True
-                        redirect_to = "accounts:create_group"
-
-                    else:
-                        redirect_to = "accounts:group_admin_dashboard"
-
-            # =====================================
-            # 👤 MEMBER LOGIC
-            # =====================================
             elif hasattr(user, 'member_profile'):
-
                 member = user.member_profile
-
-                # ✅ ONLY CHECK
+                role = "member"
                 if member.is_first_login:
                     first_login = True
                     redirect_to = "members:first_login_setup"
-
                 else:
                     redirect_to = "members:member_dashboard"
+
 
             # =====================================
             # 🔄 MULTI-ROLE & PORTAL SWITCHING
@@ -253,6 +258,30 @@ class GroupSignupAPIView(APIView):
         if not email or not phone or not password or not name:
             return Response({"error": "All fields (name, email, phone, password) are required."}, 
                             status=status.HTTP_400_BAD_REQUEST)
+
+        email = str(email).strip()
+        phone = str(phone).strip()
+
+        # Validate Email
+        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+            return Response({"error": "Please enter a valid email address (e.g. name@gmail.com)."}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate Phone
+        if "@" in phone:
+            return Response({"error": "Phone number cannot contain '@'. Enter a valid 10-digit mobile number."}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        phone_digits = re.sub(r'\D', '', phone)
+        if phone_digits.startswith('91') and len(phone_digits) == 12:
+            phone_digits = phone_digits[2:]
+        elif phone_digits.startswith('0') and len(phone_digits) == 11:
+            phone_digits = phone_digits[1:]
+
+        if len(phone_digits) != 10:
+            return Response({"error": "Please enter a valid 10-digit mobile number."}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+        phone = phone_digits
 
         if User.objects.filter(email=email).exists():
             return Response({"error": "Email already registered."}, 
@@ -884,7 +913,8 @@ class UserKurisAPIView(APIView):
                 })
 
         # 2. Collector groups - strictly groups assigned to this collector
-        if staff_prof:
+        # Only run for actual collectors — not group admins with a StaffProfile
+        if staff_prof and staff_prof.role == 'collector':
             c_groups = staff_prof.assigned_chitti_groups.filter(is_active=True)
             if not c_groups.exists() and staff_prof.group and staff_prof.group.is_active:
                 c_groups = ChittiGroup.objects.filter(id=staff_prof.group.id)
@@ -939,8 +969,10 @@ class UserKurisAPIView(APIView):
                         'member_id': m.id,
                     })
 
+        is_admin_role = bool(staff_prof and staff_prof.role in ['group_admin', 'admin'])
+
         return Response({
-            "has_admin": len(admin_groups) > 0,
+            "has_admin": is_admin_role or len(admin_groups) > 0,
             "has_collector": len(collector_groups) > 0,
             "has_member": len(member_groups) > 0,
             "admin_groups": admin_groups,
@@ -992,6 +1024,17 @@ class UserLookupAPIView(APIView):
             if m.user and m.user not in matched_users:
                 matched_users.append(m.user)
 
+        # Check last 10 digits for phone
+        digits = re.sub(r'\D', '', identifier)
+        if len(digits) >= 10:
+            last10 = digits[-10:]
+            for s in StaffProfile.objects.filter(phone__endswith=last10).select_related('user'):
+                if s.user and s.user not in matched_users:
+                    matched_users.append(s.user)
+            for m in Member.objects.filter(phone__endswith=last10).select_related('user'):
+                if m.user and m.user not in matched_users:
+                    matched_users.append(m.user)
+
         if not matched_users:
             return Response({"exists": False, "items": []}, status=status.HTTP_200_OK)
 
@@ -1017,19 +1060,6 @@ class UserLookupAPIView(APIView):
                             "group_id": None,
                             "code": "ADMIN",
                             "icon": "crown",
-                        })
-                    
-                    # Group Admin also has Collector Portal access
-                    c_key = 'portal_collector'
-                    if c_key not in seen_keys:
-                        seen_keys.add(c_key)
-                        items.append({
-                            "type": "collector",
-                            "title": "Collector Portal",
-                            "subtitle": "Collection & receipt dashboard",
-                            "group_id": None,
-                            "code": "COLLECTOR",
-                            "icon": "cash",
                         })
 
                 elif sp.role == 'collector':
