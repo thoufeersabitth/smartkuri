@@ -36,22 +36,30 @@ class PhoneOrEmailBackend(ModelBackend):
         for u in User.objects.filter(email__iexact=clean_id):
             _add_user(u)
 
-        # 3. StaffProfile phone match
-        for sp in StaffProfile.objects.filter(phone=clean_id).select_related('user'):
-            _add_user(sp.user)
+        # 3. StaffProfile & Member phone match (exact, with/without '+', or clean digits)
+        digits = re.sub(r'\D', '', clean_id)
+        phone_queries = [clean_id]
+        if digits:
+            phone_queries.append(digits)
+            phone_queries.append(f"+{digits}")
 
-        # 4. Member phone match
-        for m in Member.objects.filter(phone=clean_id).select_related('user'):
+        for sp in StaffProfile.objects.filter(phone__in=phone_queries).select_related('user'):
+            _add_user(sp.user)
+        for m in Member.objects.filter(phone__in=phone_queries).select_related('user'):
             _add_user(m.user)
 
-        # 5. Last 10 digits match for phone
-        digits = re.sub(r'\D', '', clean_id)
-        if len(digits) >= 10:
-            last10 = digits[-10:]
-            for sp in StaffProfile.objects.filter(phone__endswith=last10).select_related('user'):
+        # 4. Suffix match (e.g. last digits match for international or local numbers)
+        if len(digits) >= 7:
+            for sp in StaffProfile.objects.filter(phone__endswith=digits).select_related('user'):
                 _add_user(sp.user)
-            for m in Member.objects.filter(phone__endswith=last10).select_related('user'):
+            for m in Member.objects.filter(phone__endswith=digits).select_related('user'):
                 _add_user(m.user)
+            if len(digits) >= 10:
+                last10 = digits[-10:]
+                for sp in StaffProfile.objects.filter(phone__endswith=last10).select_related('user'):
+                    _add_user(sp.user)
+                for m in Member.objects.filter(phone__endswith=last10).select_related('user'):
+                    _add_user(m.user)
 
         # If target_role is specified, prioritize candidates with that role
         if target_role:

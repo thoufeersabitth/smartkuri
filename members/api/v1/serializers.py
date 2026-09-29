@@ -141,21 +141,27 @@ class MemberCreateSerializer(serializers.ModelSerializer):
         if not email:
             raise serializers.ValidationError({"email": "Email address is mandatory."})
 
-        # 🛡️ Strict: Phone must never contain '@' and must normalize to exactly 10 digits
+        # 🛡️ Strict: Phone must never contain '@' and supports Indian & International formats (7-15 digits)
         if "@" in phone:
             raise serializers.ValidationError({
-                "phone": "Phone number cannot contain '@'. Enter a valid 10-digit mobile number."
+                "phone": "Phone number cannot contain '@'."
             })
         digits = re.sub(r'\D', '', phone)
-        if digits.startswith('91') and len(digits) == 12:
-            digits = digits[2:]
-        elif digits.startswith('0') and len(digits) == 11:
-            digits = digits[1:]
-        if len(digits) != 10:
+        has_plus = phone.strip().startswith('+')
+        if (digits.startswith('91') and len(digits) == 12 and not has_plus) or (digits.startswith('0') and len(digits) == 11 and not has_plus):
+            if digits.startswith('91'):
+                digits = digits[2:]
+            elif digits.startswith('0'):
+                digits = digits[1:]
+
+        if len(digits) == 10 and not has_plus:
+            phone = digits
+        elif 7 <= len(digits) <= 15:
+            phone = f"+{digits}" if (has_plus or not digits.startswith('91')) else digits
+        else:
             raise serializers.ValidationError({
-                "phone": "Please enter a valid 10-digit mobile number."
+                "phone": "Please enter a valid mobile number (7 to 15 digits)."
             })
-        phone = digits
         data["phone"] = phone
 
         # 🛡️ Strict: Email must match standard email pattern (e.g. name@gmail.com)
@@ -225,18 +231,23 @@ class MemberUpdateSerializer(serializers.ModelSerializer):
         if phone:
             if "@" in phone:
                 raise serializers.ValidationError({
-                    "phone": "Phone number cannot contain '@'. Enter a valid 10-digit mobile number."
+                    "phone": "Phone number cannot contain '@'."
                 })
             digits = re.sub(r'\D', '', phone)
-            if digits.startswith('91') and len(digits) == 12:
-                digits = digits[2:]
-            elif digits.startswith('0') and len(digits) == 11:
-                digits = digits[1:]
-            if len(digits) != 10:
+            has_plus = phone.strip().startswith('+')
+            if (digits.startswith('91') and len(digits) == 12 and not has_plus) or (digits.startswith('0') and len(digits) == 11 and not has_plus):
+                if digits.startswith('91'):
+                    digits = digits[2:]
+                elif digits.startswith('0'):
+                    digits = digits[1:]
+            if len(digits) == 10 and not has_plus:
+                data["phone"] = digits
+            elif 7 <= len(digits) <= 15:
+                data["phone"] = f"+{digits}" if (has_plus or not digits.startswith('91')) else digits
+            else:
                 raise serializers.ValidationError({
-                    "phone": "Please enter a valid 10-digit mobile number."
+                    "phone": "Please enter a valid mobile number (7 to 15 digits)."
                 })
-            data["phone"] = digits
 
         if email:
             if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
