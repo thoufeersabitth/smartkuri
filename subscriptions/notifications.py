@@ -33,6 +33,8 @@ def check_and_send_subscription_reminders(target_user=None):
 
         # Find main group & subscription
         groups = ChittiGroup.objects.filter(owner=user)
+        if not groups.exists() and not getattr(admin, 'is_subscribed', False):
+            continue
         main_group = groups.filter(parent_group__isnull=True).first()
 
         sub = getattr(main_group, 'subscription', None) if main_group else None

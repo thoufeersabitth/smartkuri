@@ -12,8 +12,8 @@ from chitti.models import ChittiGroup
 class ChittiGroupSerializer(serializers.ModelSerializer):
 
     start_date = serializers.DateField(
-        format="%d-%m-%Y",                # Output format
-        input_formats=["%d-%m-%Y", "%Y-%m-%d"]  # Accept both while editing
+        format="%Y-%m-%d",                # Standard ISO output format
+        input_formats=["%Y-%m-%d", "%d-%m-%Y"]  # Accept both while editing
     )
 
     end_date_calculated = serializers.SerializerMethodField()
@@ -28,6 +28,9 @@ class ChittiGroupSerializer(serializers.ModelSerializer):
             'duration_months',
             'total_amount',
             'start_date',
+            'auction_type',
+            'auction_interval_months',
+            'auctions_per_month',
             'parent_group',
             'end_date_calculated',
             'is_expired',

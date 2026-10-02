@@ -172,10 +172,10 @@ class CreateGroupAPIView(APIView):
                     "Registration date missing"
                 )
 
-            registration_date = datetime.strptime(
-                registration_start,
-                "%Y-%m-%d"
-            ).date()
+            try:
+                registration_date = datetime.strptime(registration_start, "%Y-%m-%d").date()
+            except ValueError:
+                registration_date = datetime.strptime(registration_start, "%d-%m-%Y").date()
 
             # =========================
             # 📅 AUCTION DATE
@@ -190,10 +190,10 @@ class CreateGroupAPIView(APIView):
                     "First auction date missing"
                 )
 
-            auction_start_date = datetime.strptime(
-                first_date,
-                "%Y-%m-%d"
-            ).date()
+            try:
+                auction_start_date = datetime.strptime(first_date, "%Y-%m-%d").date()
+            except ValueError:
+                auction_start_date = datetime.strptime(first_date, "%d-%m-%Y").date()
 
             if auction_start_date < registration_date:
                 return Response(
@@ -234,19 +234,15 @@ class CreateGroupAPIView(APIView):
         # =========================
         # 🔥 CREATE AUCTIONS
         # =========================
-        base_dates = []
-
-        current_date = auction_start_date
-
-        for _ in range(duration_months):
-
-            base_dates.append(current_date)
-
-            current_date += relativedelta(months=1)
-
-        print("BASE DATES => ", base_dates)
-
-        group.create_auctions(base_dates=base_dates)
+        if auction_type == "interval":
+            group.create_auctions()
+        else:
+            base_dates = []
+            current_date = auction_start_date
+            for _ in range(duration_months):
+                base_dates.append(current_date)
+                current_date += relativedelta(months=1)
+            group.create_auctions(base_dates=base_dates)
 
         # =========================
         # 🔥 UPDATE PROFILE
@@ -603,6 +599,9 @@ class AdminGroupListAPIView(APIView):
                 "registration_start_date": group.registration_start_date,
                 "parent_group": group.parent_group_id,
                 "collector_name": collector_name,
+                "auction_type": group.auction_type or "monthly",
+                "auction_interval_months": group.auction_interval_months,
+                "auctions_per_month": group.auctions_per_month or 1,
 
                 # 🔥 computed fields (same as template)
                 "end_date": end_date,
@@ -747,9 +746,11 @@ class AdminGroupCreateAPIView(APIView):
                 start_date=start_date
             )
 
-            # 🔥 SAFE CALL (IMPORTANT FIX)
             if hasattr(group, "create_auctions"):
-                group.create_auctions(base_dates=base_dates)
+                if group.auction_type == "interval":
+                    group.create_auctions()
+                else:
+                    group.create_auctions(base_dates=base_dates)
             else:
                 raise Exception("create_auctions method missing in model")
 
@@ -945,6 +946,9 @@ class GroupDetailAPIView(APIView):
                 "total_amount": group.total_amount,
                 "start_date": group.start_date,
                 "registration_start_date": group.registration_start_date,
+                "auction_type": group.auction_type or "monthly",
+                "auction_interval_months": group.auction_interval_months,
+                "auctions_per_month": group.auctions_per_month or 1,
 
                 "end_date": end_date,
                 "is_expired": is_expired,
@@ -1049,10 +1053,20 @@ class EditGroupAPIView(APIView):
         )
 
         if serializer.is_valid():
-            serializer.save()
+            updated_group = serializer.save()
+
+            # If auctions haven't closed yet (no winners declared), recreate auctions based on updated interval/start date
+            has_winners = Auction.objects.filter(group=updated_group, winner__isnull=False).exists()
+            if not has_winners and hasattr(updated_group, "create_auctions"):
+                try:
+                    updated_group.create_auctions()
+                except Exception as e:
+                    logger.warning(f"Could not recreate auctions on group update: {e}")
+
             return Response({
                 "message": "Group updated successfully",
-                "total_amount": serializer.data["total_amount"]
+                "total_amount": serializer.data["total_amount"],
+                "group": serializer.data
             })
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -1299,8 +1313,18 @@ class AuctionListGroupAPIView(APIView):
 
         months = []
 
-        for i in range(1, group.duration_months + 1):
+        interval = 1
+        if group.auction_type == "interval" and group.auction_interval_months:
+            interval = max(int(group.auction_interval_months), 1)
 
+        if interval > 1:
+            active_month_nos = set(range(1, group.duration_months + 1, interval))
+            existing_months = set(group.auctions.values_list('month_no', flat=True))
+            all_display_months = sorted(list(active_month_nos | existing_months))
+        else:
+            all_display_months = list(range(1, group.duration_months + 1))
+
+        for i in all_display_months:
             month_auctions = group.auctions.filter(
                 month_no=i
             ).order_by("auction_no")
@@ -1325,6 +1349,8 @@ class AuctionListGroupAPIView(APIView):
                 "name": group.name,
                 "duration_months": group.duration_months,
                 "start_date": group.start_date,
+                "auction_type": group.auction_type or "monthly",
+                "auction_interval_months": group.auction_interval_months,
                 "end_date": group.start_date + relativedelta(months=group.duration_months)
             },
             "months": months

@@ -191,15 +191,18 @@ class ChittiGroup(models.Model):
             return
 
         # =========================
-        # 🔵 AUTO MODE (FIXED)
+        # 🔵 AUTO & INTERVAL MODE
         # =========================
         start = self.start_date
         base_day = start.day
 
-        for month_no in range(1, self.duration_months + 1):
+        interval = 1
+        if self.auction_type == "interval" and self.auction_interval_months:
+            interval = max(int(self.auction_interval_months), 1)
 
+        auction_counter = 1
+        for month_no in range(1, self.duration_months + 1, interval):
             temp_date = start + relativedelta(months=month_no - 1)
-
             year = temp_date.year
             month = temp_date.month
 
@@ -211,9 +214,10 @@ class ChittiGroup(models.Model):
             Auction.objects.create(
                 group=self,
                 month_no=month_no,
-                auction_no=1,   # (or remove if not needed per month logic)
+                auction_no=auction_counter,
                 auction_date=auction_date
-        )
+            )
+            auction_counter += 1
     # -----------------------------
     # CREATE AUCTIONS (FIXED)
     # -----------------------------

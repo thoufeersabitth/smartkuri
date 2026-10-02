@@ -267,21 +267,26 @@ class GroupSignupAPIView(APIView):
             return Response({"error": "Please enter a valid email address (e.g. name@gmail.com)."}, 
                             status=status.HTTP_400_BAD_REQUEST)
 
-        # Validate Phone
+        # Validate Phone (Supports Indian & International formats 7-15 digits)
         if "@" in phone:
-            return Response({"error": "Phone number cannot contain '@'. Enter a valid 10-digit mobile number."}, 
+            return Response({"error": "Phone number cannot contain '@'."}, 
                             status=status.HTTP_400_BAD_REQUEST)
 
         phone_digits = re.sub(r'\D', '', phone)
-        if phone_digits.startswith('91') and len(phone_digits) == 12:
-            phone_digits = phone_digits[2:]
-        elif phone_digits.startswith('0') and len(phone_digits) == 11:
-            phone_digits = phone_digits[1:]
+        has_plus = phone.strip().startswith('+')
+        if (phone_digits.startswith('91') and len(phone_digits) == 12 and not has_plus) or (phone_digits.startswith('0') and len(phone_digits) == 11 and not has_plus):
+            if phone_digits.startswith('91'):
+                phone_digits = phone_digits[2:]
+            elif phone_digits.startswith('0'):
+                phone_digits = phone_digits[1:]
 
-        if len(phone_digits) != 10:
-            return Response({"error": "Please enter a valid 10-digit mobile number."}, 
+        if len(phone_digits) == 10 and not has_plus:
+            phone = phone_digits
+        elif 7 <= len(phone_digits) <= 15:
+            phone = f"+{phone_digits}" if (has_plus or not phone_digits.startswith('91')) else phone_digits
+        else:
+            return Response({"error": "Please enter a valid mobile number (7 to 15 digits)."}, 
                             status=status.HTTP_400_BAD_REQUEST)
-        phone = phone_digits
 
         if User.objects.filter(email=email).exists():
             return Response({"error": "Email already registered."}, 
@@ -1224,4 +1229,27 @@ class ChangePasswordAPIView(APIView):
                 "message": "Password changed successfully."
             },
             status=status.HTTP_200_OK
-        )
+        )
+
+
+class AppVersionAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        latest_version = getattr(settings, 'APP_LATEST_VERSION', '1.0.1')
+        min_version = getattr(settings, 'APP_MIN_VERSION', '1.0.1')
+        latest_build = int(getattr(settings, 'APP_LATEST_BUILD_NUMBER', 3))
+        min_build = int(getattr(settings, 'APP_MIN_BUILD_NUMBER', 3))
+        force_update = getattr(settings, 'APP_FORCE_UPDATE', False)
+
+        return Response({
+            "latest_version": latest_version,
+            "min_version": min_version,
+            "latest_build_number": latest_build,
+            "min_build_number": min_build,
+            "force_update": force_update,
+            "play_store_url": "https://play.google.com/store/apps/details?id=smartkuri.app.com",
+            "title": "New Update Available",
+            "message": "A new version of SmartKuri is available on Play Store. Please update the app to continue using the latest features.",
+        }, status=status.HTTP_200_OK)
+

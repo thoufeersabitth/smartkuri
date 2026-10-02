@@ -181,6 +181,15 @@ AUTHENTICATION_BACKENDS = [
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
 
+# -----------------------------
+# APP VERSION & FORCE UPDATE
+# -----------------------------
+APP_LATEST_VERSION = os.getenv("APP_LATEST_VERSION", "1.0.1")
+APP_MIN_VERSION = os.getenv("APP_MIN_VERSION", "1.0.1")
+APP_LATEST_BUILD_NUMBER = int(os.getenv("APP_LATEST_BUILD_NUMBER", "3"))
+APP_MIN_BUILD_NUMBER = int(os.getenv("APP_MIN_BUILD_NUMBER", "3"))
+APP_FORCE_UPDATE = os.getenv("APP_FORCE_UPDATE", "false").lower() == "true"
+
 
 # -----------------------------
 # DRF + JWT

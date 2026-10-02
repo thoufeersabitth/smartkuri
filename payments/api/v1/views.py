@@ -1051,63 +1051,78 @@ class AdminNotificationAPI(APIView):
                 })
 
             # ── Free Trial & Subscription Live In-App Notification ──
-            try:
-                now_dt = timezone.now()
-                groups_for_sub = ChittiGroup.objects.filter(owner=request.user)
-                main_grp = groups_for_sub.filter(parent_group__isnull=True).first()
-                sub_obj = getattr(main_grp, 'subscription', None)
+            # STRICTLY ONLY FOR GROUP ADMINS / GROUP OWNERS!
+            # Cash Collectors and members MUST NEVER receive subscription/trial notifications.
+            is_collector_check = (staff and staff.role == 'collector') or portal == 'collector'
+            if not is_collector_check and request.user.email:
+                is_collector_check = StaffProfile.objects.filter(user__email__iexact=request.user.email, role='collector').exists()
 
-                if sub_obj and sub_obj.end_date:
-                    sub_days = (sub_obj.end_date - now_dt).days
-                    if sub_obj.end_date < now_dt:
-                        sub_days = -1
-                    p_name = sub_obj.plan.name
-                    is_sub_trial = (
-                        sub_obj.plan.price == 0 or
-                        'trial' in sub_obj.plan.name.lower() or
-                        'free' in sub_obj.plan.name.lower()
-                    )
-                else:
-                    pass_days = (now_dt - request.user.date_joined).days
-                    sub_days = 7 - pass_days
-                    p_name = 'Free Trial'
-                    is_sub_trial = True
+            can_receive_sub_alert = (
+                is_group_owner or (staff and staff.role in ['admin', 'group_admin'])
+            ) and portal in ['admin', 'group_admin'] and not is_collector_check
 
-                if sub_days <= 0:
-                    admin_notifications.insert(0, {
-                        "id": 999900,
-                        "title": "🚨 Free Trial Expired!" if is_sub_trial else f"🚨 {p_name} Expired!",
-                        "message": "Your Free Trial has expired. Upgrade to SmartKuri Pro to add more members & groups." if is_sub_trial else f"Your {p_name} subscription has expired. Tap to upgrade or renew.",
-                        "created_at": now_dt.date().isoformat(),
-                        "amount": 0,
-                        "count": 1,
-                        "type": "subscription",
-                        "priority": "high",
-                    })
-                elif sub_days == 1:
-                    admin_notifications.insert(0, {
-                        "id": 999901,
-                        "title": "⚠️ Free Trial Expiring Tomorrow!" if is_sub_trial else f"⚠️ {p_name} Expiring Tomorrow!",
-                        "message": "Only 24 hours left on your Free Trial. Tap to upgrade to Pro now." if is_sub_trial else f"Only 24 hours remaining on your {p_name} subscription. Tap to renew.",
-                        "created_at": now_dt.date().isoformat(),
-                        "amount": 0,
-                        "count": 1,
-                        "type": "subscription",
-                        "priority": "high",
-                    })
-                elif sub_days <= 3 or (not is_sub_trial and sub_days <= 7):
-                    admin_notifications.insert(0, {
-                        "id": 999902,
-                        "title": f"⏳ Free Trial: {sub_days} Days Left" if is_sub_trial else f"⏳ {p_name}: {sub_days} Days Left",
-                        "message": f"Your 7-Day Free Trial ends in {sub_days} days. Tap to explore Pro plans." if is_sub_trial else f"Your {p_name} subscription expires in {sub_days} days. Tap to renew.",
-                        "created_at": now_dt.date().isoformat(),
-                        "amount": 0,
-                        "count": 1,
-                        "type": "subscription",
-                        "priority": "high",
-                    })
-            except Exception as e:
-                logger.error(f"Error injecting subscription in-app notification: {e}")
+            if can_receive_sub_alert:
+                try:
+                    now_dt = timezone.now()
+                    groups_for_sub = ChittiGroup.objects.filter(owner=request.user)
+                    main_grp = groups_for_sub.filter(parent_group__isnull=True).first()
+                    sub_obj = getattr(main_grp, 'subscription', None)
+
+                    if sub_obj and sub_obj.end_date:
+                        sub_days = (sub_obj.end_date - now_dt).days
+                        if sub_obj.end_date < now_dt:
+                            sub_days = -1
+                        p_name = sub_obj.plan.name
+                        is_sub_trial = (
+                            sub_obj.plan.price == 0 or
+                            'trial' in sub_obj.plan.name.lower() or
+                            'free' in sub_obj.plan.name.lower()
+                        )
+                    elif is_group_owner and main_grp:
+                        pass_days = (now_dt - request.user.date_joined).days
+                        sub_days = 7 - pass_days
+                        p_name = 'Free Trial'
+                        is_sub_trial = True
+                    else:
+                        sub_days = 999
+                        p_name = ''
+                        is_sub_trial = False
+
+                    if sub_days <= 0 and sub_days != 999:
+                        admin_notifications.insert(0, {
+                            "id": 999900,
+                            "title": "🚨 Free Trial Expired!" if is_sub_trial else f"🚨 {p_name} Expired!",
+                            "message": "Your Free Trial has expired. Upgrade to SmartKuri Pro to add more members & groups." if is_sub_trial else f"Your {p_name} subscription has expired. Tap to upgrade or renew.",
+                            "created_at": now_dt.date().isoformat(),
+                            "amount": 0,
+                            "count": 1,
+                            "type": "subscription",
+                            "priority": "high",
+                        })
+                    elif sub_days == 1:
+                        admin_notifications.insert(0, {
+                            "id": 999901,
+                            "title": "⚠️ Free Trial Expiring Tomorrow!" if is_sub_trial else f"⚠️ {p_name} Expiring Tomorrow!",
+                            "message": "Only 24 hours left on your Free Trial. Tap to upgrade to Pro now." if is_sub_trial else f"Only 24 hours remaining on your {p_name} subscription. Tap to renew.",
+                            "created_at": now_dt.date().isoformat(),
+                            "amount": 0,
+                            "count": 1,
+                            "type": "subscription",
+                            "priority": "high",
+                        })
+                    elif sub_days <= 3 or (not is_sub_trial and sub_days <= 7):
+                        admin_notifications.insert(0, {
+                            "id": 999902,
+                            "title": f"⏳ Free Trial: {sub_days} Days Left" if is_sub_trial else f"⏳ {p_name}: {sub_days} Days Left",
+                            "message": f"Your 7-Day Free Trial ends in {sub_days} days. Tap to explore Pro plans." if is_sub_trial else f"Your {p_name} subscription expires in {sub_days} days. Tap to renew.",
+                            "created_at": now_dt.date().isoformat(),
+                            "amount": 0,
+                            "count": 1,
+                            "type": "subscription",
+                            "priority": "high",
+                        })
+                except Exception as e:
+                    logger.error(f"Error injecting subscription in-app notification: {e}")
 
 
         # ── 2. COLLECTOR NOTIFICATIONS ─────────────────────────────────────────
@@ -1302,10 +1317,24 @@ class AdminNotificationAPI(APIView):
         else:
             if staff and staff.role == 'collector':
                 active_notifications = collector_notifications
+            elif is_collector_role:
+                active_notifications = collector_notifications
             elif member_profile:
                 active_notifications = member_notifications
             else:
                 active_notifications = admin_notifications or collector_notifications or []
+
+        # ── 5. STRICT ROLE GUARD: Plan & Subscription alerts are GROUP ADMIN ONLY ──
+        # Under NO circumstances should Cash Collectors or Members receive plan/trial notifications.
+        if portal in ['collector', 'member'] or is_collector_role or (staff and staff.role in ['collector', 'member'] and portal not in ['admin', 'group_admin']):
+            active_notifications = [
+                n for n in active_notifications
+                if n.get('type') not in ['subscription', 'trial', 'upgrade']
+                and 'trial' not in (n.get('title') or '').lower()
+                and 'subscription' not in (n.get('title') or '').lower()
+                and 'plan' not in (n.get('title') or '').lower()
+                and 'pro' not in (n.get('title') or '').lower()
+            ]
 
         # Sort all active notifications newest first so the latest event triggers first
         active_notifications.sort(key=lambda x: str(x.get('created_at', '')), reverse=True)

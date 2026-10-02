@@ -21,6 +21,7 @@ from accounts.api.v1.views import (
     UserLookupAPIView,
     ChangePasswordAPIView,
     RegisterFCMTokenAPI,
+    AppVersionAPIView,
 )
 
 urlpatterns = [
@@ -55,4 +56,7 @@ urlpatterns = [
 
     # First login change password
     path('first-login/change-password/', FirstLoginChangePasswordAPIView.as_view(), name='first_login_change_password'),
+
+    # App Version Check / Force Update
+    path('app-version/', AppVersionAPIView.as_view(), name='api_app_version'),
 ]
